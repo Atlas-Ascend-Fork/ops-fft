@@ -263,9 +263,9 @@ extern "C" __global__ __aicore__ void rfft1_d_fast_dft(
     GM_ADDR x, GM_ADDR dft, GM_ADDR y, GM_ADDR workspace, Rfft1DTilingData tilingData)
 {
     if (tilingData.length <= DFT_BORDER_VALUE) {
+        // norm 死传参已删除：归一化在 host 生成 DFT 矩阵时烤入（issue #121）
         KernelRfftFastDFT op(
-            tilingData.length, tilingData.batchesPerCore, tilingData.leftOverBatches, tilingData.normal,
-            tilingData.dftRealOverallSize);
+            tilingData.length, tilingData.batchesPerCore, tilingData.leftOverBatches, tilingData.dftRealOverallSize);
 
         uint32_t modeLength = COMPLEX_PART * (tilingData.length / RFFT_SYMMETRY_DIVISOR + 1);
         auto t1 = PrepareTiling((op.batches + op.advancedBatches) / GetBlockNum(), op.modeLength, tilingData.length);
@@ -286,6 +286,14 @@ extern "C" aclError aclfftRfft1D(float* x, float* y, uint32_t n, int32_t norm, u
     if (n > DFT_BORDER_VALUE) {
         std::cerr << "[ops-fft] aclfftRfft1D: n=" << n << " exceeds FastDFT limit (" << DFT_BORDER_VALUE
                   << "), not implemented" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    // norm 合法值校验（issue #118）：Rfft1DDftGen 对 norm != BACKWARD 落入
+    // else 分支按 1/sqrt(n)（ORTHO 口径）静默缩放，非法取值（如 5、-1）会
+    // 产出错误缩放结果；与 #89/#90 的 norm 校验口径对齐
+    if (norm < 0 || norm > 2) {
+        std::cerr << "[ops-fft] aclfftRfft1D: norm=" << norm << " is invalid (expected 0=BACKWARD, 1=ORTHO, 2=FORWARD)"
+                  << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
 
@@ -312,13 +320,12 @@ extern "C" aclError aclfftRfft1D(float* x, float* y, uint32_t n, int32_t norm, u
     void* workspace_ptr = nullptr;
 
     CHECK_ACL(aclrtMalloc(&dev_x, inputSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_dft, dftSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_y, outputSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&workspace_ptr, sysWorkspaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
-
     std::unique_ptr<void, AclrtFreeDeleter> d_x_guard(dev_x);
+    CHECK_ACL(aclrtMalloc(&dev_dft, dftSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_dft_guard(dev_dft);
+    CHECK_ACL(aclrtMalloc(&dev_y, outputSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_y_guard(dev_y);
+    CHECK_ACL(aclrtMalloc(&workspace_ptr, sysWorkspaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> workspace_ptr_guard(workspace_ptr);
 
     CHECK_ACL(aclrtMemcpy(dev_x, inputSize, x, inputSize, ACL_MEMCPY_HOST_TO_DEVICE));

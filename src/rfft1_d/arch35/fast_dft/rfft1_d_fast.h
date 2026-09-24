@@ -50,7 +50,8 @@ constexpr uint32_t TILING_FAST_DEPTH_B = 7;
 class KernelRfftFastDFT {
 private:
     const uint32_t fftLength;
-    const uint8_t norm;
+    // norm 成员已删除：全程无读取，归一化实际在 host 生成 DFT 矩阵时烤入
+    // （Rfft1DDftGen 的 normParam，issue #121）
     const uint32_t batchesPerCore;
     const uint32_t leftOverBatches;
 
@@ -79,12 +80,11 @@ public:
 public:
     // 构造参数 factors 已删除：原参数接收后从未存储、从未使用（issue #99）
     __aicore__ inline KernelRfftFastDFT(
-        const uint32_t& length, const uint32_t& batchesPerCore, const uint32_t& leftOverBatches, const uint32_t& norm,
+        const uint32_t& length, const uint32_t& batchesPerCore, const uint32_t& leftOverBatches,
         const uint32_t& dftOverallSize)
         : fftLength(length),
           batchesPerCore(batchesPerCore),
           leftOverBatches(leftOverBatches),
-          norm(norm),
           dftOverallSize(dftOverallSize)
     {
         modeLength = (fftLength / RFFT_HALF + 1) * COMPLEX;
@@ -114,7 +114,8 @@ public:
     }
 
 private:
-    // Copies the input from GM, normalizes it and splits the input
+    // Copies the input from GM and splits the input; normalization is baked
+    // into the DFT matrix on host (Rfft1DDftGen normParam), not done here (issue #121)
     __aicore__ inline void CopyIn()
     {
         if (g_coreType != AIV or GetSubBlockIdx() != 0) {

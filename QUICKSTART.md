@@ -4,7 +4,7 @@
 
 ## 一、环境安装
 
-### 1. 有环境场景：Docker安装
+### 有环境场景：Docker安装
 
 Docker安装环境以Atlas A2产品（910B）为例。
 
@@ -51,20 +51,20 @@ docker run --name cann_container --device /dev/davinci0 --device /dev/davinci_ma
     cat /usr/local/Ascend/ascend-toolkit/latest/opp/version.info
     ```
 
-### 2. 无环境场景：WebIDE开发（建设中）
+### 无环境场景：WebIDE开发（建设中）
 
 对于无环境的用户，提供WebIDE开发方式，目前本方式正在建设中。
 
 ## 二、编译部署
 
-### 1. 拉取ops-fft仓库代码
+### 拉取ops-fft仓库代码
 
 ```bash
 git clone https://gitcode.com/cann/ops-fft.git
 cd ops-fft
 ```
 
-### 2. 编译ops-fft算子包
+### 编译ops-fft算子包
 
 ```bash
 bash build.sh --pkg
@@ -79,7 +79,7 @@ Build package success: build/cann-ops-fft-9.0.0-linux-*.run
 
 编译成功后，run包存放于项目根目录的build目录下。
 
-### 3. 安装ops-fft算子包
+### 安装ops-fft算子包
 
 ```bash
 ./build/cann-ops-fft-*linux*.run
@@ -87,13 +87,13 @@ Build package success: build/cann-ops-fft-9.0.0-linux-*.run
 
 ops-fft安装在`${ASCEND_HOME_PATH}/cann`路径中，`${ASCEND_HOME_PATH}`表示CANN软件安装目录。
 
-### 4. 配置环境变量
+### 配置环境变量
 
 ```bash
 source ${ASCEND_HOME_PATH}/cann/set_env.bash
 ```
 
-### 5. 运行测试
+### 运行测试
 
 ```bash
 bash build.sh --run

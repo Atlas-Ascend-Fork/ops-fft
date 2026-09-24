@@ -62,6 +62,12 @@ extern "C" aclError aclfftIrfft1DDft(
                   << " is not supported (only 0=BACKWARD in this version)" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // n 范围校验（issue #131，与 #115 对 aclfftFft1DDft 口径一致）：文档约束
+    // 1<=n<=1024；超界时 n^2 量级宿主 DFT 矩阵分配失败即 bad_alloc 穿透 C 边界
+    if (n == 0 || n > 1024) {
+        std::cerr << "[ops-fft] aclfftIrfft1DDft: n=" << n << " out of range [1, 1024]" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();
     uint32_t coreNum = ascendcPlatform->GetCoreNumAic();
     if (coreNum == 0) {
@@ -93,7 +99,9 @@ extern "C" aclError aclfftIrfft1DDft(
 
     // 用 size_t 计算，避免 batches*(fftN/2+1) 等中间结果在 uint32_t 域溢出截断（issue #77）
     size_t inputSize = static_cast<size_t>(batches) * (fftN / 2 + 1) * sizeof(float) * 2;
-    uint32_t dftMatrixSize = dftMatrix.size() * sizeof(float);
+    // size_t 口径（issue #131）：uint32 在矩阵字节数达 2^32 时回绕为 0，
+    // 造成 0 字节上传与静默错误结果（与 rfft1_d_dft.cpp:83 口径统一）
+    size_t dftMatrixSize = dftMatrix.size() * sizeof(float);
     size_t outputSize = static_cast<size_t>(batches) * fftN * sizeof(float);
     uint32_t sysWorkspaceSize = ascendcPlatform->GetLibApiWorkSpaceSize();
     uint32_t tilingSize = sizeof(Irfft1DDftTilingData);
@@ -105,15 +113,14 @@ extern "C" aclError aclfftIrfft1DDft(
     void* dev_tiling = nullptr;
 
     CHECK_ACL(aclrtMalloc(&dev_input, inputSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_dft, dftMatrixSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_output, outputSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_workspace, sysWorkspaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_tiling, tilingSize, ACL_MEM_MALLOC_HUGE_FIRST));
-
     std::unique_ptr<void, AclrtFreeDeleter> d_input_guard(dev_input);
+    CHECK_ACL(aclrtMalloc(&dev_dft, dftMatrixSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_dft_guard(dev_dft);
+    CHECK_ACL(aclrtMalloc(&dev_output, outputSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_output_guard(dev_output);
+    CHECK_ACL(aclrtMalloc(&dev_workspace, sysWorkspaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_ws_guard(dev_workspace);
+    CHECK_ACL(aclrtMalloc(&dev_tiling, tilingSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_tiling_guard(dev_tiling);
 
     CHECK_ACL(aclrtMemcpy(dev_input, inputSize, x, inputSize, ACL_MEMCPY_HOST_TO_DEVICE));

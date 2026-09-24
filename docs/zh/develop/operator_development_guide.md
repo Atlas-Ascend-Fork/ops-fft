@@ -37,7 +37,7 @@ ${op_name}/                              # 算子名的小写下划线形式
 
 ## 文件说明
 
-### 1. Host + Kernel 实现
+### Host + Kernel 实现
 
 **文件**：`<op_name>.cpp`
 
@@ -152,7 +152,7 @@ void <op_name>_kernel_do(GM_ADDR input, GM_ADDR output, GM_ADDR tiling,
 
 ---
 
-### 2. Tiling 数据结构（可选）
+### Tiling 数据结构（可选）
 
 **文件**：`<op_name>_struct.h`
 
@@ -190,7 +190,7 @@ struct <OpName>TilingData {
 
 ---
 
-### 3. 编译配置
+### 编译配置
 
 **文件**：`CMakeLists.txt`
 
@@ -202,7 +202,7 @@ register_operator(
 
 ---
 
-### 4. 测试文件（强烈推荐）
+### 测试文件（强烈推荐）
 
 参见 [测试编写指南](test_writing_guide.md)。
 

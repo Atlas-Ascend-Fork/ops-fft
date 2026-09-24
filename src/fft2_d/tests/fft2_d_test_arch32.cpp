@@ -22,6 +22,16 @@ namespace Fft2DApiIntegrationTest {
             {"dd_32x32_backward",   32,  32,  1, ACLFFT_BACKWARD},
             {"dd_64x64_backward",   64,  64,  1, ACLFFT_BACKWARD},
             {"dd_128x128_backward", 128, 128, 1, ACLFFT_BACKWARD},
+            // 多 batch 用例（issue #125）：覆盖 CalcBatchNumsPerLoop 全部 6 种
+            // batchNumsPerLoop>1 组合，命中 SeparateRITWOMultiBatch /
+            // MatmulWithSpecialTransfer 内核路径
+            {"dd_128x32_forward_b2",  128, 32,  2, ACLFFT_FORWARD},
+            {"dd_64x64_forward_b2",   64,  64,  2, ACLFFT_FORWARD},
+            {"dd_64x32_forward_b4",   64,  32,  4, ACLFFT_FORWARD},
+            {"dd_32x128_forward_b2",  32,  128, 2, ACLFFT_FORWARD},
+            {"dd_32x64_forward_b4",   32,  64,  4, ACLFFT_FORWARD},
+            {"dd_32x32_forward_b8",   32,  32,  8, ACLFFT_FORWARD},
+            {"dd_64x64_backward_b2",  64,  64,  2, ACLFFT_BACKWARD},
         };
         OpsFftTest::RunBatchTests(stream, stats, "fft2_d", cases, run_c2c_2d_case);
     }

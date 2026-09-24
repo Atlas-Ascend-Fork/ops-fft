@@ -156,8 +156,12 @@ __aicore__ __inline__ void SeparateRIMultiBatch(
         AscendC::SetFlag<AscendC::HardEvent::V_MTE3>(event_id);
         AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(event_id);
         //save data from ub to gm
-        SaveDataFromUbToGmWithJump(dst_gm_tensor[loop_idx * row_count_current * y_len], real_buf_ub_tensor, row_count_current, y_len, y_len * current_batch_nums);
-        SaveDataFromUbToGmWithJump(dst_gm_tensor[x_len* y_len * current_batch_nums + loop_idx * row_count_current * y_len], imag_buf_ub_tensor, row_count_current, y_len, y_len * current_batch_nums);
+        // 存储基址与加载侧（loop_idx * row_count_per_loop * y_len）统一口径
+        // （issue #126）：本循环加载/存储针对同一批行，按 row_count_current 累加
+        // 会在尾循环（x_len % row_count_per_loop != 0 时）错位——先覆盖已写入行，
+        // 尾部行永远未写入
+        SaveDataFromUbToGmWithJump(dst_gm_tensor[loop_idx * row_count_per_loop * y_len], real_buf_ub_tensor, row_count_current, y_len, y_len * current_batch_nums);
+        SaveDataFromUbToGmWithJump(dst_gm_tensor[x_len* y_len * current_batch_nums + loop_idx * row_count_per_loop * y_len], imag_buf_ub_tensor, row_count_current, y_len, y_len * current_batch_nums);
 
         AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(event_id);
     }

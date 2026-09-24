@@ -115,12 +115,15 @@ inline void getTile(
     constexpr int32_t N1_MAX45 = 45, N1_MAX64 = 64, N2_MAX8 = 8;
     constexpr int32_t TILE_CONST = 128, CALC_TWO = 2, STEP_LEN_THREE = 3;
     if (N1 <= N1_MAX45 || (N1 <= N1_MAX64 && N2 <= N2_MAX8)) {
+        // N1=0 防护（issue #122）：上游 FindTwoRadix/分解校验已保证 N1>=1，
+        // 此分支当前不可达；改 throw 为 clamp 防御——异常穿越 extern "C" 会
+        // std::terminate 进程，与全仓错误码约定不符
+        if (N1 < 1)
+            N1 = 1;
         tileM0 = ROUND_UP(CALC_TWO * N1, ROUND_16);
         tileK0 = tileM0;
         if (stepIndex == stepLen - 1)
             tileK0 = CALC_TWO * ROUND_UP(N1, ROUND_16);
-        if (tileK0 == 0)
-            throw std::runtime_error("tileK0 is 0");
         tileN0 = L0AB_BUF * CALC_TWO / tileK0 / ROUND_16 * ROUND_16;
         tileN0 = MIN_(tileN0, ROUND_UP(N2, ROUND_16));
     } else {
@@ -182,6 +185,20 @@ inline std::vector<int64_t> FindTwoRadix(std::vector<int64_t>& factors, int64_t 
     std::vector<int64_t> rl = {minN1, n / minN1};
     std::sort(rl.begin(), rl.end());
     return rl;
+}
+
+// 混合基分解完整性校验（issue #113/#114）：radixVec 非空且各因子乘积等于 n。
+// 不满足时说明 n 含 >128（Long）/无法合并（Short 素数回退）的质因子，内核不支持，
+// 调用方应返回 ACL_ERROR_INVALID_PARAM——避免 InitAiVSplitWay 对空向量取
+// radixVec[-1] 的越界读，以及按错误分解级数启动内核输出垃圾结果
+inline bool IsMixRadixValid(const std::vector<int64_t>& radixVec, int64_t fftN)
+{
+    if (radixVec.empty())
+        return false;
+    int64_t product = 1;
+    for (int64_t r : radixVec)
+        product *= r;
+    return product == fftN;
 }
 
 inline void InitMixRadixLong(int64_t fftN, std::vector<int64_t>& radixVec)

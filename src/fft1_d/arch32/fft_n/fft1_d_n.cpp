@@ -13,6 +13,8 @@
  * \brief
  */
 
+#include <limits>
+
 #include "../../fft1_d.h"
 #include "fft_common_core.h"
 #include "fft1_d_n_tilingdata.h"
@@ -289,6 +291,20 @@ extern "C" aclError aclfftFft1DN(
         std::cerr << "fft_n: n must be power of 2, got " << n << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // n < 64 校验（issue #116）：InitRadix 对 n<64 落入 else 分支固定生成
+    // {8,8,8,8,8}（乘积 32768 != n），内核按 32768 点流水处理造成设备越界
+    // 读写；n>=64 下限与首个 {8,8} 分支衔接
+    if (n < 64) {
+        std::cerr << "fft_n: n=" << n << " below minimum supported 64 (InitRadix domain)" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    // batch 上界校验（issue #119）：API 签名为 uint32_t，batch > INT32_MAX 时
+    // ComputeRepeatBatchSize 回退分支 static_cast<int32_t> 结果为负并被写入
+    // tiling.repeatBatchSize 下发，内核分块推导失真
+    if (batches > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
+        std::cerr << "fft_n: batches=" << batches << " exceeds INT32_MAX" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     std::vector<uint32_t> radixVec;
     InitRadix(n, radixVec);
     int32_t repeatBatchSize = 0;
@@ -327,18 +343,18 @@ extern "C" aclError aclfftFft1DN(
     void* dev_workspace = nullptr;
     void* dev_tiling = nullptr;
     CHECK_ACL(aclrtMalloc(&dev_input, inputSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_output, outputSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_wMatrix, wMatrixSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_tMatrix, tMatrixSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_index, indexSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_workspace, totalWorkspaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_tiling, sizeof(Fft1DNTilingData), ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_input_guard(dev_input);
+    CHECK_ACL(aclrtMalloc(&dev_output, outputSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_output_guard(dev_output);
+    CHECK_ACL(aclrtMalloc(&dev_wMatrix, wMatrixSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_wMatrix_guard(dev_wMatrix);
+    CHECK_ACL(aclrtMalloc(&dev_tMatrix, tMatrixSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_tMatrix_guard(dev_tMatrix);
+    CHECK_ACL(aclrtMalloc(&dev_index, indexSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_index_guard(dev_index);
+    CHECK_ACL(aclrtMalloc(&dev_workspace, totalWorkspaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_workspace_guard(dev_workspace);
+    CHECK_ACL(aclrtMalloc(&dev_tiling, sizeof(Fft1DNTilingData), ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_tiling_guard(dev_tiling);
     CHECK_ACL(aclrtMemcpy(dev_input, inputSize, x, inputSize, ACL_MEMCPY_HOST_TO_DEVICE));
     CHECK_ACL(aclrtMemcpy(dev_wMatrix, wMatrixSize, wMatrixHost.data(), wMatrixSize, ACL_MEMCPY_HOST_TO_DEVICE));

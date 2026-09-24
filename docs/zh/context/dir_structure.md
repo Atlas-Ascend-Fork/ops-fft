@@ -34,8 +34,8 @@
 │       │   ├── README.md                               # 接口参考索引
 │       │   └── figures                                 # 接口文档配图
 │       │       ├── FFT_2D_1.png
-│       │       ├── FFT_ID_1.png
-│       │       └── FFT_ID_2.png
+│       │       ├── fft_1d_1.png
+│       │       └── fft_1d_2.png
 │       └── debug                                       # 调试调优文档目录
 │           └── op_debug_prof.md                        # 算子调试调优指南
 ├── include                                             # 头文件目录

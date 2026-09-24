@@ -14,7 +14,7 @@
 
 如果您有全新的算子希望基于 NPU 进行设计与实现，欢迎在 Issue 中提出您的想法与设计方案。完整的贡献流程如下：
 
-### 1. 新增 Issue，创建需求
+### 新增 Issue，创建需求
 
 新建 `Requirement|需求建议` 类 Issue，并在其中说明新增算子的设计方案。
 
@@ -26,13 +26,13 @@ Issue 需包含以下内容：
 
 同时，请在提交的 Issue 中评论`/assign @yourself` 认领该任务。
 
-### 2. 需求评审
+### 需求评审
 
 Sig组将指派Committer对您提交的 Issue 进行评审并给出修改意见。请在完成修改后，于 Issue 中@对应Committer。
 
 若需求被接纳，sig成员将为您分配合适的算子分类路径，以便您将贡献的算子提交至对应目录。
 
-### 3. 提交 PR
+### 提交 PR
 
 算子交付件如下：
 
@@ -56,7 +56,7 @@ src                                      # 算子源码目录
 - 代码是否符合《[C++ 编程规范](https://gitcode.com/cann/community/blob/master/contributor/coding-standards/C++%20Coding%20standards.md)》
 - 代码是否编译通过
 
-### 4. CI门禁
+### CI门禁
 
 通过评论 `compile` 指令触发开源仓门禁，并依据 CI 检测结果进行修改，目前CI门禁包含以下检查项：
 - 代码编译
@@ -66,11 +66,11 @@ src                                      # 算子源码目录
 
 门禁通过后，请在关联的 Issue 中@指派的Committer。
 
-### 5. Committer检视
+### Committer检视
 
 Committer检视后将反馈检视意见，请完成所有修改后@指派的Committer。
 
-### 6. Maintainer检视合入
+### Maintainer检视合入
 
 Committer 检视通过后，标注 `/lgtm`标签。Maintainer 将在1天内进行最终审核，确认无问题后，将标注 `/approve` 标签合入PR。
 

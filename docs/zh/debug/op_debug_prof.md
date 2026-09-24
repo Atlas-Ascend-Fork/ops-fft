@@ -47,7 +47,7 @@ export ASCEND_GLOBAL_EVENT_ENABLE=0
 
 ## 性能调优
 
-### 1. Tiling优化
+### Tiling优化
 
 合理设置Tiling参数可以提高算子性能：
 
@@ -55,13 +55,13 @@ export ASCEND_GLOBAL_EVENT_ENABLE=0
 - **UB切分**：充分利用Unified Buffer空间
 - **对齐要求**：确保数据地址和大小满足硬件对齐要求
 
-### 2. 内存优化
+### 内存优化
 
 - 减少内存拷贝次数
 - 使用双缓冲（Double Buffer）技术
 - 合理规划workspace大小
 
-### 3. 计算优化
+### 计算优化
 
 - 向量化计算：使用Ascend C向量指令
 - 流水并行：合理使用多队列

@@ -25,6 +25,13 @@ configs = {
     "dd_32x32_backward": {"atol": 1.0, "rtol": 1e-2},
     "dd_64x64_backward": {"atol": 1.0, "rtol": 1e-2},
     "dd_128x128_backward": {"atol": 1.0, "rtol": 1e-2},
+    "dd_128x32_forward_b2": {"atol": 1e-2, "rtol": 1e-3},
+    "dd_64x64_forward_b2": {"atol": 1e-2, "rtol": 1e-3},
+    "dd_64x32_forward_b4": {"atol": 1e-2, "rtol": 1e-3},
+    "dd_32x128_forward_b2": {"atol": 1e-2, "rtol": 1e-3},
+    "dd_32x64_forward_b4": {"atol": 1e-2, "rtol": 1e-3},
+    "dd_32x32_forward_b8": {"atol": 1e-2, "rtol": 1e-3},
+    "dd_64x64_backward_b2": {"atol": 1.0, "rtol": 1e-2},
 }
 
 curr_dir = os.path.dirname(os.path.realpath(__file__))

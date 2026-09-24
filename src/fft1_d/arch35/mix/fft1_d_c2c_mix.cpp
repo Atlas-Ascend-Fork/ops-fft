@@ -44,9 +44,11 @@ static int SetMixTilingData(
 
     radixList.clear();
     int64_t tempN = fftN;
+    // tempN > 1 前置（issue #129）：n=0 直调时 0 % r == 0 恒成立且 0/r 仍为 0，
+    // 原循环永不退出，调用线程宿主死循环挂死
     for (size_t i = 0; i < sizeof(MIX_ALLOWED_RADICES) / sizeof(MIX_ALLOWED_RADICES[0]); i++) {
         int64_t r = MIX_ALLOWED_RADICES[i];
-        while (tempN % r == 0) {
+        while (tempN > 1 && tempN % r == 0) {
             tempN /= r;
             radixList.push_back(static_cast<int32_t>(r));
         }
@@ -133,6 +135,11 @@ extern "C" aclError aclfftFft1DC2CMix(
         return ACL_ERROR_INVALID_PARAM;
     }
     (void)norm;
+    // fftSize 上界校验（issue #130，同 aclfftFft1DC2C）：文档约束 n 不超过 2^27
+    if (n == 0 || n > (1u << 27)) {
+        std::cerr << "[ops-fft] aclfftFft1DC2CMix: n=" << n << " out of supported range (0, 2^27]" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();
     uint32_t coreNum = ascendcPlatform->GetCoreNumAiv();
     if (coreNum == 0) {
@@ -155,9 +162,10 @@ extern "C" aclError aclfftFft1DC2CMix(
     // 用 size_t 计算，避免 n*batches 等中间结果在 uint32_t 域溢出截断（issue #74）
     const size_t inputSize = static_cast<size_t>(n) * batches * sizeof(float) * 2;
     const size_t outputSize = inputSize;
-    const uint32_t dftMatrixSize = allDftMatrices.size() * sizeof(float);
-    const uint32_t twSize = allTwiddleFactors.size() * sizeof(float);
-    const uint32_t radixListSize = radixListHost.size() * sizeof(int32_t);
+    // 上传尺寸 size_t 口径（issue #130 防御性修复，#74 同款）
+    const size_t dftMatrixSize = allDftMatrices.size() * sizeof(float);
+    const size_t twSize = allTwiddleFactors.size() * sizeof(float);
+    const size_t radixListSize = radixListHost.size() * sizeof(int32_t);
     const size_t workspaceSize = 2 * static_cast<size_t>(batches) * n * sizeof(float) * 2;
     const uint32_t tilingSize = sizeof(FftAllMixTilingData);
 
@@ -170,19 +178,18 @@ extern "C" aclError aclfftFft1DC2CMix(
     void* dev_tiling = nullptr;
 
     CHECK_ACL(aclrtMalloc(&dev_input, inputSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_output, outputSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_dft_matrix, dftMatrixSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_tw_matrix, twSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_radix_list, radixListSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_workspace, workspaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_tiling, tilingSize, ACL_MEM_MALLOC_HUGE_FIRST));
-
     std::unique_ptr<void, AclrtFreeDeleter> d_input_guard(dev_input);
+    CHECK_ACL(aclrtMalloc(&dev_output, outputSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_output_guard(dev_output);
+    CHECK_ACL(aclrtMalloc(&dev_dft_matrix, dftMatrixSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_dft_guard(dev_dft_matrix);
+    CHECK_ACL(aclrtMalloc(&dev_tw_matrix, twSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_tw_guard(dev_tw_matrix);
+    CHECK_ACL(aclrtMalloc(&dev_radix_list, radixListSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_radix_guard(dev_radix_list);
+    CHECK_ACL(aclrtMalloc(&dev_workspace, workspaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_ws_guard(dev_workspace);
+    CHECK_ACL(aclrtMalloc(&dev_tiling, tilingSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_tiling_guard(dev_tiling);
 
     CHECK_ACL(aclrtMemcpy(dev_input, inputSize, x, inputSize, ACL_MEMCPY_HOST_TO_DEVICE));

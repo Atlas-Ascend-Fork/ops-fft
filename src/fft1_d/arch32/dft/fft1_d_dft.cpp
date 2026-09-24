@@ -85,6 +85,13 @@ extern "C" aclError aclfftFft1DDft(
                   << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // n 范围校验（issue #115）：n=0 会静默 no-op 返回成功误导调用方；超大 n 触发
+    // (2n)^2 host 旋转矩阵分配，失败即 bad_alloc 穿透 extern "C" 终止进程。
+    // 上限 1024 与 dispatch 路径的 DFT 内核支持域一致
+    if (n == 0 || n > 1024) {
+        std::cerr << "[ops-fft] aclfftFft1DDft: n=" << n << " out of range [1, 1024]" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();
     uint32_t coreNum = ascendcPlatform->GetCoreNumAic();
     // 平台信息查询失败时 GetCoreNumAic 可能返回 0（同仓其余 13 处入口均已兜底），
@@ -108,15 +115,16 @@ extern "C" aclError aclfftFft1DDft(
     void* workspace_ptr = nullptr;
 
     // Allocate device memory for inputs and output
-    CHECK_ACL(aclrtMalloc(&dev_a, inputSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_b, matrixSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&dev_c, outputSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    CHECK_ACL(aclrtMalloc(&workspace_ptr, sysWorkspaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
+    // 守卫与 malloc 交错（issue #120）：任一分配失败时前序已分配内存自动释放
     // 智能指针指定删除器，在unique_ptr析构时自动调用指定的函数释放资源
+    CHECK_ACL(aclrtMalloc(&dev_a, inputSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_a_guard(dev_a);
+    CHECK_ACL(aclrtMalloc(&dev_b, matrixSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_b_guard(dev_b);
+    CHECK_ACL(aclrtMalloc(&dev_c, outputSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_c_guard(dev_c);
-    std::unique_ptr<void, AclrtFreeDeleter> workspace_ptr_guard(workspace_ptr);
+    CHECK_ACL(aclrtMalloc(&workspace_ptr, sysWorkspaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
+    std::unique_ptr<void, AclrtFreeDeleter> d_workspace_guard(workspace_ptr);
 
     // Copy inputs to device
     CHECK_ACL(aclrtMemcpy(dev_a, inputSize, x, inputSize, ACL_MEMCPY_HOST_TO_DEVICE));

@@ -35,6 +35,13 @@ extern "C" aclError aclfftFft1DMix(float *x, float *y, uint32_t n,
     std::vector<int64_t> radixVec;
     if (fftN >= N_FFT_C2C_MAX) InitMixRadixLong(fftN, radixVec);
     else InitMixRadixShort(fftN, radixVec);
+    // 分解完整性校验（issue #113/#114）：空分解（全质因子 > 128，如 32771）会令
+    // InitAiVSplitWay 取 radixVec[-1] 越界读；部分分解（如 65498=2x32749）会按
+    // 错误级数启动内核输出垃圾结果。两类均属不支持域，返回参数错误
+    if (!IsMixRadixValid(radixVec, fftN)) {
+        std::cerr << "[ops-fft] aclfftFft1DMix: unsupported fftN " << fftN << " (factorization incomplete)" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     int64_t radixListLen = (int64_t)radixVec.size();
 
     // 2. DFT matrix
@@ -57,7 +64,9 @@ extern "C" aclError aclfftFft1DMix(float *x, float *y, uint32_t n,
     int64_t wsIn, wsOut, wsSync, wsC2c, wsAux;
     InitMixRadixParam(parity, fftN, batchSize, radixVec, wsIn, wsOut, wsSync, wsC2c, wsAux);
 
-    OpsFft::FftAllMixTilingData tilingData;
+    // 值初始化：结构体含大量 arch35 路径才填充的 "Precomputed plan data" 字段，
+    // 整体 memcpy 上设备前清零，避免宿主栈上未初始化内存进入设备（issue #117）
+    OpsFft::FftAllMixTilingData tilingData{};
     tilingData.batchSize = batchSize;
     tilingData.fftN = fftN;
     tilingData.radixListLen = radixListLen;
@@ -73,13 +82,19 @@ extern "C" aclError aclfftFft1DMix(float *x, float *y, uint32_t n,
     size_t inputSize = static_cast<size_t>(n) * batches * sizeof(float) * 2;
     void *dIn=nullptr,*dOut=nullptr,*dDft=nullptr,*dTw=nullptr,*dRadix=nullptr,*dWs=nullptr,*dTil=nullptr;
     CHECK_ACL(aclrtMalloc(&dIn, inputSize, ACL_MEM_MALLOC_HUGE_FIRST));
+    std::unique_ptr<void, AclrtFreeDeleter> g1(dIn);
     CHECK_ACL(aclrtMalloc(&dOut, inputSize, ACL_MEM_MALLOC_HUGE_FIRST));
+    std::unique_ptr<void, AclrtFreeDeleter> g2(dOut);
     CHECK_ACL(aclrtMalloc(&dDft, dftLen*sizeof(float), ACL_MEM_MALLOC_HUGE_FIRST));
+    std::unique_ptr<void, AclrtFreeDeleter> g3(dDft);
     if (twLen > 0) CHECK_ACL(aclrtMalloc(&dTw, twLen*sizeof(float), ACL_MEM_MALLOC_HUGE_FIRST));
+    std::unique_ptr<void, AclrtFreeDeleter> g4(dTw);
     CHECK_ACL(aclrtMalloc(&dRadix, radixListHost.size()*sizeof(int32_t), ACL_MEM_MALLOC_HUGE_FIRST));
+    std::unique_ptr<void, AclrtFreeDeleter> g5(dRadix);
     CHECK_ACL(aclrtMalloc(&dWs, totalWs, ACL_MEM_MALLOC_HUGE_FIRST));
+    std::unique_ptr<void, AclrtFreeDeleter> g6(dWs);
     CHECK_ACL(aclrtMalloc(&dTil, sizeof(OpsFft::FftAllMixTilingData), ACL_MEM_MALLOC_HUGE_FIRST));
-    std::unique_ptr<void,AclrtFreeDeleter> g1(dIn),g2(dOut),g3(dDft),g4(dTw),g5(dRadix),g6(dWs),g7(dTil);
+    std::unique_ptr<void, AclrtFreeDeleter> g7(dTil);
     CHECK_ACL(aclrtMemcpy(dIn, inputSize, x, inputSize, ACL_MEMCPY_HOST_TO_DEVICE));
     CHECK_ACL(aclrtMemcpy(dDft, dftLen*sizeof(float), dftHost.data(), dftLen*sizeof(float), ACL_MEMCPY_HOST_TO_DEVICE));
     if (twLen > 0) CHECK_ACL(aclrtMemcpy(dTw, twLen*sizeof(float), twHost.data(), twLen*sizeof(float), ACL_MEMCPY_HOST_TO_DEVICE));

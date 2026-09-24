@@ -23,11 +23,11 @@
 - **计算公式**：\
   傅里叶变换（Fourier transform）是一种线性积分变换，用于信号在时域和频域之间的变换。对于给定长度为 N 的信号，其离散形式 DFT（Discrete Fourier Transform）表达式如下：
 
-  ![公式](./figures/FFT_ID_1.png)
+  ![公式](./figures/fft_1d_1.png)
 
   将系数矩阵（N*N）和时域信号（N*1）看作两个 Tensor，在 NPU 上直接使用矩阵乘可完成 DFT，但时间复杂度太高，因此需要快速傅里叶变换。其基本原理是利用三角函数在复数域的旋转对称性，将序列拆分成子序列，通过蝶形运算以降低计算的复杂度：
 
-  ![公式](./figures/FFT_ID_2.png)
+  ![公式](./figures/fft_1d_2.png)
 
   - 正向变换（`ACLFFT_FORWARD`）：$y[k]=\sum_{n=0}^{N-1}x[n]\cdot e^{-j2\pi kn/N}$，无缩放。
   - 逆向变换（`ACLFFT_BACKWARD`）：$x[n]=\sum_{k=0}^{N-1}y[k]\cdot e^{j2\pi kn/N}$，结果乘以 N（未归一化）。

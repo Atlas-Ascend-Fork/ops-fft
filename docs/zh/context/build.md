@@ -6,7 +6,7 @@ build.sh 是 ops-fft 项目的构建脚本，位于项目根目录下。该脚�
 
 ## 使用方法
 
-### 1. 配置环境变量
+### 配置环境变量
 
 在使用 build.sh 之前，需要先配置 CANN 环境变量：
 
@@ -18,7 +18,7 @@ source /usr/local/Ascend/cann/set_env.sh
 echo $ASCEND_HOME_PATH
 ```
 
-### 2. 构建命令格式
+### 构建命令格式
 
 ```bash
 ./build.sh [OPTIONS]

@@ -41,7 +41,7 @@ namespace <OpName>Test {
 
 **必须包含的 3 个部分**：
 
-### 1. 测试用例函数（必需，至少1个）
+### 测试用例函数（必需，至少1个）
 
 **函数签名**：
 ```cpp
@@ -77,7 +77,7 @@ void test_xxx(aclrtStream stream, OpsFftTest::TestStats& stats) {
 }
 ```
 
-### 2. run_all_tests 实现（必需）
+### run_all_tests 实现（必需）
 
 ```cpp
 namespace <OpName>Test {
@@ -88,7 +88,7 @@ namespace <OpName>Test {
 }
 ```
 
-### 3. 自动注册（必需）
+### 自动注册（必需）
 
 ```cpp
 REGISTER_OP_TEST(<OpName>)

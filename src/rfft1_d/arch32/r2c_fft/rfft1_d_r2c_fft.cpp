@@ -116,6 +116,11 @@ extern "C" aclError aclfftRfft1DR2CFft(float* x, float* y, uint32_t n, uint32_t 
         InitMixRadixLong(fftN, radixVec);
     else
         InitMixRadixShort(fftN, radixVec);
+    // 分解完整性校验（issue #113/#114，同 fft1_d_mix）
+    if (!IsMixRadixValid(radixVec, fftN)) {
+        std::cerr << "[ops-fft] aclfftRfft1DR2CFft: unsupported fftN " << fftN << " (factorization incomplete)" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     int64_t radixListLen = (int64_t)radixVec.size();
 
     // 2. DFT matrix (forward for R2C)
@@ -143,7 +148,8 @@ extern "C" aclError aclfftRfft1DR2CFft(float* x, float* y, uint32_t n, uint32_t 
     int64_t wsIn, wsOut, wsSync, wsC2c, wsAux;
     InitMixRadixParam(parity, fftN, batchSize, radixVec, wsIn, wsOut, wsSync, wsC2c, wsAux);
 
-    OpsFft::FftAllMixTilingData tilingData;
+    // 值初始化：同 fft1_d_mix（issue #117），未填充字段随 tiling 上设备前清零
+    OpsFft::FftAllMixTilingData tilingData{};
     tilingData.batchSize = batchSize;
     tilingData.fftN = fftN;
     tilingData.radixListLen = radixListLen;
@@ -163,24 +169,34 @@ extern "C" aclError aclfftRfft1DR2CFft(float* x, float* y, uint32_t n, uint32_t 
     void *dIn = nullptr, *dOut = nullptr, *dDft = nullptr, *dTw = nullptr, *dRadix = nullptr, *dWs = nullptr,
          *dTil = nullptr;
     void *dInIdx = nullptr, *dA = nullptr, *dB = nullptr, *dOutIdx = nullptr;
+    // 守卫与 malloc 交错（issue #120）：任一分配失败时前序已分配内存自动释放
     CHECK_ACL(aclrtMalloc(&dIn, inputSize, ACL_MEM_MALLOC_HUGE_FIRST));
+    std::unique_ptr<void, AclrtFreeDeleter> g1(dIn);
     CHECK_ACL(aclrtMalloc(&dOut, outputSize, ACL_MEM_MALLOC_HUGE_FIRST));
+    std::unique_ptr<void, AclrtFreeDeleter> g2(dOut);
     CHECK_ACL(aclrtMalloc(&dDft, dftLen * sizeof(float), ACL_MEM_MALLOC_HUGE_FIRST));
+    std::unique_ptr<void, AclrtFreeDeleter> g3(dDft);
     if (twLen > 0)
         CHECK_ACL(aclrtMalloc(&dTw, twLen * sizeof(float), ACL_MEM_MALLOC_HUGE_FIRST));
+    std::unique_ptr<void, AclrtFreeDeleter> g4(dTw);
     CHECK_ACL(aclrtMalloc(&dRadix, radixListHost.size() * sizeof(int32_t), ACL_MEM_MALLOC_HUGE_FIRST));
+    std::unique_ptr<void, AclrtFreeDeleter> g5(dRadix);
     CHECK_ACL(aclrtMalloc(&dWs, totalWs, ACL_MEM_MALLOC_HUGE_FIRST));
+    std::unique_ptr<void, AclrtFreeDeleter> g6(dWs);
     CHECK_ACL(aclrtMalloc(&dTil, sizeof(OpsFft::FftAllMixTilingData), ACL_MEM_MALLOC_HUGE_FIRST));
+    std::unique_ptr<void, AclrtFreeDeleter> g7(dTil);
     // 兜底分配按最大可能拷贝长度（sizeof(float)）而非 1 字节：奇数 n 时表为空但仍执行
     // 4 字节零值拷贝，1 字节分配会越界写（issue #88）
     CHECK_ACL(
         aclrtMalloc(&dInIdx, std::max(sizeof(float), inputIndex.size() * sizeof(uint32_t)), ACL_MEM_MALLOC_HUGE_FIRST));
+    std::unique_ptr<void, AclrtFreeDeleter> g8(dInIdx);
     CHECK_ACL(aclrtMalloc(&dA, std::max(sizeof(float), aTable.size() * sizeof(float)), ACL_MEM_MALLOC_HUGE_FIRST));
+    std::unique_ptr<void, AclrtFreeDeleter> g9(dA);
     CHECK_ACL(aclrtMalloc(&dB, std::max(sizeof(float), bTable.size() * sizeof(float)), ACL_MEM_MALLOC_HUGE_FIRST));
+    std::unique_ptr<void, AclrtFreeDeleter> g10(dB);
     CHECK_ACL(aclrtMalloc(
         &dOutIdx, std::max(sizeof(float), outputIndex.size() * sizeof(uint32_t)), ACL_MEM_MALLOC_HUGE_FIRST));
-    std::unique_ptr<void, AclrtFreeDeleter> g1(dIn), g2(dOut), g3(dDft), g4(dTw), g5(dRadix), g6(dWs), g7(dTil);
-    std::unique_ptr<void, AclrtFreeDeleter> g8(dInIdx), g9(dA), g10(dB), g11(dOutIdx);
+    std::unique_ptr<void, AclrtFreeDeleter> g11(dOutIdx);
     CHECK_ACL(aclrtMemcpy(dIn, inputSize, x, inputSize, ACL_MEMCPY_HOST_TO_DEVICE));
     CHECK_ACL(
         aclrtMemcpy(dDft, dftLen * sizeof(float), dftHost.data(), dftLen * sizeof(float), ACL_MEMCPY_HOST_TO_DEVICE));

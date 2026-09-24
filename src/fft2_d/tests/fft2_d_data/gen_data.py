@@ -31,6 +31,16 @@ configs = [
     {"name": "dd_32x32_backward", "fft_x": 32, "fft_y": 32, "batch": 1, "forward": False},
     {"name": "dd_64x64_backward", "fft_x": 64, "fft_y": 64, "batch": 1, "forward": False},
     {"name": "dd_128x128_backward", "fft_x": 128, "fft_y": 128, "batch": 1, "forward": False},
+    # 多 batch 用例（issue #125）：覆盖 CalcBatchNumsPerLoop 全部 6 种
+    # batchNumsPerLoop>1 的形状组合，守护 SeparateRITWOMultiBatch /
+    # MatmulWithSpecialTransfer 等仅 batch>1 才执行的内核路径
+    {"name": "dd_128x32_forward_b2", "fft_x": 128, "fft_y": 32, "batch": 2, "forward": True},
+    {"name": "dd_64x64_forward_b2", "fft_x": 64, "fft_y": 64, "batch": 2, "forward": True},
+    {"name": "dd_64x32_forward_b4", "fft_x": 64, "fft_y": 32, "batch": 4, "forward": True},
+    {"name": "dd_32x128_forward_b2", "fft_x": 32, "fft_y": 128, "batch": 2, "forward": True},
+    {"name": "dd_32x64_forward_b4", "fft_x": 32, "fft_y": 64, "batch": 4, "forward": True},
+    {"name": "dd_32x32_forward_b8", "fft_x": 32, "fft_y": 32, "batch": 8, "forward": True},
+    {"name": "dd_64x64_backward_b2", "fft_x": 64, "fft_y": 64, "batch": 2, "forward": False},
 ]
 
 
