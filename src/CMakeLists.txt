@@ -59,3 +59,10 @@ message(STATUS "Operator registration completed")
 message(STATUS "==========================================")
 message(STATUS "")
 
+# Ascend C's lower-level API headers are not covered by the public CANN include
+# directories above. The shared FFT kernel helpers include kernel_event.h and
+# kernel_tensor.h directly, so expose the installed implementation headers.
+set(ASCENDC_BASIC_API_INCLUDE_DIR "${ASCEND_CANN_PACKAGE_PATH}/${CMAKE_SYSTEM_PROCESSOR}-linux/asc/impl/basic_api")
+if(IS_DIRECTORY "${ASCENDC_BASIC_API_INCLUDE_DIR}")
+    target_include_directories(${OPS_FFT} PRIVATE "${ASCENDC_BASIC_API_INCLUDE_DIR}")
+endif()
