@@ -73,16 +73,16 @@ bash build.sh --pkg
 若提示如下信息，说明编译成功。
 
 ```bash
-Self-extractable archive "cann-ops-fft-9.0.0-linux-*.run" successfully created.
-Build package success: build/cann-ops-fft-9.0.0-linux-*.run
+Self-extractable archive "cann-950-ops-fft_9.0.0_linux-*.run" successfully created.
+Build package success: build_out/cann-950-ops-fft_9.0.0_linux-*.run
 ```
 
-编译成功后，run包存放于项目根目录的build目录下。
+编译成功后，run包存放于项目根目录的build_out目录下。
 
 ### 安装ops-fft算子包
 
 ```bash
-./build/cann-ops-fft-*linux*.run
+./build_out/cann-950-ops-fft_9.0.0_linux-*.run --full
 ```
 
 ops-fft安装在`${ASCEND_HOME_PATH}/cann`路径中，`${ASCEND_HOME_PATH}`表示CANN软件安装目录。
