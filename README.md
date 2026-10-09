@@ -274,7 +274,7 @@ ops-fft/
 
 1. **创建目录**
 ```bash
-mkdir -p src/my_op/arch35 (可选)
+mkdir -p src/my_op/arch35 # Ascend 950 架构实现目录
 mkdir -p src/my_op/tests
 ```
 
