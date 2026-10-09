@@ -50,7 +50,7 @@
 
     ```bash
     # 卸载命令
-    ./${install_path}/cann/share/info/ops_fft/scripts/uninstall.sh
+    ./build_out/cann-*-ops-fft-*linux*.run --uninstall
     ```
 
 ## 本地验证
