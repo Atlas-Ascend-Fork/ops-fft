@@ -49,7 +49,7 @@ void test_xxx(aclrtStream stream, OpsFftTest::TestStats& stats);
 ```
 
 **参数说明**：
-- `stream` - 传递给算子调用，用于在 NPU 上执行
+- `stream` - 通过 `aclfftSetStream(plan, stream)` 绑定到 Plan，供后续 Exec 调用使用；仅传入测试函数不会自动绑定。
 - `stats` - 传递给所有测试宏（TEST_ASSERT、TEST_CASE_PASS 等），用于自动统计
 
 **示例**（以一维 C2C FFT 为例，ops-fft 统一用 Plan 模型的 `aclfft*` 接口，输入输出为 Host 指针）：
@@ -66,6 +66,7 @@ void test_xxx(aclrtStream stream, OpsFftTest::TestStats& stats) {
     // 调用算子（Plan 模型：创建 Plan → Exec → 销毁）
     aclfftHandle plan;
     aclfftPlan1d(&plan, 2, ACLFFT_C2C, 1, ACLFFT_HORIZONTAL);
+    TEST_ASSERT(stats, aclfftSetStream(plan, stream) == ACLFFT_SUCCESS, "set stream failed");
     aclfftResult result = aclfftExecC2C(plan, input, output, ACLFFT_FORWARD);
     aclfftDestroy(plan);
 
@@ -123,6 +124,7 @@ void test_basic(aclrtStream stream, OpsFftTest::TestStats& stats) {
 
     aclfftHandle plan;
     aclfftPlan1d(&plan, 2, ACLFFT_C2C, 1, ACLFFT_HORIZONTAL);
+    TEST_ASSERT(stats, aclfftSetStream(plan, stream) == ACLFFT_SUCCESS, "set stream failed");
     aclfftResult result = aclfftExecC2C(plan, input, y, ACLFFT_FORWARD);
     aclfftDestroy(plan);
 
