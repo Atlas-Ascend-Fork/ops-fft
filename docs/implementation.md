@@ -139,7 +139,7 @@ CANN FFT 库提供 FFT 接口，用于在华为昇腾 NPU 上执行快速傅里�
 
 // 创建 Plan
 aclfftHandle plan;
-aclfftPlan1d(&plan, 1024, ACLFFT_R2C, 1);
+aclfftPlan1d(&plan, 1024, ACLFFT_R2C, 1, ACLFFT_HORIZONTAL);
 
 // 准备输入数据（设备指针）
 aclfftReal* d_input = ...;  // 1024 个实数
