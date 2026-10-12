@@ -8,6 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <iostream>
+
 #include "cann_ops_fft.h"
 #include "fft_handle_impl.h"
 #include "fft_error.h"
@@ -75,6 +77,15 @@ aclfftResult aclfftPlan2d(aclfftHandle* plan, int batch, int nx, int ny, aclfftT
     ACLFFT_CHECK_PARAM(ny > 0, ACLFFT_INVALID_SIZE);
     ACLFFT_CHECK_PARAM(batch > 0, ACLFFT_INVALID_SIZE);
     ACLFFT_CHECK_PARAM(aclfft_is_valid_type(type), ACLFFT_INVALID_TYPE);
+    // 创建期拒绝当前无执行实现的类型（issue #135）：2D 执行层仅有 C2C 实现
+    // （ExecR2C_2D/ExecC2R_2D 为 weak 声明无定义，Z2Z/D2Z/Z2D Exec 为恒
+    // NOT_IMPLEMENTED 桩），原行为"创建成功、执行期报错"使错误暴露过晚。
+    // 待 2D R2C/C2R 或双精度实现落地后放开对应分支。
+    if (type != ACLFFT_C2C) {
+        std::cerr << "[ops-fft] aclfftPlan2d: type=" << static_cast<int>(type)
+                  << " has no 2D execution implementation yet" << std::endl;
+        return ACLFFT_NOT_SUPPORTED;
+    }
 
     // 创建 Plan
     aclfftResult res = aclfftCreate(plan);

@@ -21,6 +21,8 @@ aclfftResult aclfftExecC2C_2D(aclfftHandle plan,
     aclfftHandle_t* impl = plan;
     ACLFFT_CHECK_PARAM(impl != nullptr && idata != nullptr && odata != nullptr, ACLFFT_INVALID_VALUE);
     ACLFFT_CHECK_PARAM(impl->rank == 2, ACLFFT_INVALID_VALUE);
+    // direction 域校验（issue #147）：weak 符号可被直接调用，非法值不得静默按逆变换执行
+    ACLFFT_CHECK_PARAM(direction == ACLFFT_FORWARD || direction == ACLFFT_BACKWARD, ACLFFT_INVALID_VALUE);
 
     int64_t fftSizeX = impl->lengths[0];
     int64_t fftSizeY = impl->lengths[1];

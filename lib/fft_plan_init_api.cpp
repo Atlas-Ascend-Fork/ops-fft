@@ -18,7 +18,9 @@ static const uint32_t COMPLEX_PART = 2;
 /**
  * @brief 计算数据大小和元素大小
  */
-static void calculate_data_sizes(aclfftHandle_t* plan) {
+// 计算数据大小（issue #136）：返回 aclfftResult 便于上浮溢出错误；
+// 乘积全程 __builtin_mul_overflow 防回绕，溢出返回 ACLFFT_INVALID_SIZE
+static aclfftResult calculate_data_sizes(aclfftHandle_t* plan) {
     // 计算元素大小
     switch (plan->type) {
         case ACLFFT_C2C:
@@ -36,35 +38,62 @@ static void calculate_data_sizes(aclfftHandle_t* plan) {
             break;
     }
 
+    // 防溢出乘法助手：任意一步回绕即失败
+    auto mul_checked = [](size_t a, size_t b, size_t& out) -> bool {
+        return !__builtin_mul_overflow(a, b, &out);
+    };
+
     // 计算实数侧全量元素数（所有维度乘积 × batch）
     size_t full_elements = 1;
     for (int i = 0; i < plan->rank; ++i) {
-        full_elements *= plan->lengths[i];
+        if (!mul_checked(full_elements, static_cast<size_t>(plan->lengths[i]), full_elements)) {
+            return ACLFFT_INVALID_SIZE;
+        }
     }
-    full_elements *= plan->batch;
+    if (!mul_checked(full_elements, static_cast<size_t>(plan->batch), full_elements)) {
+        return ACLFFT_INVALID_SIZE;
+    }
 
     // Hermitian packed 元素数：最后一维用 floor(n/2)+1，其余维不变
     size_t packed_elements = 1;
     for (int i = 0; i < plan->rank - 1; ++i) {
-        packed_elements *= plan->lengths[i];
+        if (!mul_checked(packed_elements, static_cast<size_t>(plan->lengths[i]), packed_elements)) {
+            return ACLFFT_INVALID_SIZE;
+        }
     }
-    packed_elements *= (plan->lengths[plan->rank - 1] / 2 + 1);
-    packed_elements *= plan->batch;
+    if (!mul_checked(packed_elements, static_cast<size_t>(plan->lengths[plan->rank - 1] / 2 + 1), packed_elements) ||
+        !mul_checked(packed_elements, static_cast<size_t>(plan->batch), packed_elements)) {
+        return ACLFFT_INVALID_SIZE;
+    }
 
-    // 根据类型调整大小
+    // 根据类型调整大小（含 ×COMPLEX_PART 与 ×element_size 的溢出防护）
+    size_t complex_full = 0;
+    size_t complex_packed = 0;
+    if (!mul_checked(full_elements, static_cast<size_t>(COMPLEX_PART), complex_full) ||
+        !mul_checked(packed_elements, static_cast<size_t>(COMPLEX_PART), complex_packed)) {
+        return ACLFFT_INVALID_SIZE;
+    }
+
     if (plan->type == ACLFFT_R2C || plan->type == ACLFFT_D2Z) {
         // 实数到复数：输入是实数全量，输出按 Hermitian packed
-        plan->input_size = full_elements * plan->element_size;
-        plan->output_size = packed_elements * COMPLEX_PART * plan->element_size;
+        if (!mul_checked(full_elements, plan->element_size, plan->input_size) ||
+            !mul_checked(complex_packed, plan->element_size, plan->output_size)) {
+            return ACLFFT_INVALID_SIZE;
+        }
     } else if (plan->type == ACLFFT_C2R || plan->type == ACLFFT_Z2D) {
         // 复数到实数：输入按 Hermitian packed，输出是实数全量
-        plan->input_size = packed_elements * COMPLEX_PART * plan->element_size;
-        plan->output_size = full_elements * plan->element_size;
+        if (!mul_checked(complex_packed, plan->element_size, plan->input_size) ||
+            !mul_checked(full_elements, plan->element_size, plan->output_size)) {
+            return ACLFFT_INVALID_SIZE;
+        }
     } else {
         // C2C 或 Z2Z：输入输出都是复数全量
-        plan->input_size = full_elements * COMPLEX_PART * plan->element_size;
-        plan->output_size = full_elements * COMPLEX_PART * plan->element_size;
+        if (!mul_checked(complex_full, plan->element_size, plan->input_size) ||
+            !mul_checked(complex_full, plan->element_size, plan->output_size)) {
+            return ACLFFT_INVALID_SIZE;
+        }
     }
+    return ACLFFT_SUCCESS;
 }
 
 /**
@@ -95,14 +124,20 @@ aclfftResult aclfftMakePlan1d(aclfftHandle plan, int nx, aclfftType type, int ba
     impl->batch = batch;
     impl->type = type;
 
-    // 计算数据大小
-    calculate_data_sizes(impl);
-
+    // batch/stride 先定型，再计算数据大小（issue #138）：
+    // VERTICAL 编码为 batch=1/stride=batch（有意设计），sizes 必须在定型后计算，
+    // 保证 plan 元数据自洽（总量 = batch × 单份）
     if (dimType == ACLFFT_VERTICAL) {
         impl->batch = 1;
         impl->stride[0] = batch;
     } else {
         impl->stride[0] = 1;
+    }
+
+    // 计算数据大小（issue #136）：乘积全程用 __builtin_mul_overflow 防溢出回绕，
+    // 溢出时置 0 并返回 INVALID_SIZE（当前无消费方，接入前不会误用回绕值）
+    if (calculate_data_sizes(impl) != ACLFFT_SUCCESS) {
+        return ACLFFT_INVALID_SIZE;
     }
 
     // 返回工作空间大小（暂时设为 0）
@@ -145,7 +180,10 @@ aclfftResult aclfftMakePlan2d(aclfftHandle plan, int batch, int nx, int ny, aclf
     impl->stride[0] = 1;
     impl->stride[1] = 1;
 
-    calculate_data_sizes(impl);
+    // issue #136：溢出防护版本，失败上浮给调用方（aclfftPlan2d 会清理 plan）
+    if (calculate_data_sizes(impl) != ACLFFT_SUCCESS) {
+        return ACLFFT_INVALID_SIZE;
+    }
 
     if (workSize != nullptr) {
         *workSize = 0;

@@ -130,11 +130,14 @@ extern "C" aclError aclfftFft1DDft(
     CHECK_ACL(aclrtMemcpy(dev_a, inputSize, x, inputSize, ACL_MEMCPY_HOST_TO_DEVICE));
     CHECK_ACL(aclrtMemcpy(dev_b, matrixSize, matrix.data(), matrixSize, ACL_MEMCPY_HOST_TO_DEVICE));
 
-    Fft1DDFTTilingData tilingData;
+    Fft1DDFTTilingData tilingData = {};
 
     // set tiling data
     int isInverse = 1 - isForward; // 正向传播则不需要inverse
     aclError ret = SetTilingData(tilingData, n, norm, isInverse, coreNum, batches);
+    if (ret != ACL_SUCCESS) {
+        return ret;
+    }
 
     // Call host-side launcher (must be implemented to actually launch kernel)
 

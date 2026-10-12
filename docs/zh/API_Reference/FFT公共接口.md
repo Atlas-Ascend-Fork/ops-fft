@@ -341,7 +341,7 @@ const char* aclfftGetErrorString(aclfftResult result);
 | `ACLFFT_NOT_IMPLEMENTED` | 14 | 功能未实现（如超出支持的 `fftSize` 范围、3D 变换、双精度）。 |
 | `ACLFFT_NOT_SUPPORTED` | 16 | 参数组合不支持（如 `fft2_d` 尺寸不在支持集合内）。 |
 
-> **说明**：数值 15 在枚举中未使用。算子层内部若返回 ACL 错误（如 `ACL_ERROR_INVALID_PARAM`），会被 Exec 分发层统一转换为 `ACLFFT_EXEC_FAILED`。
+> **说明**：数值 15 在枚举中未使用。算子层内部若返回 ACL 错误，Exec 分发层按错误类型转换：`ACL_ERROR_INVALID_PARAM`（如质因子不支持、尺寸超限）转换为 `ACLFFT_NOT_IMPLEMENTED`，其余运行期失败统一转换为 `ACLFFT_EXEC_FAILED`。
 
 ## 约束说明
 

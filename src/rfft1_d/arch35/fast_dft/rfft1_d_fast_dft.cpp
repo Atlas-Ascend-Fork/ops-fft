@@ -283,6 +283,10 @@ extern "C" aclError aclfftRfft1D(float* x, float* y, uint32_t n, int32_t norm, u
         std::cerr << "[ops-fft] aclfftRfft1D: input/output pointer is null" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    if (n == 0) {
+        std::cerr << "[ops-fft] aclfftRfft1D: n must be positive, got 0" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     if (n > DFT_BORDER_VALUE) {
         std::cerr << "[ops-fft] aclfftRfft1D: n=" << n << " exceeds FastDFT limit (" << DFT_BORDER_VALUE
                   << "), not implemented" << std::endl;
@@ -331,8 +335,11 @@ extern "C" aclError aclfftRfft1D(float* x, float* y, uint32_t n, int32_t norm, u
     CHECK_ACL(aclrtMemcpy(dev_x, inputSize, x, inputSize, ACL_MEMCPY_HOST_TO_DEVICE));
     CHECK_ACL(aclrtMemcpy(dev_dft, dftSize, dft.data(), dftSize, ACL_MEMCPY_HOST_TO_DEVICE));
 
-    Rfft1DTilingData tilingData;
+    Rfft1DTilingData tilingData = {};
     aclError ret = SetTilingData(tilingData, n, norm, coreNum, batches);
+    if (ret != ACL_SUCCESS) {
+        return ret;
+    }
 
     rfft1_d_fast_dft<<<coreNum, nullptr, stream>>>(
         (__gm__ uint8_t*)dev_x, (__gm__ uint8_t*)dev_dft, (__gm__ uint8_t*)dev_y, (__gm__ uint8_t*)workspace_ptr,

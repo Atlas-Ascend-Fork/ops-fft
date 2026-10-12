@@ -174,7 +174,7 @@ extern "C" aclError aclfftIrfft1DC2RFft(float* x, float* y, uint32_t n, uint32_t
     int64_t wsIn, wsOut, wsSync, wsC2c, wsAux;
     InitMixRadixParam(parity, fftN, batchSize, radixVec, wsIn, wsOut, wsSync, wsC2c, wsAux);
 
-    OpsFft::FftAllMixTilingData tilingData;
+    OpsFft::FftAllMixTilingData tilingData = {};
     tilingData.batchSize = batchSize;
     tilingData.fftN = fftN;
     tilingData.radixListLen = radixListLen;

@@ -141,12 +141,12 @@ CANN FFT 库提供 FFT 接口，用于在华为昇腾 NPU 上执行快速傅里�
 aclfftHandle plan;
 aclfftPlan1d(&plan, 1024, ACLFFT_R2C, 1, ACLFFT_HORIZONTAL);
 
-// 准备输入数据（设备指针）
-aclfftReal* d_input = ...;  // 1024 个实数
-aclfftComplex* d_output = ...;  // 513 个复数
+// 准备输入数据（Host 侧指针，Exec 接口内部完成 Host→Device 拷贝）
+aclfftReal* h_input = ...;   // 1024 个实数
+aclfftComplex* h_output = ...;  // 513 个复数
 
 // 执行 FFT
-aclfftExecR2C(plan, d_input, d_output);
+aclfftExecR2C(plan, h_input, h_output);
 
 // 销毁 Plan
 aclfftDestroy(plan);
@@ -154,7 +154,7 @@ aclfftDestroy(plan);
 
 **支持的特性**：
 - ✅ 批量变换（batch > 1）
-- ✅ 归一化模式配置
+- ✅ 归一化模式固定为 BACKWARD 语义（不可通过公共 API 配置，见 FFT公共接口.md 约束说明）
 - ✅ 流式执行
 - ✅ In-place/Out-of-place 变换
 

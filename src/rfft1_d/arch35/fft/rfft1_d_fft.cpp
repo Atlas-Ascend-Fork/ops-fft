@@ -148,6 +148,18 @@ extern "C" aclError aclfftRfft1DFft(
                   << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // isForward 域校验（issue #147 附注）：合法取值仅 0(正向)/1(反向)
+    if (isForward != 0 && isForward != 1) {
+        std::cerr << "[ops-fft] aclfftRfft1DFft: isForward=" << isForward << " invalid (expected 0 or 1)" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    // n 域校验（issue #140）：与 #130 修复的 aclfftFft1DC2C 口径一致，n ∈ (0, 2^27]。
+    // 上界防止 O(n) 宿主 twiddle 分配失败抛 std::bad_alloc 穿透 extern "C"；
+    // 下界防止 n=0 直通 tiling 推导启动内核。
+    if (n == 0 || n > (1u << 27)) {
+        std::cerr << "[ops-fft] aclfftRfft1DFft: n=" << n << " out of range (0, " << (1u << 27) << "]" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();
     uint32_t coreNum = ascendcPlatform->GetCoreNumAiv();
     if (coreNum == 0) {
@@ -192,7 +204,6 @@ extern "C" aclError aclfftRfft1DFft(
     const size_t dftMatrixSize = allDftMatrices.size() * sizeof(float);
     const size_t twSize = allTwiddleFactors.size() * sizeof(float);
     const size_t twPostSize = twPostProcess.size() * sizeof(float);
-    const size_t radixListSize = static_cast<size_t>(tilingData.radixListLen) * sizeof(float);
 
     const size_t workspaceSize = rfft1_d::FftWorkspaceSize(n, batches);
     const size_t tilingSize = sizeof(Rfft1DFftTilingData);
@@ -202,7 +213,6 @@ extern "C" aclError aclfftRfft1DFft(
     void* dev_dft_matrix = nullptr;
     void* dev_tw_matrix = nullptr;
     void* dev_tw_post = nullptr;
-    void* dev_radix_list = nullptr;
     void* dev_workspace = nullptr;
     void* dev_tiling = nullptr;
 
@@ -216,8 +226,6 @@ extern "C" aclError aclfftRfft1DFft(
     std::unique_ptr<void, AclrtFreeDeleter> d_tw_guard(dev_tw_matrix);
     CHECK_ACL(aclrtMalloc(&dev_tw_post, twPostSize > 0 ? twPostSize : 32, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_tw_post_guard(dev_tw_post);
-    CHECK_ACL(aclrtMalloc(&dev_radix_list, radixListSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    std::unique_ptr<void, AclrtFreeDeleter> d_radix_guard(dev_radix_list);
     CHECK_ACL(aclrtMalloc(&dev_workspace, workspaceSize, ACL_MEM_MALLOC_HUGE_FIRST));
     std::unique_ptr<void, AclrtFreeDeleter> d_ws_guard(dev_workspace);
     CHECK_ACL(aclrtMalloc(&dev_tiling, tilingSize, ACL_MEM_MALLOC_HUGE_FIRST));
@@ -231,19 +239,20 @@ extern "C" aclError aclfftRfft1DFft(
         CHECK_ACL(aclrtMemcpy(dev_tw_post, twPostSize, twPostProcess.data(), twPostSize, ACL_MEMCPY_HOST_TO_DEVICE));
     }
 
-    std::vector<float> radixListHost(tilingData.radixListLen);
-    for (int32_t s = 0; s < tilingData.radixListLen; s++) {
-        radixListHost[s] = static_cast<float>(tilingData.radix_arr[s]);
-    }
-    CHECK_ACL(
-        aclrtMemcpy(dev_radix_list, radixListSize, radixListHost.data(), radixListSize, ACL_MEMCPY_HOST_TO_DEVICE));
-
+    // radix_list 死代码移除（issue #149）：内核仅从 tiling_buf 读取 radix 信息，
+    // radix_list 参数从未被解引用，不再分配/构表/H2D 拷贝，传 nullptr 占位
     CHECK_ACL(aclrtMemcpy(dev_tiling, tilingSize, &tilingData, tilingSize, ACL_MEMCPY_HOST_TO_DEVICE));
 
     fft_r2c_multi_core<<<coreNum, nullptr, stream>>>(
-        (__gm__ float*)dev_input, (__gm__ float*)dev_dft_matrix, (__gm__ float*)dev_tw_matrix,
-        (__gm__ float*)dev_tw_post, (__gm__ float*)dev_radix_list, (__gm__ float*)dev_output,
-        (__gm__ float*)dev_workspace, (__gm__ uint8_t*)dev_tiling);
+        (__gm__ float *)dev_input,
+        (__gm__ float *)dev_dft_matrix,
+        (__gm__ float *)dev_tw_matrix,
+        (__gm__ float *)dev_tw_post,
+        nullptr,  // radix_list：内核不消费（issue #149），传 nullptr 占位
+        (__gm__ float *)dev_output,
+        (__gm__ float *)dev_workspace,
+        (__gm__ uint8_t *)dev_tiling
+    );
 
     CHECK_ACL(aclrtSynchronizeStream(stream));
 

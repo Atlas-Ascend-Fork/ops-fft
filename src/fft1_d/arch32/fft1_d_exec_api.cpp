@@ -65,6 +65,8 @@ aclfftResult aclfftExecC2C_1D(aclfftHandle plan, aclfftComplex* idata, aclfftCom
     // 防护: 本函数为 weak 符号可被外部直接调用，plan/idata/odata 可能为 NULL（issue #50）
     ACLFFT_CHECK_PARAM(impl != nullptr && idata != nullptr && odata != nullptr, ACLFFT_INVALID_VALUE);
     ACLFFT_CHECK_PARAM(impl->rank == 1, ACLFFT_INVALID_VALUE);
+    // direction 域校验（issue #134）：weak 符号可被直接调用，lib 层校验可被绕过
+    ACLFFT_CHECK_PARAM(direction == ACLFFT_FORWARD || direction == ACLFFT_BACKWARD, ACLFFT_INVALID_VALUE);
 
     const uint32_t n = impl->lengths[0];
     const uint32_t batch = impl->batch;

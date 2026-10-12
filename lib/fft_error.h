@@ -30,19 +30,6 @@
     } while(0)
 
 /**
- * @brief ACL 错误检查宏
- *
- * 如果 ACL 调用失败，返回 ACLFFT_EXEC_FAILED
- */
-#define ACLFFT_CHECK_ACL(call) \
-    do { \
-        aclError _err = (call); \
-        if (_err != ACL_SUCCESS) { \
-            return ACLFFT_EXEC_FAILED; \
-        } \
-    } while(0)
-
-/**
  * @brief 空指针检查宏
  */
 #define ACLFFT_CHECK_NULL(ptr) \

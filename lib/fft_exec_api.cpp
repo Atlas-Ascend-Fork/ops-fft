@@ -38,6 +38,9 @@ aclfftResult aclfftExecC2C(aclfftHandle plan,
     ACLFFT_CHECK_NULL(idata);
     ACLFFT_CHECK_NULL(odata);
     ACLFFT_CHECK_PARAM(impl->type == ACLFFT_C2C, ACLFFT_INVALID_TYPE);
+    // direction 域校验（issue #134）：合法取值仅 ACLFFT_FORWARD/ACLFFT_BACKWARD，
+    // 防止非法值在算子层被静默折算为反向变换
+    ACLFFT_CHECK_PARAM(direction == ACLFFT_FORWARD || direction == ACLFFT_BACKWARD, ACLFFT_INVALID_VALUE);
 
     if (impl->rank == 1 && aclfftExecC2C_1D)
         return aclfftExecC2C_1D(plan, idata, odata, direction);
