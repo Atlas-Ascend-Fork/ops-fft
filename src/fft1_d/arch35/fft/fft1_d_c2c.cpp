@@ -141,17 +141,19 @@ extern "C" aclError aclfftFft1DC2C(
                   << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
-    // fftSize 上界校验（issue #130）：文档约束 n 不超过 2^27；超界时 twiddle 等
-    // 宿主分配达 4n 字节量级（n=2^28 约 4GB），失败即 bad_alloc 穿透 extern "C"，
-    // 且 uint32 上传尺寸回绕为 0 产生静默错误结果
-    if (n == 0 || n > (1u << 27)) {
-        std::cerr << "[ops-fft] aclfftFft1DC2C: n=" << n << " out of supported range (0, 2^27]" << std::endl;
-    // isForward 域校验（issue #147 附注）：合法取值仅 0(正向)/1(反向)，防止垃圾值翻转方向语义
+    // isForward 域校验（issue #147 附注；issue #160 修复嵌套错误）：合法取值仅
+    // 0(正向)/1(反向)，防止垃圾值翻转方向语义。必须位于 n 范围校验之前的函数
+    // 顶层——原实现被错误嵌套进 n 检查分支内，合法 n 下校验永不生效
     if (isForward != 0 && isForward != 1) {
         std::cerr << "[ops-fft] aclfftFft1DC2C: isForward=" << isForward
                   << " invalid (expected 0 or 1)" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // fftSize 上界校验（issue #130）：文档约束 n 不超过 2^27；超界时 twiddle 等
+    // 宿主分配达 4n 字节量级（n=2^28 约 4GB），失败即 bad_alloc 穿透 extern "C"，
+    // 且 uint32 上传尺寸回绕为 0 产生静默错误结果
+    if (n == 0 || n > (1u << 27)) {
+        std::cerr << "[ops-fft] aclfftFft1DC2C: n=" << n << " out of supported range (0, 2^27]" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
     auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();

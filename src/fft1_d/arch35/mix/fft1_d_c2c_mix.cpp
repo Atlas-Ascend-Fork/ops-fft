@@ -135,6 +135,15 @@ extern "C" aclError aclfftFft1DC2CMix(
         return ACL_ERROR_INVALID_PARAM;
     }
     (void)norm;
+    // isForward 域校验（issue #168）：合法取值仅 0(正向)/1(反向)。本入口无校验时
+    // isForward=2 经 1-isForward 得 -1，GenerateMixDft/GenerateMixTwiddle 的
+    // sign=(isInverse==0)?-1:+1 取到逆变换符号，tiling.isInverse 亦为 -1 下发，
+    // 本意正向的调用被静默按逆向执行并返回成功
+    if (isForward != 0 && isForward != 1) {
+        std::cerr << "[ops-fft] aclfftFft1DC2CMix: isForward=" << isForward
+                  << " invalid (expected 0 or 1)" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     // fftSize 上界校验（issue #130，同 aclfftFft1DC2C）：文档约束 n 不超过 2^27
     if (n == 0 || n > (1u << 27)) {
         std::cerr << "[ops-fft] aclfftFft1DC2CMix: n=" << n << " out of supported range (0, 2^27]" << std::endl;

@@ -22,6 +22,14 @@ extern "C" aclError aclfftFft1DMix(float *x, float *y, uint32_t n,
         std::cerr << "[ops-fft] aclfftFft1DMix: input/output pointer is null" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // n==0 拒绝（issue #164，对齐同族入口口径）：n=0 时 InitMixRadixShort(0)
+    // 短路 push {0}，IsMixRadixValid({0},0) 按 0==0 判定通过，分解完整性校验
+    // 形同虚设；随后 0 字节 aclrtMalloc（ACL 语义要求 size>0，行为未定义）与
+    // 空内核启动。同族 aclfftFft1DDft/Fft1DN/Fft1DC2C/Fft1DC2CMix 均已拒绝 n==0
+    if (n == 0) {
+        std::cerr << "[ops-fft] aclfftFft1DMix: n=0 is not supported" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     auto plat = platform_ascendc::PlatformAscendCManager::GetInstance();
     uint32_t coreNum = plat->GetCoreNumAic(); if (coreNum == 0) coreNum = 1;
     uint32_t maxCore = std::min(coreNum, 20u);

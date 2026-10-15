@@ -85,6 +85,14 @@ extern "C" aclError aclfftFft1DDft(
                   << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // isForward 域校验（issue #167）：合法取值仅 0(正向)/1(反向)。本入口无校验时
+    // isForward=2 经 1-isForward 得 -1，SetTilingData 内 static_cast<bool>(-1)
+    // 恒为 true，本意正向的调用被静默按逆变换执行并返回成功
+    if (isForward != 0 && isForward != 1) {
+        std::cerr << "[ops-fft] aclfftFft1DDft: isForward=" << isForward
+                  << " invalid (expected 0 or 1)" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     // n 范围校验（issue #115）：n=0 会静默 no-op 返回成功误导调用方；超大 n 触发
     // (2n)^2 host 旋转矩阵分配，失败即 bad_alloc 穿透 extern "C" 终止进程。
     // 上限 1024 与 dispatch 路径的 DFT 内核支持域一致

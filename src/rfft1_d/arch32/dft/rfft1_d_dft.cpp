@@ -8,6 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <limits>
+
 #include "../rfft1_d.h"
 #include "fft_common_core.h"
 #include "rfft1_d_dft_tilingdata.h"
@@ -53,6 +55,13 @@ extern "C" aclError aclfftRfft1DDft(
     // 1<=n<=1024；超界时 n^2 量级宿主 DFT 矩阵分配失败即 bad_alloc 穿透 C 边界
     if (n == 0 || n > 1024) {
         std::cerr << "[ops-fft] aclfftRfft1DDft: n=" << n << " out of range [1, 1024]" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    // batches 上界防护（issue #162，对齐 fft1_d_n.cpp #119 口径）：uint32_t 的
+    // batches 直接赋给 int32_t 时 >INT32_MAX 会截断为负值写入 tilingData.m，
+    // 内核循环推导为负、循环体不执行，D2H 拷回未初始化输出仍返回成功
+    if (batches > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
+        std::cerr << "[ops-fft] aclfftRfft1DDft: batches=" << batches << " exceeds INT32_MAX" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
     auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();

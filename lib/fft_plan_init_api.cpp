@@ -9,6 +9,7 @@
  */
 
 #include <cstring>
+#include <iostream>
 #include "cann_ops_fft.h"
 #include "fft_handle_impl.h"
 #include "fft_error.h"
@@ -117,6 +118,15 @@ aclfftResult aclfftMakePlan1d(aclfftHandle plan, int nx, aclfftType type, int ba
     ACLFFT_CHECK_PARAM(batch > 0, ACLFFT_INVALID_SIZE);
     ACLFFT_CHECK_PARAM(dimType == ACLFFT_HORIZONTAL || dimType == ACLFFT_VERTICAL, ACLFFT_INVALID_VALUE);
     ACLFFT_CHECK_PARAM(aclfft_is_valid_type(type), ACLFFT_INVALID_TYPE);
+    // 创建期拒绝当前无 1D 执行实现的类型（issue #171，对齐 #135 的 2D 处理）：
+    // Z2Z/D2Z/Z2D 执行入口为恒 NOT_IMPLEMENTED 空桩，原行为"创建成功、执行期
+    // 报错"使错误暴露过晚。1D 执行层当前仅支持 C2C/R2C/C2R，
+    // 待双精度实现落地后放开对应分支。
+    if (type != ACLFFT_C2C && type != ACLFFT_R2C && type != ACLFFT_C2R) {
+        std::cerr << "[ops-fft] aclfftMakePlan1d: type=" << static_cast<int>(type)
+                  << " has no 1D execution implementation yet" << std::endl;
+        return ACLFFT_NOT_SUPPORTED;
+    }
 
     // 设置基本参数
     impl->rank = 1;

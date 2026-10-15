@@ -244,7 +244,7 @@ aclfftResult aclfftExecC2R(aclfftHandle     plan,
   - 对纵向FFT：
     - 纵向FFT当前仅在 Ascend 910B 上支持 C2C（Stride kernel）；其余变换（R2C/C2R）及 Ascend 950 上的纵向 plan 在执行时返回 ACLFFT_NOT_IMPLEMENTED。
     - fftSize需保证是2的幂且大于等于256、小于等于262144（2^18，与下方芯片表格及 Stride 实现一致，issue #92）。
-    - batchSize需保证是128的整数倍。
+    - batchSize需保证大于0；在存储允许范围内无其他额外约束（与实现校验一致：plan 创建层仅校验 batch>0，Stride 内核无 128 整数倍限制，issue #172）。
     - 输入的元素个数理论支持[1，$2^{30}$]。
     - 输入的元素不支持inf、-inf和nan，如果输入中包含这些值, 那么结果为未定义。
 

@@ -120,6 +120,14 @@ extern "C" aclError aclfftIrfft1DC2RFft(float* x, float* y, uint32_t n, uint32_t
         std::cerr << "[ops-fft] aclfftIrfft1DC2RFft: input/output pointer is null" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // n==0 拒绝（issue #166，对齐同族入口口径）：n=0 时 fftN=0，InitMixRadixShort(0)
+    // 短路 push {0}，IsMixRadixValid({0},0) 判 0==0 通过；随后 outputSize=0 触发
+    // 0 字节 aclrtMalloc 与空内核启动，行为未定义。同族 aclfftIrfft1DDft（n 域
+    // 校验）与 arch35 irfft 入口均已覆盖
+    if (n == 0) {
+        std::cerr << "[ops-fft] aclfftIrfft1DC2RFft: n=0 is not supported" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     auto plat = platform_ascendc::PlatformAscendCManager::GetInstance();
     uint32_t coreNum = plat->GetCoreNumAic();
     if (coreNum == 0)

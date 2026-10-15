@@ -8,6 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <limits>
+
 #include "../irfft1_d.h"
 #include "fft_common_core.h"
 #include "irfft1_d_dft_tilingdata.h"
@@ -60,6 +62,21 @@ extern "C" aclError aclfftIrfft1DDft(
     if (norm != 0) {
         std::cerr << "[ops-fft] aclfftIrfft1DDft: norm=" << norm
                   << " is not supported (only 0=BACKWARD in this version)" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    // isForward 域校验（issue #169）：C2R 语义上恒为逆变换，仅接受 0。直连传非 0
+    // 时 GenerateDftMatrixC2R(fftN, isForward != 0) 会以正向符号生成 DFT 矩阵，
+    // 静默产出错误结果并返回成功
+    if (isForward != 0) {
+        std::cerr << "[ops-fft] aclfftIrfft1DDft: isForward=" << isForward
+                  << " invalid (C2R is always inverse; expected 0)" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    // batches 上界防护（issue #163，对齐 fft1_d_n.cpp #119 口径）：uint32_t 的
+    // batches 直接赋给 int32_t 时 >INT32_MAX 会截断为负值写入 tilingData.m，
+    // 内核循环推导为负、循环体不执行，D2H 拷回未初始化输出仍返回成功
+    if (batches > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
+        std::cerr << "[ops-fft] aclfftIrfft1DDft: batches=" << batches << " exceeds INT32_MAX" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
     // n 范围校验（issue #131，与 #115 对 aclfftFft1DDft 口径一致）：文档约束

@@ -305,6 +305,14 @@ extern "C" aclError aclfftFft1DN(
         std::cerr << "fft_n: batches=" << batches << " exceeds INT32_MAX" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // n 上界校验（issue #161，对齐 #130 arch35 aclfftFft1DC2C 口径与 FFT_1D.md
+    // 文档 32768<=n<=2^27 约束）：T 矩阵为 O(n) 宿主分配，n 超界时轻则
+    // bad_alloc 穿透 extern "C" 边界致 std::terminate，重则 size 回绕为 0
+    // 触发 aclrtMalloc(0) + 0 字节拷贝，内核消费未初始化矩阵仍返回成功
+    if (n > (1u << 27)) {
+        std::cerr << "fft_n: n=" << n << " out of supported range (0, 2^27]" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     std::vector<uint32_t> radixVec;
     InitRadix(n, radixVec);
     int32_t repeatBatchSize = 0;
@@ -323,16 +331,16 @@ extern "C" aclError aclfftFft1DN(
             wMatrixHost[wBias + j] = stageMatrix[j];
         }
     }
-    const uint32_t wMatrixSize = wMatrixHost.size() * sizeof(float);
+    const size_t wMatrixSize = wMatrixHost.size() * sizeof(float);
     std::vector<float> tMatrixHost;
     // T matrix only for iterations 0 to size-1 (exclude last iteration)
     for (size_t i = 0; i < radixVec.size() - 1; i++) {
         std::vector<float> stageT = InitTMatrix(n, radixVec, static_cast<uint32_t>(i), isForward != 0);
         tMatrixHost.insert(tMatrixHost.end(), stageT.begin(), stageT.end());
     }
-    const uint32_t tMatrixSize = tMatrixHost.size() * sizeof(float);
+    const size_t tMatrixSize = tMatrixHost.size() * sizeof(float);
     std::vector<int32_t> indexHost = InitIndexTable(n, radixVec);
-    const uint32_t indexSize = indexHost.size() * sizeof(int32_t);
+    const size_t indexSize = indexHost.size() * sizeof(int32_t);
     uint32_t totalWorkspaceSize = SCRATCH_SIZES * coreNum;
 
     void* dev_input = nullptr;

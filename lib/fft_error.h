@@ -41,8 +41,12 @@
 #define ACLFFT_CHECK_PLAN(plan) \
     do { \
         ACLFFT_CHECK_NULL(plan); \
-        ACLFFT_CHECK_PARAM(!(plan)->is_destroyed, ACLFFT_INVALID_PLAN); \
     } while(0)
+    // 说明（issue #170）：原 "!(plan)->is_destroyed" 检查臂为恒真死检查——全仓
+    // 无任何代码将 is_destroyed 置为 true（destroy 流程直接释放并置空句柄，
+    // 不经该标记，见 fft_plan_destroy_api.cpp 注释），字段永远保持初值 false，
+    // 不构成 use-after-destroy 防护。生命周期由 destroy-置空约定保障，删除
+    // 死字段避免误导后续维护者。
 
 /**
  * @brief Plan 初始化状态检查宏

@@ -45,7 +45,8 @@ struct aclfftHandle_t {
 
     // ========== 标志 ==========
     bool is_initialized;                ///< 是否已初始化
-    bool is_destroyed;                  ///< 是否已销毁
+    // 说明（issue #170）：is_destroyed 死字段已删除——全仓无置 true 的赋值点，
+    // destroy 流程直接释放并置空句柄，生命周期由 destroy-置空约定保障
 
     /**
      * @brief 构造函数
@@ -63,7 +64,6 @@ struct aclfftHandle_t {
           operator_state(nullptr),
           has_operator_state(false),
           is_initialized(false),
-          is_destroyed(false),
           lengths{0},
           stride{0} {}
 
