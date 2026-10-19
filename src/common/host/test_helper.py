@@ -151,7 +151,8 @@ def gen_main(configs, gen_one_fn):
         with contextlib.redirect_stdout(io.StringIO()):
             gen_one_fn(cfg, args.seed)
     else:
-        os.system("/bin/rm -f *.bin")
+        for cfg in configs:
+            cleanup_case(os.getcwd(), cfg["name"])
         logger.info(f"Generating golden data with seed={args.seed}...")
         for cfg in configs:
             gen_one_fn(cfg, args.seed)
