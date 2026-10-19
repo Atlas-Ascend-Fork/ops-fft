@@ -33,8 +33,10 @@ CANN提供了多种日志级别，可通过环境变量配置：
 # 设置日志级别
 export ASCEND_GLOBAL_LOG_LEVEL=3  # 0-debug, 1-info, 2-warning, 3-error
 
-# 设置日志路径
-export ASCEND_GLOBAL_EVENT_ENABLE=0
+# 开启 Event 日志（设为 0 会关闭 Event 日志；该变量不是日志路径）
+export ASCEND_GLOBAL_EVENT_ENABLE=1
+# 可按当前 CANN 版本的环境变量文档配置日志/工作目录
+export ASCEND_WORK_PATH=/path/to/ascend_work
 ```
 
 ### 常见错误排查
@@ -84,7 +86,15 @@ msprof --output=./prof_out ./your_program
 ```bash
 export ASCEND_WORK_PATH=./dump_out
 export ASCEND_GLOBAL_LOG_LEVEL=0
+# 在 Ascend C Kernel 的目标代码路径中插入 DumpTensor(srcLocal, 5, dataNum)
+# 并使用 AscendC 调试工具启用 NPU dump 模式运行，例如：
+ascendebug kernel --backend npu --dump-mode normal -- ./your_program [args...]
 ```
+
+仅设置 `ASCEND_WORK_PATH` 不会自动导出张量；必须在 Kernel 中调用
+`AscendC::DumpTensor`，并在运行时启用 dump 模式。结果目录由调试工具和
+`ASCEND_WORK_PATH` 配置决定，解码及命令选项请参照所用 CANN 版本的
+[Ascend C DumpTensor 文档](https://www.hiascend.com/document/detail/zh/CANNCommunityEdition/910/API/ascendcopapi/docs/api/SIMD-API/%E5%9F%BA%E7%A1%80API/%E8%B0%83%E8%AF%95%E6%8E%A5%E5%8F%A3/%E4%B8%8A%E6%9D%BF%E6%89%93%E5%8D%B0/DumpTensor.md)。
 
 ## 更多帮助
 
