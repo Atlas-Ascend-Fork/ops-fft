@@ -14,16 +14,16 @@ set -euo pipefail
 
 run_command() {
     local cmd="$*"
-    echo "Executing command: $cmd"
+    local exit_code=0
+    echo "Executing command: $cmd" >&2
 
-    if ! output=$("$@" 2>&1); then
-         local exit_code=$?
-         echo -e "\nCommand execution failed!"
-         echo -e "\nFailed command: $cmd"
-         echo -e "\nError output: $output"
-         echo -e "\nExit code: $exit_code"
-         exit $exit_code
+    if "$@"; then
+        return 0
+    else
+        exit_code=$?
     fi
+    echo "Command execution failed: $cmd (exit code: $exit_code)" >&2
+    return "$exit_code"
 }
 
 version_ge() {
@@ -338,4 +338,6 @@ main() {
     echo "===================================================="
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi
