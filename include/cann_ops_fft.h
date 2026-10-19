@@ -314,7 +314,8 @@ ACLFFT_API aclfftResult aclfftExecC2C(aclfftHandle    plan,
 /*! @brief Execute a (float) real-to-complex FFT.
  *
  *  @details If the input and output buffers are equal, an in-place
- *  transform is performed.
+ *  transform is performed. For an in-place transform, allocate enough storage
+ *  for the complex output: at least `2 * (nx / 2 + 1) * batch` floats.
  *
  *  @param[in] plan The FFT plan.
  *  @param[in] idata Input data.

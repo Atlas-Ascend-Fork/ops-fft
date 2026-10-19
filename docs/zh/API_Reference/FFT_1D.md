@@ -183,10 +183,12 @@ aclfftResult aclfftExecC2R(aclfftHandle     plan,
     <tr>
       <td>odata（aclfftComplex*）</td>
       <td>输出</td>
-      <td>Host 侧复数输出指针，shape 为 (batch, nx/2+1)，共 batch*(nx/2+1) 个复数。</td>
+      <td>Host 侧复数输出指针，shape 为 (batch, floor(nx/2)+1)，共 batch*(floor(nx/2)+1) 个复数；独立输出缓冲区至少容纳上述复数数量。</td>
     </tr>
   </tbody>
   </table>
+
+- **缓冲区容量**：当 `idata` 与 `odata` 指向同一块内存时，需为压缩复数输出预留容量，至少为 `batch * 2 * (floor(nx/2)+1)` 个实数（float）。因此偶数 `nx` 时需 `batch*(nx+2)` 个 float，奇数 `nx` 时需 `batch*(nx+1)` 个 float；仅按 `batch*nx` 个 float 分配不足。分离缓冲区时，输入至少为 `batch*nx` 个 float，输出至少为 `batch*(floor(nx/2)+1)` 个复数。
 
 - **返回值**：返回 `aclfftResult` 状态码，具体参见[FFT公共接口](./FFT公共接口.md#错误码aclfftresult)。
 
