@@ -2604,11 +2604,12 @@ extern "C" __global__ __aicore__ void fft_n(__gm__ uint8_t *__restrict__ ffts_ad
     __gm__ float *__restrict__ gmStepIn;
     __gm__ float *__restrict__ gmStepOut;
 
-    int32_t nRepeats = (batchSize + repeatBatchSize - 1) / repeatBatchSize;
+    int64_t nRepeats = (static_cast<int64_t>(batchSize) + repeatBatchSize - 1) / repeatBatchSize;
 
-    for (int32_t iRepeat = 0; iRepeat < nRepeats; iRepeat++) {
-        int32_t addrBias = iRepeat * repeatBatchSize * inputN * 2;
-        int32_t iBatch = iRepeat == (nRepeats - 1) ? batchSize - repeatBatchSize * iRepeat : repeatBatchSize;
+    for (int64_t iRepeat = 0; iRepeat < nRepeats; iRepeat++) {
+        int64_t addrBias = iRepeat * static_cast<int64_t>(repeatBatchSize) * inputN * 2;
+        int32_t iBatch = iRepeat == (nRepeats - 1)
+            ? static_cast<int32_t>(batchSize - repeatBatchSize * iRepeat) : repeatBatchSize;
 
         int32_t iBatchSize = 1;
         int32_t w_bias = 0;
@@ -2732,11 +2733,12 @@ extern "C" __global__ __aicore__ void fft_n(__gm__ uint8_t *__restrict__ ffts_ad
     int32_t M = 0;
     int32_t N = 0;
 
-    int32_t nRepeats = (batchSize + repeatBatchSize - 1) / repeatBatchSize;
+    int64_t nRepeats = (static_cast<int64_t>(batchSize) + repeatBatchSize - 1) / repeatBatchSize;
 
-    for (int32_t iRepeat = 0; iRepeat < nRepeats; iRepeat++) {
-        int32_t addrBias = iRepeat * repeatBatchSize * inputN * 2;
-        int32_t iBatch = iRepeat == (nRepeats - 1) ? batchSize - repeatBatchSize * iRepeat : repeatBatchSize;
+    for (int64_t iRepeat = 0; iRepeat < nRepeats; iRepeat++) {
+        int64_t addrBias = iRepeat * static_cast<int64_t>(repeatBatchSize) * inputN * 2;
+        int32_t iBatch = iRepeat == (nRepeats - 1)
+            ? static_cast<int32_t>(batchSize - repeatBatchSize * iRepeat) : repeatBatchSize;
 
         int32_t iBatchSize = 0;
         int64_t t_bias = 0;
