@@ -25,26 +25,20 @@ logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='%(message)s')
 logger = logging.getLogger(__name__)
 
 
-def compare_one(curr_dir, name, atol, rtol, detail_only=False):
-    golden_file = os.path.join(curr_dir, f"{name}_golden.bin")
-    output_file = os.path.join(curr_dir, f"{name}_output.bin")
-    if not os.path.exists(golden_file):
-        if not detail_only:
-            logger.info(f"  [SKIP] {name}: golden file not found")
-        return True
-    if not os.path.exists(output_file):
-        if not detail_only:
-            logger.info(f"[FAIL] {name}: output file not found")
-        return False
-    golden_np = np.fromfile(golden_file, dtype=np.float32)
-    output_np = np.fromfile(output_file, dtype=np.float32)
-    if len(golden_np) != len(output_np):
-        detail = f"size mismatch (golden={len(golden_np)}, output={len(output_np)})"
-        if detail_only:
-            logger.info(detail)
-        else:
-            logger.info(f"[FAIL] {name}: {detail}")
-        return False
+def read_comparison_file(path):
+    """Read a complete, finite float32 comparison artifact."""
+    dtype = np.dtype(np.float32)
+    with open(path, "rb") as stream:
+        size = os.fstat(stream.fileno()).st_size
+        if size % dtype.itemsize:
+            raise ValueError(f"{path}: {size} bytes do not form complete float32 values")
+        values = np.fromfile(stream, dtype=dtype)
+    if not np.all(np.isfinite(values)):
+        raise ValueError(f"{path}: nonfinite comparison values")
+    return values
+
+
+def comparison_details(output_np, golden_np, atol, rtol):
     output = torch.from_numpy(output_np)
     golden = torch.from_numpy(golden_np)
     diff = torch.abs(output - golden)
@@ -68,6 +62,37 @@ def compare_one(curr_dir, name, atol, rtol, detail_only=False):
         passed = False
     else:
         detail = f"max_abs_err={max_abs_error:.6e}, rel_l2={relative_l2:.6e} (atol={atol}, rtol={rtol})"
+    return passed, detail
+
+
+def compare_one(curr_dir, name, atol, rtol, detail_only=False):
+    golden_file = os.path.join(curr_dir, f"{name}_golden.bin")
+    output_file = os.path.join(curr_dir, f"{name}_output.bin")
+    if not os.path.exists(golden_file):
+        if not detail_only:
+            logger.info(f"  [SKIP] {name}: golden file not found")
+        return True
+    if not os.path.exists(output_file):
+        if not detail_only:
+            logger.info(f"[FAIL] {name}: output file not found")
+        return False
+    try:
+        golden_np = read_comparison_file(golden_file)
+        output_np = read_comparison_file(output_file)
+    except (ValueError, OSError) as error:
+        if detail_only:
+            logger.info(str(error))
+        else:
+            logger.info(f"[FAIL] {name}: {error}")
+        return False
+    if len(golden_np) != len(output_np):
+        detail = f"size mismatch (golden={len(golden_np)}, output={len(output_np)})"
+        if detail_only:
+            logger.info(detail)
+        else:
+            logger.info(f"[FAIL] {name}: {detail}")
+        return False
+    passed, detail = comparison_details(output_np, golden_np, atol, rtol)
     if detail_only:
         logger.info(detail)
     else:
