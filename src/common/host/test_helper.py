@@ -119,6 +119,9 @@ def compare_main(curr_dir, configs):
             return 1
         atol = args.atol if args.atol is not None else cfg["atol"]
         rtol = args.rtol if args.rtol is not None else cfg["rtol"]
+        if not os.path.isfile(os.path.join(curr_dir, f"{args.case}_golden.bin")):
+            logger.info(f"[FAIL] {args.case}: explicitly selected golden file not found")
+            return 1
         ok = compare_one(curr_dir, args.case, atol, rtol, detail_only=True)
         cleanup_case(curr_dir, args.case)
         return 0 if ok else 1
