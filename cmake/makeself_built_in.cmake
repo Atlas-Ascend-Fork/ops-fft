@@ -35,10 +35,12 @@ if(NOT INSTALL_RESULT EQUAL 0)
 endif()
 
 # 生成安装配置文件
-set(CSV_OUTPUT ${CPACK_CMAKE_BINARY_DIR}/filelist.csv)
+set(CSV_OUTPUT "${CPACK_CMAKE_BINARY_DIR}/filelist.csv")
+file(REMOVE "${CSV_OUTPUT}")
 execute_process(
-    COMMAND python3 ${CPACK_CMAKE_SOURCE_DIR}/scripts/package/package.py --pkg_name ops_fft --chip_name ${CPACK_SOC} --os_arch linux-${CPACK_ARCH}
-    WORKING_DIRECTORY ${CPACK_CMAKE_BINARY_DIR}
+    COMMAND python3 "${CPACK_CMAKE_SOURCE_DIR}/scripts/package/package.py"
+        --pkg_name ops_fft --chip_name "${CPACK_SOC}" --os_arch "linux-${CPACK_ARCH}"
+    WORKING_DIRECTORY "${CPACK_CMAKE_BINARY_DIR}"
     OUTPUT_VARIABLE result
     ERROR_VARIABLE error
     RESULT_VARIABLE code
@@ -46,15 +48,14 @@ execute_process(
 )
 
 message(STATUS "package.py exit code: ${code}")
-if(NOT code EQUAL 0)
-    message(WARNING "Filelist generation failed: ${result}")
-else()
-    message(STATUS "Filelist generated successfully")
+if(NOT "${code}" STREQUAL "0")
+    message(FATAL_ERROR "Filelist generation failed (exit code: ${code}). stdout: ${result} stderr: ${error}")
 endif()
 
-if(NOT EXISTS ${CSV_OUTPUT})
-    message(WARNING "Output file not created: ${CSV_OUTPUT}")
+if(NOT EXISTS "${CSV_OUTPUT}")
+    message(FATAL_ERROR "Filelist generation succeeded but output file was not created: ${CSV_OUTPUT}")
 endif()
+message(STATUS "Filelist generated successfully")
 
 # 复制版本信息
 set(SCENE_OUT_PUT ${CPACK_CMAKE_BINARY_DIR}/scene.info)
