@@ -15,6 +15,7 @@ import contextlib
 import glob
 import io
 import logging
+import math
 import os
 import sys
 
@@ -106,10 +107,17 @@ def cleanup_case(curr_dir, name):
         os.remove(f)
 
 
+def ordered_tolerance(value):
+    tolerance = float(value)
+    if math.isnan(tolerance):
+        raise argparse.ArgumentTypeError("comparison tolerance must not be NaN")
+    return tolerance
+
+
 def compare_main(curr_dir, configs):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--atol", type=float, default=None)
-    parser.add_argument("--rtol", type=float, default=None)
+    parser.add_argument("--atol", type=ordered_tolerance, default=None)
+    parser.add_argument("--rtol", type=ordered_tolerance, default=None)
     parser.add_argument("--case", type=str, default=None)
     args = parser.parse_args()
     if args.case:
