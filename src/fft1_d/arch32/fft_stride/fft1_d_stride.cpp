@@ -52,10 +52,12 @@ aclError aclfftFft1DStride(
         return ACL_ERROR_INVALID_PARAM;
     }
     // 内核仅处理单个 n*stride 矩阵、host 缓冲也按单矩阵分配：batches>=2 时其余矩阵
-    // 被静默跳过却返回成功，显式拒绝而非静默算错（issue #86）
-    if (batches > 1) {
+    // 被静默跳过却返回成功，显式拒绝而非静默算错（issue #86）。
+    // batches==0 同样拒绝（issue #188 补齐，PR #93 检视发现 #86 的 batches>1 检查
+    // 未覆盖 0 值）：0 batch 时 kernel 不写入任何数据却返回成功
+    if (batches != 1) {
         std::cerr << "[ops-fft] aclfftFft1DStride: batches=" << batches
-                  << " is not supported (only single matrix in this version)" << std::endl;
+                  << " is not supported (only single matrix batches=1 in this version)" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
     auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();

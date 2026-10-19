@@ -338,8 +338,8 @@ const char* aclfftGetErrorString(aclfftResult result);
 | `ACLFFT_INVALID_DEVICE` | 11 | Plan 创建与执行不在同一 NPU。 |
 | `ACLFFT_PARSE_ERROR` | 12 | 内部 Plan 解析错误。 |
 | `ACLFFT_NO_WORKSPACE` | 13 | 执行前未提供 workspace。 |
-| `ACLFFT_NOT_IMPLEMENTED` | 14 | 功能未实现（如超出支持的 `fftSize` 范围、3D 变换、双精度）。 |
-| `ACLFFT_NOT_SUPPORTED` | 16 | 参数组合不支持（如 `fft2_d` 尺寸不在支持集合内）。 |
+| `ACLFFT_NOT_IMPLEMENTED` | 14 | 功能未实现（如超出支持的 `fftSize` 范围、3D 变换；3D plan 创建期传入双精度类型也返回本码）。 |
+| `ACLFFT_NOT_SUPPORTED` | 16 | 参数组合不支持（如 `fft2_d` 尺寸不在支持集合内、1D/2D plan 创建期传入当前无执行实现的双精度类型 `Z2Z`/`D2Z`/`Z2D`）。 |
 
 > **说明**：数值 15 在枚举中未使用。算子层内部若返回 ACL 错误，Exec 分发层按错误类型转换：`ACL_ERROR_INVALID_PARAM`（如质因子不支持、尺寸超限）转换为 `ACLFFT_NOT_IMPLEMENTED`，其余运行期失败统一转换为 `ACLFFT_EXEC_FAILED`。
 

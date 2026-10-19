@@ -301,6 +301,13 @@ extern "C" aclError aclfftFft1DN(
     // batch 上界校验（issue #119）：API 签名为 uint32_t，batch > INT32_MAX 时
     // ComputeRepeatBatchSize 回退分支 static_cast<int32_t> 结果为负并被写入
     // tiling.repeatBatchSize 下发，内核分块推导失真
+    // batches==0 拒绝（issue #188，与 n==0 同口径）：batches=0 时 inputSize=0
+    // 触发 0 字节 aclrtMalloc（ACL 语义要求 size>0，行为未定义）与空内核启动，
+    // 返回"成功"但输出缓冲未写入
+    if (batches == 0) {
+        std::cerr << "fft_n: batches=0 is not supported" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     if (batches > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
         std::cerr << "fft_n: batches=" << batches << " exceeds INT32_MAX" << std::endl;
         return ACL_ERROR_INVALID_PARAM;

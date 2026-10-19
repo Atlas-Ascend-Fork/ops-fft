@@ -21,6 +21,11 @@ aclfftResult aclfftExecC2C_2D(aclfftHandle plan,
     aclfftHandle_t* impl = plan;
     ACLFFT_CHECK_PARAM(impl != nullptr && idata != nullptr && odata != nullptr, ACLFFT_INVALID_VALUE);
     ACLFFT_CHECK_PARAM(impl->rank == 2, ACLFFT_INVALID_VALUE);
+    // plan 初始化状态与类型校验（issue #191）：weak 符号可被直接调用，lib 层
+    // 校验可被绕过；未初始化 plan 的 lengths 为 0 值垃圾语义，R2C/C2R plan 按
+    // C2C 语义访问缓冲造成越界读
+    ACLFFT_CHECK_PARAM(impl->is_initialized, ACLFFT_INVALID_VALUE);
+    ACLFFT_EXEC_1D_EXPECT_TYPE(impl, aclfftType::ACLFFT_C2C, "C2C 2D arch32");
     // direction 域校验（issue #147）：weak 符号可被直接调用，非法值不得静默按逆变换执行
     ACLFFT_CHECK_PARAM(direction == ACLFFT_FORWARD || direction == ACLFFT_BACKWARD, ACLFFT_INVALID_VALUE);
 

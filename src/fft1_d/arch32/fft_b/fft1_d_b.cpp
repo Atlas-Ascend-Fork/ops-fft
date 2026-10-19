@@ -138,6 +138,13 @@ extern "C" aclError aclfftFft1DB(float *x, float *y, uint32_t n,
         std::cerr << "[ops-fft] aclfftFft1DB: input/output pointer is null" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // batches==0 拒绝（issue #188，与 n==0 同口径）：batches=0 时 inputSize=0
+    // 触发 0 字节 aclrtMalloc 与空内核启动，返回"成功"但输出缓冲未写入；
+    // 原 needCoreNum==0 兜底掩盖了该非法输入
+    if (batches == 0) {
+        std::cerr << "[ops-fft] aclfftFft1DB: batches=0 is not supported" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();
     uint32_t coreNum = ascendcPlatform->GetCoreNumAic();
     if (coreNum == 0) {

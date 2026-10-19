@@ -269,8 +269,8 @@ aclfftResult aclfftExecC2R(aclfftHandle     plan,
 
 | 算子 | Kernel（接口） | 触发条件 | fftSize(nx) | batch | 横向/纵向 | 前向/后向 | 输入类型 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| C2C | Stockham radix-2（`aclfftFft1DC2C`，`src/fft1_d/arch35/fft/`） | radix==2（n 为 2 的幂） | 256 < nx ≤ $2^{27}$ | 任意 | 横向 | 前向+后向 | 复数（aclfftComplex） |
-| C2C | Stockham mixed-radix（`aclfftFft1DC2CMix`，`src/fft1_d/arch35/mix/`） | radix==mix（n 含 3/5/7/11/13/17/19 等非 2 质因子） | 256 < nx ≤ $2^{27}$，质因子 ⊆ {2,3,5,7,11,13,17,19} | 任意 | 横向 | 前向+后向 | 复数（aclfftComplex） |
+| C2C | Stockham radix-2（`aclfftFft1DC2C`，`src/fft1_d/arch35/fft/`） | radix==2（n 为 2 的幂） | 1 < nx ≤ $2^{27}$ | 任意 | 横向 | 前向+后向 | 复数（aclfftComplex） |
+| C2C | Stockham mixed-radix（`aclfftFft1DC2CMix`，`src/fft1_d/arch35/mix/`） | radix==mix（n 含 3/5/7/11/13/17/19 等非 2 质因子） | 1 < nx ≤ $2^{27}$，质因子 ⊆ {2,3,5,7,11,13,17,19} | 任意 | 横向 | 前向+后向 | 复数（aclfftComplex） |
 | R2C | FFT（`aclfftRfft1DFft`） | n > 1024 且 radix==mix（**优先级最高**） | 1024 < nx ≤ $2^{27}$，质因子 ⊆ {2,3,5,7} | 任意 | 横向 | **仅前向** | 实数（aclfftReal） |
 | R2C | FastDFT（`aclfftRfft1D`） | 兜底（**优先级最低**） | 任意正整数，1 ≤ nx ≤ 4096 | 任意 | 横向 | **仅前向** | 实数（aclfftReal） |
 | C2R | C2R FFT（`aclfftIrfft1DFft`） | radix==mix | 1024 < nx ≤ $2^{27}$，质因子 ⊆ {2,3,5,7} | 任意 | 横向 | **仅后向** | 复数（aclfftComplex） |
@@ -295,7 +295,7 @@ batch 不在上述范围或 nx 未命中时按以下规则兜底：`nx ≤ 256 �
 
 **950 C2C 选核（radix-2 vs mixed-radix）**
 
-由 `ChooseRadix` 按 nx 质因子选择：`2 的幂 → aclfftFft1DC2C`；`含 {3,5,7,11,13,17,19} 等非 2 质因子 → aclfftFft1DC2CMix`。**质因子上限为 19**——含 23 及以上更大质因子时不支持（返回 `ACLFFT_NOT_IMPLEMENTED`）。
+由 `ChooseRadix` 按 nx 质因子选择：`2 的幂 → aclfftFft1DC2C`；`含 {3,5,7,11,13,17,19} 等非 2 质因子 → aclfftFft1DC2CMix`。**质因子上限为 19**——含 23 及以上更大质因子时不支持（返回 `ACLFFT_NOT_IMPLEMENTED`）。**nx 下界为 2**——选核与执行均要求 nx > 1，nx=1 的 plan 可创建成功但执行时落入兜底分支返回 `ACLFFT_NOT_IMPLEMENTED`（issue #194）。
 
 **950 R2C 选核（FFT 优先，FastDFT 兜底）**
 

@@ -82,7 +82,7 @@ check_version_file() {
   local run_pkg_path="${run_pkg_path_temp}/${component_ret}"
   version_file="${run_pkg_path}/version.info"
   if [ -f "${version_file}" ]; then
-    echo "${version_file}" 2 >>/dev/null
+    echo "${version_file}" 2>/dev/null
   else
     logandprint "[ERROR]: ERR_NO:${FILE_NOT_EXIST}; The [${component_ret}] version.info in path [${pkg_path}] not exists."
     exit 1
@@ -98,6 +98,10 @@ check_opp_version_file() {
     ver_info="${_DEFAULT_INSTALL_PATH}/ops_fft/version.info"
   else
     logandprint "[ERROR]: ERR_NO:${FILE_NOT_EXIST}; The [ops_fft] version.info not exists."
+    # 自身版本信息缺失时确定性失败（issue #196）：ver_info 保持为空会导致
+    # 后续依赖比对走入交互式 y/n 询问并以 0 退出，版本错配未被拦截；
+    # 与 check_version_file 的既有 exit 1 口径一致
+    exit 1
   fi
   return
 }
@@ -113,6 +117,10 @@ check_relation() {
     ret_situation="$ver_check_status"
   else
     logandprint "[ERROR]: ERR_NO:${FILE_NOT_EXIST}; The ${_COMMON_INC_FILE} not exists."
+    # 公共函数库缺失属安装包损坏，确定性失败（PR #93 检视修正）：原先仅打日志
+    # 且 ret_situation 保持空值，show_relation 拿空值进入交互式 y/n 询问，
+    # 非交互安装场景下 read 立即读到 EOF 循环并最终按 y 继续，校验被静默跳过
+    exit 1
   fi
   return
 }
@@ -174,4 +182,7 @@ version_check() {
 }
 
 version_check "${REQ_VER_PATH}"
+# 按校验结果退出（issue #196）：原无条件 exit 0 吞掉全部错误路径的失败状态，
+# 上层安装器无法感知版本校验失败；version_check 内部错误路径均以 exit 1 终止，
+# 走到这里说明常规成功路径完成
 exit 0

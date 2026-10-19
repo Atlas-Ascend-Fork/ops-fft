@@ -67,6 +67,19 @@ extern "C" aclError aclfftFft2DDd(float *x, float *y, uint32_t fftX, uint32_t ff
         std::cerr << "[ops-fft] aclfftFft2DDd: input/output pointer is null" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // isForward 值域校验（issue #193，对齐 1D #147/#160/#167/#168 口径）：原实现
+    // 以 isForward != 0 判定方向，任意非 0 值（如 2、-1）都按 forward 静默执行
+    if (isForward != 0 && isForward != 1) {
+        std::cerr << "[ops-fft] aclfftFft2DDd: isForward=" << isForward
+                  << " invalid (expected 0=backward or 1=forward)" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    // batches==0 拒绝（issue #193，对齐 1D #188 口径）：inputSize=0 触发 0 字节
+    // aclrtMalloc 与空内核启动，返回"成功"但输出缓冲未写入
+    if (batches == 0) {
+        std::cerr << "[ops-fft] aclfftFft2DDd: batches=0 is not supported" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();
     uint32_t coreNum = ascendcPlatform->GetCoreNumAic();
     if (coreNum == 0) {

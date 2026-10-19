@@ -30,6 +30,19 @@ extern "C" aclError aclfftFft1DMix(float *x, float *y, uint32_t n,
         std::cerr << "[ops-fft] aclfftFft1DMix: n=0 is not supported" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // n 上界校验（issue #187，对齐 aclfftFft1DN #161 与 FFT_1D.md 文档口径）：
+    // 全为小因子的超界 n（如 3x2^28）可通过分解完整性校验，随后 O(n) 宿主矩阵
+    // 分配失败 bad_alloc 穿透 extern "C" 边界致 std::terminate
+    if (n > (1u << 27)) {
+        std::cerr << "[ops-fft] aclfftFft1DMix: n=" << n << " out of supported range (0, 2^27]" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    // batches==0 拒绝（issue #188，与 n==0 同口径）：batches=0 时 inputSize=0
+    // 触发 0 字节 aclrtMalloc 与空内核启动，返回"成功"但输出缓冲未写入
+    if (batches == 0) {
+        std::cerr << "[ops-fft] aclfftFft1DMix: batches=0 is not supported" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     auto plat = platform_ascendc::PlatformAscendCManager::GetInstance();
     uint32_t coreNum = plat->GetCoreNumAic(); if (coreNum == 0) coreNum = 1;
     uint32_t maxCore = std::min(coreNum, 20u);

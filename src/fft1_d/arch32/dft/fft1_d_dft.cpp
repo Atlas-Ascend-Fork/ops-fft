@@ -100,6 +100,13 @@ extern "C" aclError aclfftFft1DDft(
         std::cerr << "[ops-fft] aclfftFft1DDft: n=" << n << " out of range [1, 1024]" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // batches==0 拒绝（issue #188 补齐，PR #93 检视发现遗漏，对齐 rfft/irfft Dft
+    // 口径）：batches=0 时 inputSize=0 触发 0 字节 aclrtMalloc 与空内核启动，
+    // 返回"成功"但输出缓冲未写入
+    if (batches == 0) {
+        std::cerr << "[ops-fft] aclfftFft1DDft: batches=0 is not supported" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();
     uint32_t coreNum = ascendcPlatform->GetCoreNumAic();
     // 平台信息查询失败时 GetCoreNumAic 可能返回 0（同仓其余 13 处入口均已兜底），

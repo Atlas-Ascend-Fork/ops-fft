@@ -16,6 +16,7 @@ aclfftResult aclfftExecR2C_1D(aclfftHandle plan, aclfftReal* idata, aclfftComple
 {
     aclfftHandle_t* impl = plan;
     ACLFFT_EXEC_1D_ENTRY_CHECKS(impl, idata, odata, "R2C arch32");
+    ACLFFT_EXEC_1D_EXPECT_TYPE(impl, aclfftType::ACLFFT_R2C, "R2C arch32");
 
     const int64_t n = static_cast<int64_t>(impl->lengths[0]);
     const uint32_t batch = impl->batch;

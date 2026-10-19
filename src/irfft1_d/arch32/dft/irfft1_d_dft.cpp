@@ -75,6 +75,12 @@ extern "C" aclError aclfftIrfft1DDft(
     // batches 上界防护（issue #163，对齐 fft1_d_n.cpp #119 口径）：uint32_t 的
     // batches 直接赋给 int32_t 时 >INT32_MAX 会截断为负值写入 tilingData.m，
     // 内核循环推导为负、循环体不执行，D2H 拷回未初始化输出仍返回成功
+    // batches==0 拒绝（issue #188，与 n==0 同口径）：batches=0 时 outputSize=0
+    // 触发 0 字节 aclrtMalloc 与空内核启动，返回"成功"但输出缓冲未写入
+    if (batches == 0) {
+        std::cerr << "[ops-fft] aclfftIrfft1DDft: batches=0 is not supported" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     if (batches > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
         std::cerr << "[ops-fft] aclfftIrfft1DDft: batches=" << batches << " exceeds INT32_MAX" << std::endl;
         return ACL_ERROR_INVALID_PARAM;

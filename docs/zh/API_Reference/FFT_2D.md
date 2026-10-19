@@ -154,7 +154,7 @@ aclfftResult aclfftExecC2C(aclfftHandle     plan,
 
 | 算子 | Kernel（接口） | 触发条件 | fftSize(nx) | fftSize(ny) | batch | 横向/纵向 | 前向/后向 | 输入类型 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| C2C | DD（`aclfftFft2DDd`） | radixX==2 && radixY==2 | nx ∈ {32,64,128} | ny ∈ {32,64,128} | 任意 | 2D | 前向+后向 | 复数（aclfftComplex） |
+| C2C | DD（`aclfftFft2DDd`） | 固定 DD 核，仅看尺寸组合（与质因数分解无关，issue #95） | nx ∈ {32,64,128} | ny ∈ {32,64,128} | 任意 | 2D | 前向+后向 | 复数（aclfftComplex） |
 
 - DD 核支持 9 种 (nx, ny) 组合：{32,64,128}×{32,64,128}。
 

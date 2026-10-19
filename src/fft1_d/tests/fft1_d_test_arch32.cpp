@@ -10,6 +10,8 @@
 
 #include "fft1_d_test.h"
 #include "fft1_d/fft1_d.h"
+#include "rfft1_d/rfft1_d.h"
+#include "irfft1_d/irfft1_d.h"
 
 namespace Fft1DApiIntegrationTest {
     static std::vector<C2CTestCase> build_precision_cases() {
@@ -46,26 +48,37 @@ namespace Fft1DApiIntegrationTest {
     }
 
     // 负向/防护测试：不依赖 golden 数据，仅断言返回码与进程存活
-    // issue #72: VERTICAL plan + 不支持的 n（非 2 的幂或不在 [2^8, 2^18]）应返回错误码而非异常穿透
+    // issue #72/#190: VERTICAL plan + 不支持的 n（非 2 的幂或不在 [2^8, 2^18]）
+    // 应在 plan 创建期返回 ACLFFT_INVALID_SIZE 而非异常穿透；#190 前为创建成功
+    // + exec 期 NOT_IMPLEMENTED，校验前移后本用例同步更新断言（PR #93 检视修正）
     static void run_vertical_unsupported_test(OpsFftTest::TestStats& stats) {
         TEST_CASE_BEGIN("vertical_unsupported_n64");
-        aclfftHandle plan;
+        aclfftHandle plan = nullptr;
         aclfftResult plan_res = aclfftPlan1d(&plan, 64, ACLFFT_C2C, 128, ACLFFT_VERTICAL);
-        if (plan_res != ACLFFT_SUCCESS) {
-            TEST_CASE_FAIL_DETAIL(stats, "vertical_unsupported_n64", "plan creation failed");
+        if (plan_res == ACLFFT_INVALID_SIZE) {
+            TEST_CASE_PASS_DETAIL(stats, "vertical_unsupported_n64",
+                                   "unsupported VERTICAL n=64 rejected at plan creation with ACLFFT_INVALID_SIZE");
             return;
         }
-        std::vector<aclfftComplex> in(64 * 128);
-        std::vector<aclfftComplex> out(64 * 128);
-        aclfftResult res = aclfftExecC2C(plan, in.data(), out.data(), ACLFFT_FORWARD);
-        aclfftDestroy(plan);
-        if (res == ACLFFT_NOT_IMPLEMENTED) {
-            TEST_CASE_PASS_DETAIL(stats, "vertical_unsupported_n64",
-                                   "unsupported VERTICAL n=64 returns ACLFFT_NOT_IMPLEMENTED, no crash");
-        } else {
-            TEST_CASE_FAIL_DETAIL(stats, "vertical_unsupported_n64",
-                                   "expected ACLFFT_NOT_IMPLEMENTED, got " + std::to_string(static_cast<int>(res)));
+        if (plan_res == ACLFFT_SUCCESS) {
+            // 兼容校验未前移的旧实现：exec 应返回 ACLFFT_NOT_IMPLEMENTED 而非崩溃
+            std::vector<aclfftComplex> in(64 * 128);
+            std::vector<aclfftComplex> out(64 * 128);
+            aclfftResult res = aclfftExecC2C(plan, in.data(), out.data(), ACLFFT_FORWARD);
+            aclfftDestroy(plan);
+            if (res == ACLFFT_NOT_IMPLEMENTED) {
+                TEST_CASE_PASS_DETAIL(stats, "vertical_unsupported_n64",
+                                       "unsupported VERTICAL n=64 returns ACLFFT_NOT_IMPLEMENTED at exec, no crash");
+            } else {
+                TEST_CASE_FAIL_DETAIL(stats, "vertical_unsupported_n64",
+                                       "expected ACLFFT_NOT_IMPLEMENTED at exec, got " +
+                                           std::to_string(static_cast<int>(res)));
+            }
+            return;
         }
+        TEST_CASE_FAIL_DETAIL(stats, "vertical_unsupported_n64",
+                               "expected plan-time ACLFFT_INVALID_SIZE (or legacy exec-time NOT_IMPLEMENTED), got " +
+                                   std::to_string(static_cast<int>(plan_res)));
     }
 
     // issue #72: 直连 fft_b/stride 入口传不支持的 n，应返回错误码而非 throw 穿透 C 边界
@@ -103,11 +116,54 @@ namespace Fft1DApiIntegrationTest {
         }
     }
 
+    // issue #189: 新增入口拒绝路径的负向回归——每类校验至少 1 个用例并断言
+    // 错误码，防止校验被重构/合并移动后 UT 仍全绿（isForward 校验曾有先例）
+    static void run_entry_reject_regression_test(OpsFftTest::TestStats& stats) {
+        TEST_CASE_BEGIN("entry_reject_regression");
+        float dummy = 0.0f;
+        bool all_ok = true;
+        // 7 参数入口签名为 (x, y, n, norm, batches, isForward, stream)，
+        // norm 传 0（本版本仅支持 0=BACKWARD）：norm!=0 的校验先于目标校验执行，
+        // 若此位误传 1 用例会被 norm 拒绝路径"假通过"（PR #93 检视修正）
+        // 1) n==0 拒绝（Mix/R2CFft/C2RFft 家族，issue #164/#165/#166）
+        if (aclfftFft1DMix(&dummy, &dummy, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DR2CFft(&dummy, &dummy, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftIrfft1DC2RFft(&dummy, &dummy, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        // 2) n > 2^27 上界拒绝（Fft1DN/Mix/R2CFft/C2RFft，issue #161/#187）
+        if (aclfftFft1DN(&dummy, &dummy, (1u << 27) + 1, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftFft1DMix(&dummy, &dummy, (1u << 27) + 1, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        // 3) batches==0 拒绝（issue #188）
+        if (aclfftFft1DN(&dummy, &dummy, 32768, 0, 0, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftFft1DDft(&dummy, &dummy, 256, 0, 0, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        // 4) batches > INT32_MAX 拒绝（issue #119/#162/#163）
+        if (aclfftFft1DN(&dummy, &dummy, 32768, 0, 0x80000000u, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DDft(&dummy, &dummy, 256, 0, 0x80000000u, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        // 5) isForward 非法值拒绝（issue #147/#167/#168/#169）
+        if (aclfftFft1DDft(&dummy, &dummy, 256, 0, 1, 2, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftIrfft1DDft(&dummy, &dummy, 256, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        // 6) 1D plan 创建期拒绝 Z2Z/D2Z/Z2D（issue #171），错误码 ACLFFT_NOT_SUPPORTED
+        aclfftHandle plan = nullptr;
+        if (aclfftPlan1d(&plan, 256, ACLFFT_Z2Z, 1, ACLFFT_HORIZONTAL) != ACLFFT_NOT_SUPPORTED) all_ok = false;
+        if (aclfftPlan1d(&plan, 256, ACLFFT_D2Z, 1, ACLFFT_HORIZONTAL) != ACLFFT_NOT_SUPPORTED) all_ok = false;
+        // 7) plan 创建期 fftSize 域校验（issue #190），错误码 ACLFFT_INVALID_SIZE
+        if (aclfftPlan1d(&plan, (1 << 27) + 1, ACLFFT_C2C, 1, ACLFFT_HORIZONTAL) != ACLFFT_INVALID_SIZE) all_ok = false;
+        if (aclfftPlan1d(&plan, 128, ACLFFT_C2C, 1, ACLFFT_VERTICAL) != ACLFFT_INVALID_SIZE) all_ok = false;
+        if (aclfftPlan1d(&plan, 300, ACLFFT_C2C, 1, ACLFFT_VERTICAL) != ACLFFT_INVALID_SIZE) all_ok = false;
+        if (all_ok) {
+            TEST_CASE_PASS_DETAIL(stats, "entry_reject_regression",
+                                   "all reject paths return the documented error codes");
+        } else {
+            TEST_CASE_FAIL_DETAIL(stats, "entry_reject_regression",
+                                   "some reject path missing or wrong error code (see build log)");
+        }
+    }
+
     void run_all_tests(aclrtStream stream, OpsFftTest::TestStats& stats) {
         OpsFftTest::RunBatchTests(stream, stats, "fft1_d", build_precision_cases(), run_c2c_case);
         run_vertical_unsupported_test(stats);
         run_host_entry_unsupported_n_test(stats);
         run_host_entry_null_pointer_test(stats);
+        run_entry_reject_regression_test(stats);
     }
 }
 

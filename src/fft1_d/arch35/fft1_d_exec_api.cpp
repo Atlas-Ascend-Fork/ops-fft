@@ -18,6 +18,11 @@ aclfftResult aclfftExecC2C_1D(aclfftHandle plan, aclfftComplex* idata, aclfftCom
     // 防护: 本函数为 weak 符号可被外部直接调用，plan/idata/odata 可能为 NULL（issue #73）
     ACLFFT_CHECK_PARAM(impl != nullptr && idata != nullptr && odata != nullptr, ACLFFT_INVALID_VALUE);
     ACLFFT_CHECK_PARAM(impl->rank == 1, ACLFFT_INVALID_VALUE);
+    // plan 初始化状态与类型校验（issue #191）：weak 符号可被直接调用，lib 层
+    // 校验可被绕过；未初始化 plan 的 lengths/stride 为 0 值垃圾语义，R2C/C2R
+    // plan 按 C2C 语义读 2n 个 float 造成最高 2 倍输入缓冲越界读
+    ACLFFT_CHECK_PARAM(impl->is_initialized, ACLFFT_INVALID_VALUE);
+    ACLFFT_EXEC_1D_EXPECT_TYPE(impl, aclfftType::ACLFFT_C2C, "C2C arch35");
     // direction 域校验（issue #134）：weak 符号可被直接调用，lib 层校验可被绕过
     ACLFFT_CHECK_PARAM(direction == ACLFFT_FORWARD || direction == ACLFFT_BACKWARD, ACLFFT_INVALID_VALUE);
 

@@ -116,51 +116,10 @@ function(register_operator)
 
 endfunction()
 
-##############################################################################
-# 函数: register_operator_test
-#
-# 功能: 注册算子测试到 CTest
-#
-# 参数:
-#   OP_NAME   - 算子名称 (必需)
-##############################################################################
-function(register_operator_test OP_NAME)
-    if(NOT BUILD_TESTING)
-        return()
-    endif()
-
-    # 测试可执行文件
-    add_executable(${OP_NAME}_test tests/${OP_NAME}_test.cpp)
-
-    # 链接库
-    target_link_libraries(${OP_NAME}_test
-        PRIVATE
-        ${OPS_FFT}
-        ${ASCEND_HOME_PATH}/lib64/libascendcl.so
-        ${ASCEND_HOME_PATH}/lib64/libacl_rt.so
-    )
-
-    # 包含目录
-    target_include_directories(${OP_NAME}_test PRIVATE
-        ${CMAKE_SOURCE_DIR}/include
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        ${ASCEND_HOME_PATH}/include
-    )
-
-    # 编译定义
-    string(TOUPPER ${OP_NAME} OP_UPPER)
-    target_compile_definitions(${OP_NAME}_test PRIVATE ENABLE_OPERATOR_${OP_UPPER}=1)
-
-    # 添加到CTest
-    add_test(NAME ${OP_NAME}_test COMMAND ${OP_NAME}_test)
-    set_tests_properties(${OP_NAME}_test PROPERTIES
-        LABELS "operator;${OP_NAME}"
-        TIMEOUT 300
-    )
-
-    message(STATUS "  Configured test for: ${OP_NAME}")
-endfunction()
-
+# 说明（issue #198）：原 register_operator_test(OP_NAME) 函数已删除——全仓无
+# 调用点的死代码，且其假设的 tests/<op>_test.cpp 布局与仓库实际的
+# tests/all_tests.cpp.in 公共测试框架不符，一旦被调用将因源文件不存在导致
+# CMake 配置失败。测试注册由 tests/CMakeLists.txt 的 all_tests 模板机制承担。
 ##############################################################################
 # 版本和依赖管理函数
 ##############################################################################
