@@ -137,6 +137,12 @@ aclfftResult aclfftExecC2C(aclfftHandle     plan,
 
 - **返回值**：返回 `aclfftResult` 状态码，具体参见[FFT公共接口](./FFT公共接口.md#错误码aclfftresult)。
 
+### 变换缩放规则
+
+- 正向变换不缩放：`Y[kx, ky] = Σ(x=0..nx-1, y=0..ny-1) x[x, y] · exp(-2πi(kx·x/nx + ky·y/ny))`，其中 `0≤kx<nx`、`0≤ky<ny`。
+- 反向变换也不缩放：`y[x, y] = Σ(kx=0..nx-1, ky=0..ny-1) Y[kx, ky] · exp(+2πi(kx·x/nx + ky·y/ny))`。
+- 因此正向后接反向的结果为原输入乘以 `nx*ny`。与默认归一化的 `torch.fft.ifft2` 对比时，需将参考结果乘以 `nx*ny`。
+
 ## 约束说明
 
 > 本节按芯片类型拆分，约束值均依据 ops-fft 源码实际实现。表格仅列该芯片已实现路径。
