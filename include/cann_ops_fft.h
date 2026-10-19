@@ -37,7 +37,7 @@ typedef enum aclfftResult_t
     ACLFFT_INVALID_PLAN = 1,
     /*! CANN FFT failed to allocate NPU or CPU memory */
     ACLFFT_ALLOC_FAILED = 2,
-    /*! No longer used */
+    /*! Invalid or unsupported transform type, including a Plan/Exec type mismatch. */
     ACLFFT_INVALID_TYPE = 3,
     /*! User specified an invalid pointer or parameter */
     ACLFFT_INVALID_VALUE = 4,
