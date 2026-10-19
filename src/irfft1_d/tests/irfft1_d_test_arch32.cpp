@@ -19,6 +19,7 @@ namespace Irfft1DApiIntegrationTest {
             // c2r n>1024 radix-mix -> arch32/c2r_fft/ : fft_c2r
             {"c2r_fft_n1536",  1536,  4},
             {"c2r_fft_n8192",  8192,  4},
+            {"c2r_fft_n8192_nyquist", 8192, 1},
             {"c2r_fft_n2048_b100",  2048, 100},
             {"c2r_fft_odd_n1025",  1025,  4},
         };

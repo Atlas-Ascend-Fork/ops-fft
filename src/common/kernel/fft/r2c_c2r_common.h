@@ -511,6 +511,8 @@ __aicore__ __inline__ void C2R(
         // 每次把实数和虚部一起取出来
         uint64_t loopN_times = batch_size;
         // 每次取得数的个数
+        // Keep the number of output tiles based on N. The last input tile may
+        // contain the extra Nyquist pair (N+2 floats in total).
         uint64_t repeat_times = (N + BIASC - 1) / BIASC;
 
         uint64_t ping = 1;
@@ -571,7 +573,7 @@ __aicore__ __inline__ void C2R(
             int reverse_offset = 0;
 
             if (repeat_times != 1) {                        // 若N-2长度大于4096则循环
-                actual_n = (loop + 1) * BIASC <= (N + 2) ? BIASC : ((N + 2) - loop * BIASC);
+                actual_n = loop + 1 < repeat_times ? BIASC : ((N + 2) - loop * BIASC);
             }
             
             if (repeat_times != 1 && actual_n != BIASC) {   // 需要读到对应的reverse数组
@@ -586,12 +588,12 @@ __aicore__ __inline__ void C2R(
             
             AscendC::DataCopyPad(MatrixA_Real_ub_tensor, a_gm_tensor[offset_loopc / 2], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));      // 搬对应的N-2个数进来
             AscendC::PipeBarrier<PIPE_MTE2>();
-            AscendC::DataCopyPad(MatrixA_Imag_ub_tensor, a_gm_tensor[offset_loopc / 2 + N / 2], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));       // 搬对应的N-2个数进来
+            AscendC::DataCopyPad(MatrixA_Imag_ub_tensor, a_gm_tensor[offset_loopc / 2 + N / 2 + 1], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));       // 搬对应的N-2个数进来
             AscendC::PipeBarrier<PIPE_MTE2>();
 
             AscendC::DataCopyPad(MatrixB_Real_ub_tensor, b_gm_tensor[offset_loopc / 2], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));
             AscendC::PipeBarrier<PIPE_MTE2>();      // 搬对应的N-2个数进来
-            AscendC::DataCopyPad(MatrixB_Imag_ub_tensor, b_gm_tensor[offset_loopc / 2 + N / 2], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));      // 搬对应的N-2个数进来
+            AscendC::DataCopyPad(MatrixB_Imag_ub_tensor, b_gm_tensor[offset_loopc / 2 + N / 2 + 1], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));      // 搬对应的N-2个数进来
             AscendC::PipeBarrier<PIPE_MTE2>();
 
 #endif
@@ -610,13 +612,13 @@ __aicore__ __inline__ void C2R(
                     // LOAD A Matrix
                     AscendC::DataCopy(MatrixA_Real_ub_tensor, a_gm_tensor[offset_loopc / 2], AscendC::DataCopyParams(1, (lenBurstC + 1) / 2, 0, 0));
                     AscendC::PipeBarrier<PIPE_MTE2>();
-                    AscendC::DataCopy(MatrixA_Imag_ub_tensor, a_gm_tensor[offset_loopc / 2 + N / 2], AscendC::DataCopyParams(1, (lenBurstC + 1) / 2, 0, 0));
+                    AscendC::DataCopy(MatrixA_Imag_ub_tensor, a_gm_tensor[offset_loopc / 2 + N / 2 + 1], AscendC::DataCopyParams(1, (lenBurstC + 1) / 2, 0, 0));
                     AscendC::PipeBarrier<PIPE_MTE2>();
                     init_A = 1;
                 } else if (init_A == 0) {
                     AscendC::DataCopyPad(MatrixA_Real_ub_tensor, a_gm_tensor[offset_loopc / 2], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));    // 搬对应的N-2个数进来
                     AscendC::PipeBarrier<PIPE_MTE2>();
-                    AscendC::DataCopyPad(MatrixA_Imag_ub_tensor, a_gm_tensor[offset_loopc / 2 + N / 2], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));    // 搬对应的N-2个数进来
+                    AscendC::DataCopyPad(MatrixA_Imag_ub_tensor, a_gm_tensor[offset_loopc / 2 + N / 2 + 1], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));    // 搬对应的N-2个数进来
                     AscendC::PipeBarrier<PIPE_MTE2>();
                     init_A = 1;
                 }
@@ -626,13 +628,13 @@ __aicore__ __inline__ void C2R(
                     // LOAD B Matrix
                     AscendC::DataCopy(MatrixB_Real_ub_tensor, b_gm_tensor[offset_loopc / 2], AscendC::DataCopyParams(1, (lenBurstC + 1) / 2, 0, 0));
                     AscendC::PipeBarrier<PIPE_MTE2>();
-                    AscendC::DataCopy(MatrixB_Imag_ub_tensor, b_gm_tensor[offset_loopc / 2 + N / 2], AscendC::DataCopyParams(1, (lenBurstC + 1) / 2, 0, 0));
+                    AscendC::DataCopy(MatrixB_Imag_ub_tensor, b_gm_tensor[offset_loopc / 2 + N / 2 + 1], AscendC::DataCopyParams(1, (lenBurstC + 1) / 2, 0, 0));
                     AscendC::PipeBarrier<PIPE_MTE2>();
                     init_B = 1;
                 } else if (init_B == 0) {
                     AscendC::DataCopyPad(MatrixB_Real_ub_tensor, b_gm_tensor[offset_loopc / 2], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));
                     AscendC::PipeBarrier<PIPE_MTE2>();
-                    AscendC::DataCopyPad(MatrixB_Imag_ub_tensor, b_gm_tensor[offset_loopc / 2 + N / 2], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));
+                    AscendC::DataCopyPad(MatrixB_Imag_ub_tensor, b_gm_tensor[offset_loopc / 2 + N / 2 + 1], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));
                     AscendC::PipeBarrier<PIPE_MTE2>();
                     init_B = 1;
                 }
@@ -665,6 +667,13 @@ __aicore__ __inline__ void C2R(
                 //  **********搬入***************
                 int actual_n = N + 2;
                 actual_n = actual_n < BIASC ? actual_n : ((loop + 1) * BIASC <= actual_n ? BIASC : (actual_n - loop * BIASC));
+#ifdef MIX_CORE
+                if (repeat_times != 1 && loop + 1 == repeat_times) {
+                    actual_n = N + 2 - loop * BIASC;
+                }
+                repeat = (actual_n / 2 + 63) / 64;
+                repeat_reduce = (actual_n + 63) / 64;
+#endif
 
 #ifndef MIX_CORE
                 bool aligned = (actual_n % BLOCK_SIZE_8 == 0);
@@ -686,7 +695,7 @@ __aicore__ __inline__ void C2R(
 #ifndef MIX_CORE
                 if (loop == repeat_times - 1) {
 #else
-                if (loop == repeat_times - 1 && (N % BIASC != 0)) {
+                if (loop == repeat_times - 1 && ((N + 2) % BIASC != 0)) {
 #endif
 
                     int setzero_offset = actual_n / 64;
@@ -754,7 +763,7 @@ __aicore__ __inline__ void C2R(
                     // 大于 UB_VEC_SIZE, 需要倒着读一块， 然后把这块倒着读回来参与计算
  
 #else
-                    int64_t offset_block = ((loop + 1) * BIASC >= (N + 2)) ? (N + 2) : (loop * BIASC + BIASC);
+                    int64_t offset_block = loop * BIASC + actual_n;
                     int64_t offset_loopc_rev = (N + 2) - offset_block;
                     AscendC::SetFlag<AscendC::HardEvent::V_MTE2>(event_id);
                     AscendC::WaitFlag<AscendC::HardEvent::V_MTE2>(event_id);

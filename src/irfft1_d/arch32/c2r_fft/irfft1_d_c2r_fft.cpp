@@ -96,16 +96,21 @@ static void GenABTable(int64_t fftN, int parity, bool forward, std::vector<float
 
     if (parity == 0) {
         int32_t tableSize = (int32_t)fftN;
-        aTable.assign(tableSize * 2, 0.0f);
-        bTable.assign(tableSize * 2, 0.0f);
+        int32_t tableStride = tableSize + 1; // Include the Nyquist endpoint.
+        aTable.assign(tableStride * 2, 0.0f);
+        bTable.assign(tableStride * 2, 0.0f);
         for (int32_t i = 0; i < tableSize; ++i) {
             double cosVal = std::cos(3.14159265358979323846 * i / tableSize);
             double sinVal = std::sin(3.14159265358979323846 * i / tableSize);
             aTable[i] = (float)((1.0 - factor * sinVal));
-            aTable[tableSize + i] = (float)(cosVal);
+            aTable[tableStride + i] = (float)(cosVal);
             bTable[i] = (float)((1.0 + factor * sinVal));
-            bTable[tableSize + i] = (float)(-1.0 * cosVal);
+            bTable[tableStride + i] = (float)(-1.0 * cosVal);
         }
+        aTable[tableSize] = 1.0f;
+        aTable[tableStride + tableSize] = -1.0f;
+        bTable[tableSize] = 1.0f;
+        bTable[tableStride + tableSize] = 1.0f;
     } else {
         aTable.clear();
         bTable.clear();

@@ -29,6 +29,7 @@ configs = [
     {"name": "c2r_n5040", "n": 5040, "batch": 1},
     {"name": "c2r_fft_n1536", "n": 1536, "batch": 4},
     {"name": "c2r_fft_n8192", "n": 8192, "batch": 4},
+    {"name": "c2r_fft_n8192_nyquist", "n": 8192, "batch": 1, "nyquist_only": True},
     {"name": "c2r_fft_n2048_b100", "n": 2048, "batch": 100},
     {"name": "c2r_fft_odd_n1025", "n": 1025, "batch": 4},
 ]
@@ -41,7 +42,11 @@ def gen_one(cfg, seed):
     freq_size = n // 2 + 1
     total_input = freq_size * batch
     torch.manual_seed(seed)
-    input_complex = torch.randn(batch, freq_size, dtype=torch.complex64)
+    if cfg.get("nyquist_only", False):
+        input_complex = torch.zeros(batch, freq_size, dtype=torch.complex64)
+        input_complex[:, -1] = 1.0
+    else:
+        input_complex = torch.randn(batch, freq_size, dtype=torch.complex64)
     input_flat = np.empty(total_input * 2, dtype=np.float32)
     input_flat[0::2] = input_complex.reshape(-1).real.numpy()
     input_flat[1::2] = input_complex.reshape(-1).imag.numpy()

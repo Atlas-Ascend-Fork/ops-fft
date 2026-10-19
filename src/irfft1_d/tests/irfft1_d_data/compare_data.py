@@ -23,6 +23,7 @@ configs = {
     "c2r_n5040": {"atol": 5.0, "rtol": 1e-2},
     "c2r_fft_n1536": {"atol": 5e-2, "rtol": 1e-2},
     "c2r_fft_n8192": {"atol": 5e-2, "rtol": 1e-2},
+    "c2r_fft_n8192_nyquist": {"atol": 5e-2, "rtol": 1e-2},
     "c2r_fft_n2048_b100": {"atol": 5e-2, "rtol": 1e-2},
     "c2r_fft_odd_n1025": {"atol": 5e-2, "rtol": 1e-2},
 }
