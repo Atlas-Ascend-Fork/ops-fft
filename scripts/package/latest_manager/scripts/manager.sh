@@ -36,40 +36,60 @@ IS_RECREATE_SOFTLINK="n"
 INCREMENT="n"
 USE_SHARE_INFO="n"
 
+# A value-taking option must be followed by its value; otherwise shift 2 fails
+# without changing the positional parameters and the parse loop spins forever.
+check_option_value()
+{
+    if [ $# -lt 2 ]; then
+        comm_log "ERROR" "option $1 requires a value"
+        exit 1
+    fi
+}
+
 while true
 do
     case "$1" in
     --version)
+        check_option_value "$@"
         VERSION="$2"
         shift 2
         ;;
     --version-dir)
+        check_option_value "$@"
         VERSION_DIR="$2"
         shift 2
         ;;
     --package)
+        check_option_value "$@"
         PACKAGE="$2"
         shift 2
         ;;
     --package-dir)
+        check_option_value "$@"
         shift 2
         ;;
     --serial)
+        check_option_value "$@"
         shift 2
         ;;
     --install-type)
+        check_option_value "$@"
         shift 2
         ;;
     --feature)
+        check_option_value "$@"
         shift 2
         ;;
     --chip)
+        check_option_value "$@"
         shift 2
         ;;
     --filelist)
+        check_option_value "$@"
         shift 2
         ;;
     --docker-root)
+        check_option_value "$@"
         DOCKER_ROOT="$2"
         shift 2
         ;;
@@ -125,4 +145,7 @@ elif [ "$OPERATION" = "remove_latest_softlink" ]; then
     remove_latest_softlink "$CURPATH"
 elif [ "$OPERATION" = "migrate_latest_data" ]; then
     migrate_latest_data "$CURPATH"
+else
+    comm_log "ERROR" "Unsupported operation : $OPERATION"
+    exit 1
 fi

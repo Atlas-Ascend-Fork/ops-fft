@@ -86,15 +86,16 @@ THREAD_NUM=8  # 默认编译线程数
 # CPU 核数可靠探测（issue #195）：原管道 `cat /proc/cpuinfo | grep | wc -l` 的
 # 退出码取决于最后的 wc（几乎恒成功），|| 兜底不可达；无 /proc/cpuinfo 环境
 # 会得到 CORE_NUMS=0 并以 -j0 构建。改为 nproc → getconf → /proc/cpuinfo → 4。
-# 命令替换内部补 || true（PR #93 检视修正）：本脚本顶部 set -e，命令替换非零
-# 退出会连同其所在赋值语句一起使脚本中止（如极端环境下 nproc 不存在/失败），
-# 兜底链根本不会执行
+# 命令替换内部补 || true（PR #93 检视修正 + issue #199 补齐 2/3 级）：本脚本顶部
+# set -e，命令替换非零退出会连同其所在赋值语句一起使脚本中止（如极端环境下
+# nproc 不存在/失败、getconf 不存在、/proc/cpuinfo 缺失或无 "processor" 行时
+# grep -c 以退出码 1 结束），兜底链根本不会执行，CORE_NUMS=4 终极兜底不可达
 CORE_NUMS=$(nproc 2>/dev/null || true)
 if [ -z "$CORE_NUMS" ] || [ "$CORE_NUMS" -lt 1 ] 2>/dev/null; then
-    CORE_NUMS=$(getconf _NPROCESSORS_ONLN 2>/dev/null)
+    CORE_NUMS=$(getconf _NPROCESSORS_ONLN 2>/dev/null || true)
 fi
 if [ -z "$CORE_NUMS" ] || [ "$CORE_NUMS" -lt 1 ] 2>/dev/null; then
-    CORE_NUMS=$(cat /proc/cpuinfo 2>/dev/null | grep -c "processor")
+    CORE_NUMS=$(cat /proc/cpuinfo 2>/dev/null | grep -c "processor" || true)
 fi
 if [ -z "$CORE_NUMS" ] || [ "$CORE_NUMS" -lt 1 ] 2>/dev/null; then
     CORE_NUMS=4
