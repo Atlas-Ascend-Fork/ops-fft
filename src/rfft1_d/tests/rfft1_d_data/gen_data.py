@@ -34,6 +34,37 @@ configs = [
     {"name": "r2c_fft_n1536", "n": 1536, "batch": 4},
     {"name": "r2c_fft_n8192", "n": 8192, "batch": 4},
     {"name": "r2c_fft_n2048_b100", "n": 2048, "batch": 100},
+
+    # added
+    {"name": "r2c_fft1_1", "n": 2, "batch": 3},
+    {"name": "r2c_fft1_2", "n": 4, "batch": 16384},
+    {"name": "r2c_fft1_3", "n": 8, "batch": 1},
+    {"name": "r2c_fft1_4", "n": 128, "batch": 16384},
+
+    {"name": "r2c_fft2_1", "n": 256, "batch": 3},
+    {"name": "r2c_fft2_2", "n": 512, "batch": 16384},
+    {"name": "r2c_fft2_3", "n": 4096, "batch": 1},
+    {"name": "r2c_fft2_4", "n": 16384, "batch": 16384},
+
+    {"name": "r2c_fft3_1_1", "n": 32768, "batch": 3},
+    {"name": "r2c_fft3_1_2", "n": 32768, "batch": 4096},
+    {"name": "r2c_fft3_1_3", "n": 65536, "batch": 1},
+    {"name": "r2c_fft3_1_4", "n": 65536, "batch": 4096},
+
+    {"name": "r2c_fft3_2_1", "n": 131072, "batch": 3},
+    {"name": "r2c_fft3_2_2", "n": 262144, "batch": 2048},
+    {"name": "r2c_fft3_2_3", "n": 1048576, "batch": 1},
+    {"name": "r2c_fft3_2_4", "n": 2097152, "batch": 64},
+
+    {"name": "r2c_fft4_1", "n": 4194304, "batch": 3},
+    {"name": "r2c_fft4_2", "n": 8388608, "batch": 16},
+    {"name": "r2c_fft4_3", "n": 16777216, "batch": 1},
+    {"name": "r2c_fft4_4", "n": 33554432, "batch": 8},
+
+    {"name": "r2c_fft5_1", "n": 67108864, "batch": 4},
+    {"name": "r2c_fft5_2", "n": 134217728, "batch": 2},
+    {"name": "r2c_fft5_3", "n": 268435456, "batch": 1},
+    {"name": "r2c_fft5_4", "n": 536870912, "batch": 1},
 ]
 
 

@@ -28,6 +28,37 @@ configs = {
     "r2c_fft_n1536": {"atol": 1e-2, "rtol": 1e-3},
     "r2c_fft_n8192": {"atol": 5e-2, "rtol": 1e-2},
     "r2c_fft_n2048_b100": {"atol": 1e-2, "rtol": 1e-3},
+
+    # added
+    "r2c_fft1_1": {"atol": 1e-3, "rtol": 1e-3},
+    "r2c_fft1_2": {"atol": 1e-3, "rtol": 1e-3},
+    "r2c_fft1_3": {"atol": 1e-3, "rtol": 1e-3},
+    "r2c_fft1_4": {"atol": 1e-3, "rtol": 1e-3},
+
+    "r2c_fft2_1": {"atol": 1e-3, "rtol": 1e-3},
+    "r2c_fft2_2": {"atol": 1e-3, "rtol": 1e-3},
+    "r2c_fft2_3": {"atol": 1e-3, "rtol": 1e-3},
+    "r2c_fft2_4": {"atol": 1e-3, "rtol": 1e-3},
+
+    "r2c_fft3_1_1": {"atol": 1e-3, "rtol": 1e-3},
+    "r2c_fft3_1_2": {"atol": 1e-3, "rtol": 1e-3},
+    "r2c_fft3_1_3": {"atol": 1e-3, "rtol": 1e-3},
+    "r2c_fft3_1_4": {"atol": 1e-3, "rtol": 1e-3},
+
+    "r2c_fft3_2_1": {"atol": 1e-3, "rtol": 1e-3},
+    "r2c_fft3_2_2": {"atol": 1e-3, "rtol": 1e-3},
+    "r2c_fft3_2_3": {"atol": 1e-2, "rtol": 1e-2},
+    "r2c_fft3_2_4": {"atol": 1e-2, "rtol": 1e-2},
+
+    "r2c_fft4_1": {"atol": 1e-1, "rtol": 1e-2},
+    "r2c_fft4_2": {"atol": 1e-1, "rtol": 1e-2},
+    "r2c_fft4_3": {"atol": 1e-1, "rtol": 1e-2},
+    "r2c_fft4_4": {"atol": 1e-1, "rtol": 1e-2},
+
+    "r2c_fft5_1": {"atol": 1e-1, "rtol": 1e-2},
+    "r2c_fft5_2": {"atol": 1e-0, "rtol": 1e-2},
+    "r2c_fft5_3": {"atol": 1e-0, "rtol": 1e-2},
+    "r2c_fft5_4": {"atol": 1e-0, "rtol": 1e-2},
 }
 
 curr_dir = os.path.dirname(os.path.realpath(__file__))

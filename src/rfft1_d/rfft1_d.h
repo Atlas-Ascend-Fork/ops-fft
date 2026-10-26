@@ -54,6 +54,24 @@ aclfftRfft1DFft(float* x, float* y, uint32_t n, int32_t norm, uint32_t batches, 
 ACLFFT_API aclError
 aclfftRfft1DDft(float* x, float* y, uint32_t n, int32_t norm, uint32_t batches, int isForward, void* stream);
 
+ACLFFT_API aclError aclfftRfft1DR2CFft1(float *x, float *y, uint32_t n,
+                                     uint32_t batches, int isForward, void *stream);
+
+ACLFFT_API aclError aclfftRfft1DR2CFft2(float *x, float *y, uint32_t n,
+                                     uint32_t batches, int isForward, void *stream);
+
+ACLFFT_API aclError aclfftRfft1DR2CFft31(float *x, float *y, uint32_t n,
+                                     uint32_t batches, int isForward, void *stream);
+
+ACLFFT_API aclError aclfftRfft1DR2CFft32(float *x, float *y, uint32_t n,
+                                     uint32_t batches, int isForward, void *stream);
+
+ACLFFT_API aclError aclfftRfft1DR2CFft4(float *x, float *y, uint32_t n,
+                                     uint32_t batches, int isForward, void *stream);
+
+ACLFFT_API aclError aclfftRfft1DR2CFft5(float *x, float *y, uint32_t n,
+                                     uint32_t batches, int isForward, void *stream);
+
 #ifdef __cplusplus
 }
 #endif

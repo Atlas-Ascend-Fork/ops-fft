@@ -11,6 +11,65 @@
 #include "rfft1_d.h"
 #include "fft_exec_helper.h"
 
+static aclError DispatchPowerOfTwoR2C(aclfftHandle_t *impl, aclfftReal *idata, aclfftComplex *odata,
+                                     int64_t n, uint32_t batch, int isForward)
+{
+    static constexpr int64_t FFT_1 = 128;
+    static constexpr int64_t FFT_2 = 16384;
+    static constexpr int64_t FFT_3_1 = 65536;
+    static constexpr int64_t FFT_3_2 = 2097152;
+    static constexpr int64_t FFT_4 = 33554432;
+    if (static_cast<uint64_t>(n) * batch > (1ULL << 31)) {
+        std::cerr << "[ops-fft] R2C: n*batch=" << static_cast<uint64_t>(n) * batch << " not supported" << std::endl;
+        return ACLFFT_NOT_IMPLEMENTED;
+    }
+    auto *input = reinterpret_cast<float *>(idata);
+    auto *output = reinterpret_cast<float *>(odata);
+    uint32_t size = static_cast<uint32_t>(n);
+    if (n <= FFT_1) {
+        std::cout << "[ops-fft] using FFT 1" << std::endl;
+        return aclfftRfft1DR2CFft1(input, output, size, batch, isForward, impl->stream);
+    }
+    if (n <= FFT_2) {
+        std::cout << "[ops-fft] using FFT 2" << std::endl;
+        return aclfftRfft1DR2CFft2(input, output, size, batch, isForward, impl->stream);
+    }
+    if (n <= FFT_3_1) {
+        std::cout << "[ops-fft] using FFT 3.1" << std::endl;
+        return aclfftRfft1DR2CFft31(input, output, size, batch, isForward, impl->stream);
+    }
+    if (n <= FFT_3_2) {
+        std::cout << "[ops-fft] using FFT 3.2" << std::endl;
+        return aclfftRfft1DR2CFft32(input, output, size, batch, isForward, impl->stream);
+    }
+    if (n <= FFT_4) {
+        std::cout << "[ops-fft] using FFT 4" << std::endl;
+        return aclfftRfft1DR2CFft4(input, output, size, batch, isForward, impl->stream);
+    }
+    std::cout << "[ops-fft] using FFT 5" << std::endl;
+    return aclfftRfft1DR2CFft5(input, output, size, batch, isForward, impl->stream);
+}
+
+static aclError DispatchNonPowerOfTwoR2C(aclfftHandle_t *impl, aclfftReal *idata, aclfftComplex *odata,
+                                         int64_t n, int32_t norm, uint32_t batch, int isForward)
+{
+    static constexpr int64_t K_N_FFT_1024 = 1024;
+    auto *input = reinterpret_cast<float *>(idata);
+    auto *output = reinterpret_cast<float *>(odata);
+    uint32_t size = static_cast<uint32_t>(n);
+    if (n <= K_N_FFT_1024) {
+        return aclfftRfft1DDft(input, output, size, norm, batch, isForward, impl->stream);
+    }
+    std::vector<int64_t> factors = orderedFactorize(n);
+    std::vector<int64_t> uniques = deDuplicates(factors);
+    int radix = ChooseRadix(aclfftType::ACLFFT_R2C, uniques);
+    if (radix == K_RADIX_MIX) {
+        return aclfftRfft1DR2CFft(input, output, size, batch, isForward, impl->stream);
+    }
+    std::cerr << "[ops-fft] R2C: n=" << n << " not supported" << std::endl;
+    return ACLFFT_NOT_IMPLEMENTED;
+}
+
 extern "C" {
 aclfftResult aclfftExecR2C_1D(aclfftHandle plan, aclfftReal* idata, aclfftComplex* odata)
 {
@@ -28,25 +87,11 @@ aclfftResult aclfftExecR2C_1D(aclfftHandle plan, aclfftReal* idata, aclfftComple
     auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();
     auto socVersion = ascendcPlatform->GetSocVersion();
 
-    static constexpr int64_t K_N_FFT_1024 = 1024;
-
     if (socVersion == platform_ascendc::SocVersion::ASCEND910B) {
-        if (n <= K_N_FFT_1024) {
-            err = aclfftRfft1DDft(
-                reinterpret_cast<float*>(idata), reinterpret_cast<float*>(odata), static_cast<uint32_t>(n), rfft_norm,
-                batch, isForward, impl->stream);
+        if (n == (n & -n)) {
+            err = DispatchPowerOfTwoR2C(impl, idata, odata, n, batch, isForward);
         } else {
-            std::vector<int64_t> factors = orderedFactorize(n);
-            std::vector<int64_t> uniques = deDuplicates(factors);
-            int radix = ChooseRadix(aclfftType::ACLFFT_R2C, uniques);
-            if (radix == K_RADIX_MIX) {
-                err = aclfftRfft1DR2CFft(
-                    reinterpret_cast<float*>(idata), reinterpret_cast<float*>(odata), static_cast<uint32_t>(n), batch,
-                    isForward, impl->stream);
-            } else {
-                std::cerr << "[ops-fft] R2C: n=" << n << " not supported" << std::endl;
-                return ACLFFT_NOT_IMPLEMENTED;
-            }
+            err = DispatchNonPowerOfTwoR2C(impl, idata, odata, n, rfft_norm, batch, isForward);
         }
     } else {
         std::cerr << "  [ERROR] Unsupported SoC: " << SocVersionToString(socVersion) << ", expected Ascend910B"
