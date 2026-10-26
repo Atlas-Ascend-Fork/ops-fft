@@ -133,7 +133,9 @@ def compose_makeself_command(params: MakeselfPkgParams) -> str:
     if independent_pkg:
         commands = chain(
         [
-            'TMPDIR=$pwd', params.makeself_tool, "--header", params.makeself_header,
+            # TMPDIR 用大写 PWD（issue #207）：小写 pwd 非标准变量，shell 展开恒为空，
+            # makeself 对空 TMPDIR 回退 /tmp，"以当前目录作临时目录"的意图被静默丢弃
+            'TMPDIR=$PWD', params.makeself_tool, "--header", params.makeself_header,
             "--help-header", params.help_info, compress_tool, '--complevel', '4',
             '--nomd5', '--sha256', '--nooverwrite', '--chown', '--tar-format', tar_format,
             '--tar-extra', '--numeric-owner', '--tar-quietly'

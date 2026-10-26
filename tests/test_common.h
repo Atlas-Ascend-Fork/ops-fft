@@ -357,9 +357,15 @@ inline int FailAndCleanup(TestStats& stats, const std::string& name,
 }
 
 // Batch generate all test data (one Python call)
+// 退出码检查（issue #212）：gen_data.py 失败（缺 torch/numpy/脚本异常）原先
+// 无感知，后续比对会因 golden 缺失而整体失败，此处提前打印醒目告警定位根因
 inline void BatchGenAllData(const std::string& data_dir) {
     std::string cmd = "cd " + data_dir + " && PYTHONPATH=" + data_dir + "/../../common/host TORCH_DEVICE_BACKEND_AUTOLOAD=0 python3 -u gen_data.py";
-    system(cmd.c_str());
+    int genRes = system(cmd.c_str());
+    if (genRes != 0) {
+        std::cerr << "[ERROR] gen_data.py failed (exit=" << genRes << ") in " << data_dir
+                  << "; subsequent comparisons will fail due to missing golden files." << std::endl;
+    }
 }
 
 // Cleanup all .bin files in data dir

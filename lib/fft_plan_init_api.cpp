@@ -22,20 +22,22 @@ static const uint32_t COMPLEX_PART = 2;
 // 计算数据大小（issue #136）：返回 aclfftResult 便于上浮溢出错误；
 // 乘积全程 __builtin_mul_overflow 防回绕，溢出返回 ACLFFT_INVALID_SIZE
 static aclfftResult calculate_data_sizes(aclfftHandle_t* plan) {
-    // 计算元素大小
+    // element_size 为本函数局部中间量（issue #214：句柄 input/output/element_size
+    // 死字段删除后，尺寸计算保留其溢出防护价值，结果不再写入句柄）
+    size_t element_size = 0;
     switch (plan->type) {
         case ACLFFT_C2C:
         case ACLFFT_R2C:
         case ACLFFT_C2R:
-            plan->element_size = sizeof(float);  // 单精度
+            element_size = sizeof(float);  // 单精度
             break;
         case ACLFFT_Z2Z:
         case ACLFFT_D2Z:
         case ACLFFT_Z2D:
-            plan->element_size = sizeof(double);  // 双精度
+            element_size = sizeof(double);  // 双精度
             break;
         default:
-            plan->element_size = sizeof(float);
+            element_size = sizeof(float);
             break;
     }
 
@@ -75,22 +77,26 @@ static aclfftResult calculate_data_sizes(aclfftHandle_t* plan) {
         return ACLFFT_INVALID_SIZE;
     }
 
+    // 尺寸计算结果仅作溢出校验（issue #214：input_size/output_size 死字段删除，
+    // 溢出防护保留，乘积写入丢弃型局部量）
+    size_t input_size = 0;
+    size_t output_size = 0;
     if (plan->type == ACLFFT_R2C || plan->type == ACLFFT_D2Z) {
         // 实数到复数：输入是实数全量，输出按 Hermitian packed
-        if (!mul_checked(full_elements, plan->element_size, plan->input_size) ||
-            !mul_checked(complex_packed, plan->element_size, plan->output_size)) {
+        if (!mul_checked(full_elements, element_size, input_size) ||
+            !mul_checked(complex_packed, element_size, output_size)) {
             return ACLFFT_INVALID_SIZE;
         }
     } else if (plan->type == ACLFFT_C2R || plan->type == ACLFFT_Z2D) {
         // 复数到实数：输入按 Hermitian packed，输出是实数全量
-        if (!mul_checked(complex_packed, plan->element_size, plan->input_size) ||
-            !mul_checked(full_elements, plan->element_size, plan->output_size)) {
+        if (!mul_checked(complex_packed, element_size, input_size) ||
+            !mul_checked(full_elements, element_size, output_size)) {
             return ACLFFT_INVALID_SIZE;
         }
     } else {
         // C2C 或 Z2Z：输入输出都是复数全量
-        if (!mul_checked(complex_full, plan->element_size, plan->input_size) ||
-            !mul_checked(complex_full, plan->element_size, plan->output_size)) {
+        if (!mul_checked(complex_full, element_size, input_size) ||
+            !mul_checked(complex_full, element_size, output_size)) {
             return ACLFFT_INVALID_SIZE;
         }
     }
@@ -197,6 +203,15 @@ aclfftResult aclfftMakePlan2d(aclfftHandle plan, int batch, int nx, int ny, aclf
     ACLFFT_CHECK_PARAM(ny > 0, ACLFFT_INVALID_SIZE);
     ACLFFT_CHECK_PARAM(batch > 0, ACLFFT_INVALID_SIZE);
     ACLFFT_CHECK_PARAM(aclfft_is_valid_type(type), ACLFFT_INVALID_TYPE);
+    // 创建期拒绝当前无 2D 执行实现的类型（issue #208，对齐 #171 1D 门禁与
+    // #135 Plan2d 包装口径）：2D 执行层仅 C2C 有实现（R2C/C2R 为 weak 声明
+    // 全仓无定义，Z2Z/D2Z/Z2D 无 2D 分发），原行为"创建成功、执行期报错"
+    // 使错误暴露过晚。待 2D R2C/C2R 实现落地后放开对应分支
+    if (type != ACLFFT_C2C) {
+        std::cerr << "[ops-fft] aclfftMakePlan2d: type=" << static_cast<int>(type)
+                  << " has no 2D execution implementation yet" << std::endl;
+        return ACLFFT_NOT_SUPPORTED;
+    }
 
     impl->rank = 2;
     impl->lengths[0] = nx;

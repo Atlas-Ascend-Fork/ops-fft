@@ -53,9 +53,24 @@ function(register_operator)
         elseif("${ASCEND_NPU_ARCH}" STREQUAL "dav-2201")
             set(ARG_ARCH_DIR "arch32")
         else()
-            set(ARG_ARCH_DIR "arch35")
+            # 未知架构显式跳过（issue #211，对齐 build.md "缺少实现目录会被跳过"
+            # 口径）：原静默回退 arch35 会以 --npu-arch dav-2101 编译面向 dav-3510
+            # 的源码，错误 SoC 选型被掩盖到内核编译期才暴露甚至产出未验证二进制；
+            # 全部算子均被跳过时由顶层 CMakeLists 提前 FATAL_ERROR
+            message(STATUS "  Operator: ${ARG_NAME} - SKIPPED (unsupported ASCEND_NPU_ARCH '${ASCEND_NPU_ARCH}')")
+            set(OP_${ARG_NAME}_SKIPPED TRUE PARENT_SCOPE)
+            get_property(_ANY_SUPPORTED GLOBAL PROPERTY OPS_FFT_HAS_SUPPORTED_OPERATOR)
+            if(NOT _ANY_SUPPORTED)
+                set_property(GLOBAL PROPERTY OPS_FFT_ALL_OPERATORS_SKIPPED TRUE)
+            endif()
+            target_include_directories(${OPS_FFT} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+            return()
         endif()
     endif()
+
+    # 记录"至少一个算子以受支持架构注册"（issue #211）：供顶层判定是否需要
+    # 提前失败——仅跳过部分算子（如 fft2_d 无 arch32 目录）时正常继续
+    set_property(GLOBAL PROPERTY OPS_FFT_HAS_SUPPORTED_OPERATOR TRUE)
 
     # 检查 arch 目录是否存在
     set(ARCH_DIR_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${ARG_ARCH_DIR}")

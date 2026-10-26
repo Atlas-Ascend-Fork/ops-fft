@@ -28,20 +28,15 @@ struct aclfftHandle_t {
     int32_t batch;                      ///< 批量大小
 
     aclfftType type;                    ///< 变换类型
-    int32_t direction;                  ///< 变换方向（ACLFFT_FORWARD 或 ACLFFT_BACKWARD）
-    int32_t normMode;                   ///< 归一化模式（内部使用）
-
-    // ========== 数据布局 ==========
-    size_t input_size;                  ///< 输入数据大小（bytes）
-    size_t output_size;                 ///< 输出数据大小（bytes）
-    size_t element_size;                ///< 元素大小（bytes）
+    // 说明（issue #214，对齐 #170 is_destroyed 先例）：direction 全仓除构造外
+    // 无读写、input_size/output_size/element_size 仅写不读、operator_state/
+    // has_operator_state 恒空且析构死存储，均为死字段已删除；normMode 保留——
+    // exec 路径读取（如 fft1_d_exec_api.cpp:32），当前仅支持 norm=0（构造为 0，
+    // 全仓无写入路径；norm 支持落地时由 plan 入口按文档语义写入）
+    int32_t normMode;                   ///< 归一化模式（当前恒 0=BACKWARD；写入责任方为 plan 入口，尚未落地）
 
     // ========== 执行配置 ==========
     aclrtStream stream;                 ///< 执行流
-
-    // ========== 算子特定状态 ==========
-    void* operator_state;               ///< 算子内部状态（由算子层管理）
-    bool has_operator_state;            ///< 是否有算子状态
 
     // ========== 标志 ==========
     bool is_initialized;                ///< 是否已初始化
@@ -55,26 +50,11 @@ struct aclfftHandle_t {
         : rank(0),
           batch(1),
           type(ACLFFT_C2C),
-          direction(ACLFFT_FORWARD),
           normMode(0),
-          input_size(0),
-          output_size(0),
-          element_size(0),
           stream(nullptr),
-          operator_state(nullptr),
-          has_operator_state(false),
           is_initialized(false),
           lengths{0},
           stride{0} {}
-
-    /**
-     * @brief 析构函数
-     */
-    ~aclfftHandle_t() {
-        // 注意：operator_state 由算子层管理释放
-        // 这里只需置空
-        operator_state = nullptr;
-    }
 };
 
 #endif // FFT_HANDLE_IMPL_H

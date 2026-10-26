@@ -103,6 +103,17 @@ add_subdirectory(lib)
 
 add_subdirectory(src)
 
+# 全部算子因架构不支持被跳过时提前失败（issue #211）：ops_fft_stub.cpp 仍会以
+# --npu-arch dav-2101 交给 ASC 编译器并在深处报 "Unsupported NPU architecture"，
+# 错误信息无法指向 SoC 选型错误；此处给出明确根因提示
+get_property(_FFT_ALL_SKIPPED GLOBAL PROPERTY OPS_FFT_ALL_OPERATORS_SKIPPED)
+if(_FFT_ALL_SKIPPED)
+    message(FATAL_ERROR
+        "All operators were skipped: ASCEND_NPU_ARCH '${ASCEND_NPU_ARCH}' is not supported. "
+        "Supported SoC: Ascend950 (dav-3510/arch35), Ascend910B (dav-2201/arch32). "
+        "Check your --soc option.")
+endif()
+
 ##############################################################################
 # 3.5 统一设置所有源文件语言属性
 ##############################################################################

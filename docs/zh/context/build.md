@@ -50,7 +50,7 @@ build.sh 支持多种功能，可通过 `--help` 参数查看所有选项：
 | Ascend950 | ascend950 | dav-3510（arch35） | 默认支持，对应 `src/<op>/arch35/` 实现 |
 | Ascend910B | ascend910b | dav-2201（arch32） | 已支持，对应 `src/<op>/arch32/` 实现 |
 
-> **说明**：`build.sh` 的 `--soc` 还可识别 `ascend910_93`/`ascend910`/`ascend310p` 等名称，但当前仅有 Ascend950 与 Ascend910B 提供算子实现目录（`arch35`/`arch32`），其他型号会因缺少实现目录而被跳过。
+> **说明**：`build.sh` 的 `--soc` 还可识别 `ascend910_93`/`ascend910`/`ascend310p` 等名称，但当前仅有 Ascend950 与 Ascend910B 提供算子实现目录（`arch35`/`arch32`）；其他型号的 NPU 架构（如 dav-2101）不受支持，各算子注册时会被显式跳过（日志输出 `SKIPPED (unsupported ASCEND_NPU_ARCH ...)`）。
 
 
 ## 使用示例

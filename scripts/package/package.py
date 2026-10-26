@@ -417,6 +417,14 @@ def processing_csv_file(release_dir, package_name, chip_name, build_type):
             if not data:
                 CommLog.cilog_warning("The limit.csv file contains empty lines.")
                 continue
+            # 短行防护（issue #206）：is_match_line 直接索引 data[5..7]，字段数
+            # 不足时抛 IndexError 使打包以裸 traceback 终止、"配置不标准"告警
+            # 降级路径不可达；改为行级告警并跳过该行，正常路径行为不变
+            if len(data) < 8:
+                CommLog.cilog_warning(
+                    "The limit.csv file contains a malformed line (expected >= 8 fields, got {0}): {1}".format(
+                        len(data), data))
+                continue
             if is_match_line(package_name, chip_name, product, build_type, data):
                 if data[1][-1] == "/":
                     limit_list.append(data[1][:-1])

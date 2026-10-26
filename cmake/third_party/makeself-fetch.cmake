@@ -40,19 +40,33 @@ if (NOT EXISTS "${MAKESELF_PATH}/makeself-header.sh" OR NOT EXISTS "${MAKESELF_P
         SOURCE_DIR "${MAKESELF_PATH}"  # 直接解压到此目录
     )
     FetchContent_MakeAvailable(${MAKESELF_NAME})
+    # 执行位修复（issue #209）：原块目录错误（指向不存在的 ${CMAKE_BINARY_DIR}/makeself）
+    # 且 "-E env / CMAKE_TLS_VERIFY=0" 被追加为 chmod 参数、结果变量无消费，修复从未生效。
+    # chmod 目标与 FetchContent 的 SOURCE_DIR(${MAKESELF_PATH}) 对齐，结果显式校验；
+    # 如需放宽下载 TLS 校验应在 FetchContent 之前 set(CMAKE_TLS_VERIFY 0)，此处不涉及
     execute_process(
-        COMMAND chmod 700 "${CMAKE_BINARY_DIR}/makeself/makeself.sh"
-        COMMAND chmod 700 "${CMAKE_BINARY_DIR}/makeself/makeself-header.sh"
-        -E env
-        CMAKE_TLS_VERIFY=0
+        COMMAND chmod 700 "${MAKESELF_PATH}/makeself.sh"
+        COMMAND chmod 700 "${MAKESELF_PATH}/makeself-header.sh"
         RESULT_VARIABLE CHMOD_RESULT
-        ERROR_VARIABLE CHMOD_ERROR
     )
+    if(NOT CHMOD_RESULT EQUAL 0)
+        message(FATAL_ERROR "chmod makeself scripts failed: ${CHMOD_RESULT}")
+    endif()
 endif()
 
-# 验证文件存在
+# 验证文件存在与可执行位（原仅查存在性，chmod 失效被掩盖）
 if(NOT EXISTS "${MAKESELF_PATH}/makeself.sh")
     message(FATAL_ERROR "makeself.sh not found at ${MAKESELF_PATH}")
+endif()
+if(NOT EXISTS "${MAKESELF_PATH}/makeself-header.sh")
+    message(FATAL_ERROR "makeself-header.sh not found at ${MAKESELF_PATH}")
+endif()
+execute_process(
+    COMMAND test -x "${MAKESELF_PATH}/makeself.sh"
+    RESULT_VARIABLE EXEC_RESULT
+)
+if(NOT EXEC_RESULT EQUAL 0)
+    message(FATAL_ERROR "makeself.sh is not executable after chmod")
 endif()
 
 message(STATUS "MAKESELF_PATH: ${MAKESELF_PATH}")

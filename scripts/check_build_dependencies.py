@@ -115,9 +115,9 @@ def check_build_dep_item(version: str, dep: str) -> bool:
 
     dep_parts = split_version(dep)
 
-    if check_func is check_eq:
-        return check_func()
-
+    # 不等长补零对全部比较路径生效（issue #202）：原先 eq 提前 return，zip 截断
+    # 使 "8.5.3" 误满足要求 "8.5"（尾部分量被忽略）；补零后 eq 逐分量严格比较，
+    # 8.5 仅严格等于 8.5
     if len(dep_parts) < len(version_parts):
         dep_parts.extend([0] * (len(version_parts) - len(dep_parts)))
     elif len(dep_parts) > len(version_parts):

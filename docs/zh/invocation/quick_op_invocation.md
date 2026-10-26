@@ -78,7 +78,6 @@ all_ops_test .......... Passed * sec
 | 选项 | 说明 | 示例 |
 | :--- | :--- | :--- |
 | `--ops=NAME` | 编译指定算子 | `--ops=rfft1_d` |
-| `--build-type=TYPE` | 构建类型（Release/Debug） | `--build-type=Debug` |
 | `--run` | 编译后运行测试 | `--run` |
 | `--pkg` | 生成安装包 | `--pkg` |
 | `-j[N]` | 并行编译线程数 | `-j8` |
@@ -101,9 +100,6 @@ bash build.sh --pkg
 
 # 多线程编译
 bash build.sh -j16
-
-# 调试模式编译
-bash build.sh --build-type=Debug --run
 
 # 详细输出
 bash build.sh -v --run

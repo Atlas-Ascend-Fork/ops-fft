@@ -143,7 +143,7 @@ extern "C" {
 ACLFFT_API aclfftResult aclfftPlan1d(aclfftHandle* plan,
                                      int           nx,
                                      aclfftType    type,
-                                     int           batch, /* deprecated - use aclfftPlanMany */
+                                     int           batch, /* deprecated: batch 参数由 plan 携带，见 aclfftPlan1d 文档 */
                                      int           dimType);
 
 /*! @brief Create a new two-dimensional FFT plan.
@@ -249,7 +249,7 @@ ACLFFT_API aclfftResult
 ACLFFT_API aclfftResult aclfftGetSize1d(aclfftHandle plan,
                                         int          nx,
                                         aclfftType   type,
-                                        int          batch, /* deprecated - use aclfftGetSizeMany */
+                                        int          batch, /* deprecated: batch 参数由 plan 携带，见 aclfftPlan1d 文档 */
                                         size_t*      workSize);
 
 /*! @brief Return size of the work area size required for a 2D plan.

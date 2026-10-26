@@ -54,3 +54,56 @@ const char* aclfftGetErrorString(aclfftResult result) {
             return "Unknown error";
     }
 }
+
+// ---------------------------------------------------------------------------
+// 未实现接口桩（issue #213）：头文件以 ACLFFT_API 导出但全仓无定义的 9 个接口
+// 在此提供返回 ACLFFT_NOT_IMPLEMENTED 的桩，使导出符号在库内均有定义
+//（Windows __declspec(dllexport) 分支下无定义符号会链接失败；Linux 下调用方
+// 链接期 undefined reference）。口径与 fft_exec_api.cpp 的 aclfftExecZ2Z/
+// D2Z/Z2D 桩一致；对应能力落地后以真实实现替换。
+// ---------------------------------------------------------------------------
+
+aclfftResult aclfftGetSize1d(aclfftHandle plan, int nx, aclfftType type, int batch, size_t* workSize) {
+    (void)plan; (void)nx; (void)type; (void)batch; (void)workSize;
+    return ACLFFT_NOT_IMPLEMENTED;
+}
+
+aclfftResult aclfftGetSize2d(aclfftHandle plan, int nx, int ny, aclfftType type, size_t* workSize) {
+    (void)plan; (void)nx; (void)ny; (void)type; (void)workSize;
+    return ACLFFT_NOT_IMPLEMENTED;
+}
+
+aclfftResult aclfftGetSize3d(aclfftHandle plan, int nx, int ny, int nz, aclfftType type, size_t* workSize) {
+    (void)plan; (void)nx; (void)ny; (void)nz; (void)type; (void)workSize;
+    return ACLFFT_NOT_IMPLEMENTED;
+}
+
+aclfftResult aclfftGetSize(aclfftHandle plan, size_t* workSize) {
+    (void)plan; (void)workSize;
+    return ACLFFT_NOT_IMPLEMENTED;
+}
+
+aclfftResult aclfftSetAutoAllocation(aclfftHandle plan, int autoAllocate) {
+    (void)plan; (void)autoAllocate;
+    return ACLFFT_NOT_IMPLEMENTED;
+}
+
+aclfftResult aclfftSetWorkArea(aclfftHandle plan, void* workArea) {
+    (void)plan; (void)workArea;
+    return ACLFFT_NOT_IMPLEMENTED;
+}
+
+aclfftResult aclfftSetStride(aclfftHandle plan, int32_t stride) {
+    (void)plan; (void)stride;
+    return ACLFFT_NOT_IMPLEMENTED;
+}
+
+aclfftResult aclfftGetVersion(int* version) {
+    (void)version;
+    return ACLFFT_NOT_IMPLEMENTED;
+}
+
+aclfftResult aclfftGetProperty(aclfftLibraryPropertyType type, int* value) {
+    (void)type; (void)value;
+    return ACLFFT_NOT_IMPLEMENTED;
+}

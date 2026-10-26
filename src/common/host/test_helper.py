@@ -70,9 +70,12 @@ def compare_one(curr_dir, name, atol, rtol, detail_only=False):
     golden_file = os.path.join(curr_dir, f"{name}_golden.bin")
     output_file = os.path.join(curr_dir, f"{name}_output.bin")
     if not os.path.exists(golden_file):
+        # golden 缺失按失败计（issue #212）：原先批量模式按 SKIP 且返回 True，
+        # gen_data.py 从未成功产出数据时所有用例走此分支，批量比对可零校验
+        # 报告全部通过；detail_only（单用例显式指定）分支已有独立 FAIL 语义
         if not detail_only:
-            logger.info(f"  [SKIP] {name}: golden file not found")
-        return True
+            logger.info(f"[FAIL] {name}: golden file not found (data generation failed?)")
+        return False
     if not os.path.exists(output_file):
         if not detail_only:
             logger.info(f"[FAIL] {name}: output file not found")

@@ -229,10 +229,9 @@ main() {
 
   init_install_env
 
-  get_package_upgrade_version_dir "upgrade_version_dir" "$TARGET_INSTALL_PATH" "${OPP_PLATFORM_DIR}"
-  get_package_last_installed_version "last_installed" "$TARGET_INSTALL_PATH" "${OPP_PLATFORM_DIR}"
-  last_installed_version=$(echo "${last_installed}" | cut --only-delimited -d":" -f2-)
-
+  # 原 upgrade_version_dir/last_installed/last_installed_version 三次计算
+  # 全程无消费点（issue #203）：每次安装空跑两遍安装信息文件查询且误导维护者
+  # 以为存在升级比对逻辑，直接删除
   get_install_path
 
   check_env
