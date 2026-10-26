@@ -194,6 +194,9 @@ def main():
     if recv.warn_msgs:
         for warn_msg in recv.warn_msgs:
             logging.warning(warn_msg)
+        # 版本不满足构建依赖时返回失败，使 CMake 的错误分支生效，
+        # 避免把低于最低版本的依赖误判为可用（issue #157）
+        return False
 
     if recv.err_msgs:
         for err_msg in recv.err_msgs:

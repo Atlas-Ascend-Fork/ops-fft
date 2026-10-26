@@ -11,12 +11,13 @@
 # ----------------------------------------------------------------------------
 
 import os
+import shlex
 import shutil
 import subprocess
 from argparse import Namespace
 from itertools import chain
 from subprocess import PIPE, STDOUT
-from typing import Callable, Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import Callable, Dict, List, NamedTuple, Optional, Tuple
 
 from .utils.comm_log import CommLog
 from .utils.pkg_utils import CompressError
@@ -62,9 +63,9 @@ class PackageName:
         ext_name = self.get_attribute('ext_name')
         package_suffix = "debug" if self.package_suffix == "debug" else None
 
-        region1 = "-".join(filter(None, [product_name, remove_ascend(chip_name), func_name]))
+        region1 = self.name_sep.join(filter(None, [product_name, remove_ascend(chip_name), func_name]))
         region2 = ".".join(filter(None, [version]))
-        region3 = "-".join(filter(None, [os_arch, chip_plat, deploy_type, package_suffix, ext_name]))
+        region3 = self.name_sep.join(filter(None, [os_arch, chip_plat, deploy_type, package_suffix, ext_name]))
         package_name = "_".join(filter(None, [region1, region2, region3]))
 
         return f"{package_name}.{self.suffix}"
@@ -205,16 +206,20 @@ def create_run_package_command(params: MakeselfPkgParams
 
 def exec_pack_cmd(delivery_dir: str,
                  pack_cmd: str,
-                 package_name: str) -> str: 
+                 package_name: str) -> str:
     """执行打包命令"""
     if delivery_dir:
-        cmd = f'cd {delivery_dir} && {pack_cmd}'
+        # delivery_dir 由用户通过 --pkg-output-dir 等参数传入，可能含空格/引号等
+        # shell 元字符，必须转义后再拼入 cd 命令（issue #177）
+        cmd = f'cd {shlex.quote(delivery_dir)} && {pack_cmd}'
     else:
         cmd = pack_cmd
     CommLog.cilog_info("package cmd:%s", cmd)
     result = subprocess.run(cmd, shell=True, check=False, stdout=PIPE, stderr=STDOUT)
     output = result.stdout.decode()
     if result.returncode != 0:
-        CommLog.cilog_error(__file__, "compress package(%s) failed! %s.", package_name, output)
+        # cilog_error 首参数为格式串，CommLog 内部自会记录调用文件与行号，
+        # 不能把 __file__ 当格式串传入，否则 TypeError 覆盖真实压缩错误（issue #176）
+        CommLog.cilog_error("compress package(%s) failed! %s.", package_name, output)
         raise CompressError(package_name)
     return package_name
