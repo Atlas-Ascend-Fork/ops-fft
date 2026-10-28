@@ -12,16 +12,34 @@
 #include "fft_exec_helper.h"
 
 static aclError DispatchPowerOfTwoR2C(aclfftHandle_t *impl, aclfftReal *idata, aclfftComplex *odata,
-                                     int64_t n, uint32_t batch, int isForward)
+                                     int64_t n, int32_t norm, uint32_t batch, int isForward)
 {
     static constexpr int64_t FFT_1 = 128;
     static constexpr int64_t FFT_2 = 16384;
     static constexpr int64_t FFT_3_1 = 65536;
     static constexpr int64_t FFT_3_2 = 2097152;
     static constexpr int64_t FFT_4 = 33554432;
-    if (static_cast<uint64_t>(n) * batch > (1ULL << 31)) {
-        std::cerr << "[ops-fft] R2C: n*batch=" << static_cast<uint64_t>(n) * batch << " not supported" << std::endl;
-        return ACLFFT_NOT_IMPLEMENTED;
+    // 幂次路径 6 个 kernel 的 tiling N/batch 与输出偏移均按 int32 处理（issue #218/#219）：
+    // 1) 输出每行占 n+2 个 float，最后一行偏移 (batch-1)*(n+2)，门禁必须按输出容量
+    //    口径 batch*(n+2) 校验，仅看 n*batch 时 n=32768/batch=65536 等组合仍会溢出 INT32_MAX；
+    // 2) tiling 以 uint32 写入/读取（下方 host 写入端与 kernel 读取端已对齐），n 超过
+    //    int32 有符号范围仍会经 blockN = 常量/N 等有符号运算产生负值，按 DFT 路径
+    //    "显式报错而非静默错误" 口径拒绝。
+    if (norm != 0) {
+        std::cerr << "[ops-fft] R2C: norm=" << norm << " is not supported on power-of-two path"
+                  << " (only 0=BACKWARD in this version)" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    if (n <= 0 || batch == 0) {
+        std::cerr << "[ops-fft] R2C: n=" << n << " batch=" << batch << " invalid" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    if (static_cast<uint64_t>(batch) * (static_cast<uint64_t>(n) + 2) > (1ULL << 31)) {
+        std::cerr << "[ops-fft] R2C: batch*(n+2)=" << static_cast<uint64_t>(batch) * (static_cast<uint64_t>(n) + 2)
+                  << " not supported (int32 output-offset limit)" << std::endl;
+        // 与 norm/n<=0 分支一致返回 aclError 域错误码，由外层统一翻译为
+        // ACLFFT_NOT_IMPLEMENTED（文档承诺口径）
+        return ACL_ERROR_INVALID_PARAM;
     }
     auto *input = reinterpret_cast<float *>(idata);
     auto *output = reinterpret_cast<float *>(odata);
@@ -88,8 +106,11 @@ aclfftResult aclfftExecR2C_1D(aclfftHandle plan, aclfftReal* idata, aclfftComple
     auto socVersion = ascendcPlatform->GetSocVersion();
 
     if (socVersion == platform_ascendc::SocVersion::ASCEND910B) {
-        if (n == (n & -n)) {
-            err = DispatchPowerOfTwoR2C(impl, idata, odata, n, batch, isForward);
+        // 幂次路由需 n>1 下界（issue #216）：n=1 满足 n&(n-1)==0 但会被路由到 fft1，
+        // 其 vec 路径按 4 点蝶形展开 compM=TILE_LENGTH/n=4096，越界读写 outQueueDst；
+        // n=1 回落 DFT 路径（batch-rfft 之前的行为，输出 1 复数与 DFT 输出布局一致）。
+        if (n > 1 && (n & (n - 1)) == 0) {
+            err = DispatchPowerOfTwoR2C(impl, idata, odata, n, rfft_norm, batch, isForward);
         } else {
             err = DispatchNonPowerOfTwoR2C(impl, idata, odata, n, rfft_norm, batch, isForward);
         }

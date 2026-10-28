@@ -196,7 +196,9 @@ __aicore__ inline void RunFft3Kernel(
     __gm__ uint8_t *gather, __gm__ uint8_t *tilingGm, TPipe &pipe)
 {
     Fft3KernelContext ctx(x, y, work, twiddle, gather, tilingGm);
-    if (ctx.tiling.N == 0 || ctx.blockN == 0) return;
+    // tiling 经 KernelTiling 按 uint32 解读，N/batch 非法（负值/0）时静默返回，
+    // 防止派生量 blockN、halfBatchCeil 等出现负值循环边界（issue #219）。
+    if (ctx.tiling.N <= 0 || ctx.tiling.batch <= 0 || ctx.blockN == 0) return;
     ctx.InitSchedule();
     Dispatch::Run(ctx, pipe);
 }

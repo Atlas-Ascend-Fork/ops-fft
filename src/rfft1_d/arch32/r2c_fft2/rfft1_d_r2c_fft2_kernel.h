@@ -420,6 +420,9 @@ extern "C" __global__ __aicore__ void fft2_r2c(
     int32_t batch = tiling.batch;
     int32_t n1 = tiling.n1;
     int32_t n2 = tiling.n2;
+    if (N <= 0 || batch <= 0) {
+        return;
+    }
 
     int blockN;
     if (N <= 4096) {

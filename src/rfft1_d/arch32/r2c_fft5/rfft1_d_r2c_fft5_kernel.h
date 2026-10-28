@@ -531,6 +531,9 @@ extern "C" __global__ __aicore__ void fft5_r2c(
     int32_t n3 = tiling.n3;
     int32_t n4 = tiling.n4;
     int32_t n5 = tiling.n5;
+    if (N <= 0 || batch <= 0) {
+        return;
+    }
 
     int blockNum = GetBlockNum();
     int blockIdx = GetBlockIdx();

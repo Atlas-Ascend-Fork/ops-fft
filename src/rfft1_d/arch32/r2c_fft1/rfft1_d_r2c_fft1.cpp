@@ -112,6 +112,10 @@ extern "C" aclError aclfftRfft1DR2CFft1(float *x, float *y, uint32_t n,
     RfftHost::DeviceBuffers dev;
     RfftHost::BufferSizes sizes{inputSize, outputSize, 0, twiddleSize, gatherSize, tilingSize, 0};
     CHECK_ACL(dev.Prepare(sizes, x, twiddleHost, gatherHost, &tilingData));
+    // cube 路径 Fixpipe 每行只写前 N+1 个 float，输出行宽 N+2 中下标 N+1 的 Nyquist
+    // 虚部槽位（Im(X[N/2])，实输入恒为 0）无人写入，来自未初始化内存（issue #215，
+    // 旧 DFT 路径曾显式写 0）。启动前将输出缓冲清零，保证该槽位确定性为 0。
+    CHECK_ACL(aclrtMemset(dev.output.get(), outputSize, 0, outputSize));
 
     Rfft1DR2CFft1Kernel::fft1_r2c<<<coreNum, nullptr, stream>>>(
         (__gm__ uint8_t *)dev.input.get(),

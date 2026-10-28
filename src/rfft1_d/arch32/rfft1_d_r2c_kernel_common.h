@@ -505,18 +505,20 @@ public:
 };
 
 // Read only the radix fields present in the selected kernel's tiling ABI.
+// tiling 字段由 host 以 uint32 写入（Rfft1DR2CFftTilingData），读取端必须按同一类型解读：
+// 旧实现按 int32 读取，n=2^31（batch=1 满足旧门禁）会被读成 INT_MIN（issue #219）。
 template<int Radices>
 struct KernelTiling {
     int32_t N, batch, n1 = 0, n2 = 0, n3 = 0, n4 = 0, n5 = 0;
     __aicore__ inline explicit KernelTiling(__gm__ uint8_t *gm) {
-        auto data = reinterpret_cast<__gm__ int32_t *>(gm);
-        N = data[0];
-        batch = data[1];
-        if constexpr (Radices >= 1) n1 = data[2];
-        if constexpr (Radices >= 2) n2 = data[3];
-        if constexpr (Radices >= 3) n3 = data[4];
-        if constexpr (Radices >= 4) n4 = data[5];
-        if constexpr (Radices >= 5) n5 = data[6];
+        auto data = reinterpret_cast<__gm__ uint32_t *>(gm);
+        N = static_cast<int32_t>(data[0]);
+        batch = static_cast<int32_t>(data[1]);
+        if constexpr (Radices >= 1) n1 = static_cast<int32_t>(data[2]);
+        if constexpr (Radices >= 2) n2 = static_cast<int32_t>(data[3]);
+        if constexpr (Radices >= 3) n3 = static_cast<int32_t>(data[4]);
+        if constexpr (Radices >= 4) n4 = static_cast<int32_t>(data[5]);
+        if constexpr (Radices >= 5) n5 = static_cast<int32_t>(data[6]);
     }
 };
 

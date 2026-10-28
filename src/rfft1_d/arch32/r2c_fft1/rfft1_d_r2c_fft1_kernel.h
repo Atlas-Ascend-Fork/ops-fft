@@ -342,9 +342,14 @@ extern "C" __global__ __aicore__ void fft1_r2c(
     __gm__ uint8_t * __restrict__ tiling_para_gm)
 {
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_MIX_AIC_1_2);
-    auto tiling_para = reinterpret_cast<__gm__ int32_t *>(tiling_para_gm);
-    int32_t N = tiling_para[0];
-    int32_t batch = tiling_para[1];
+    // tiling 由 host 以 uint32 写入，读取端按同类型解读后再转 int32（issue #219）；
+    // N/batch 非法则静默返回，防止 blockN = 常量/N 等有符号运算产生负值循环边界。
+    auto tiling_para_u = reinterpret_cast<__gm__ uint32_t *>(tiling_para_gm);
+    int32_t N = static_cast<int32_t>(tiling_para_u[0]);
+    int32_t batch = static_cast<int32_t>(tiling_para_u[1]);
+    if (N <= 0 || batch <= 0) {
+        return;
+    }
 
     int blockNum = GetBlockNum();
     int blockIdx = GetBlockIdx();
