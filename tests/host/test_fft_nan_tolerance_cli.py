@@ -57,7 +57,7 @@ def first_config_name(script):
     raise AssertionError("actual CLI has no configs assignment")
 
 
-def run_actual_comparison(operation, arguments, matching, tmp_path):
+def run_actual_comparison(operation, arguments, matching, tmp_path, values=None):
     # Mirror only the unchanged real CLI and the actual shared helper so its
     # relative import/file I/O resolve within this test's temporary tree.
     script_path = Path("src") / operation / "tests" / (operation + "_data") / "compare_data.py"
@@ -70,10 +70,29 @@ def run_actual_comparison(operation, arguments, matching, tmp_path):
     case = first_config_name(script)
     golden_path = script.parent / (case + "_golden.bin")
     actual_path = script.parent / (case + "_output.bin")
-    data = np.array([1.0, 2.0, 3.0], dtype=np.float32)
+    data = np.array([1.0, 2.0, 3.0], dtype=np.float32) if values is None else values
     data.tofile(golden_path)
-    (data if matching else data * 11).tofile(actual_path)
+    (data if matching else data * (11 if values is None else 2)).tofile(actual_path)
     command = [sys.executable, str(script), "--case=" + case, *arguments]
     run = subprocess.run(command, cwd=tmp_path, capture_output=True, text=True, check=False,
                          env=dict(os.environ, TORCH_DEVICE_BACKEND_AUTOLOAD="0"))
     return run, golden_path, actual_path
+
+
+@pytest.mark.parametrize("operation", OPERATIONS)
+@pytest.mark.parametrize("scale", [
+    np.float32(1e-30), np.finfo(np.float32).tiny,
+    np.nextafter(np.float32(0), np.float32(1)), np.float32(1e30),
+])
+@pytest.mark.parametrize("matching", [False, True])
+def test_finite_l2_comparison_keeps_float32_dynamic_range(operation, scale, matching, tmp_path):
+    # Keep the real CLI and its shared helper intact in a temporary source layout.
+    # --atol=inf isolates the relative constraint for the large finite control;
+    # the tiny fixtures also fail with each CLI's ordinary default atol.
+    arguments = ["--atol=inf"] if scale > 1 else []
+    run, golden, actual = run_actual_comparison(
+        operation, arguments, matching, tmp_path,
+        values=np.array([1, -2, 3], dtype=np.float32) * scale,
+    )
+    assert run.returncode == (0 if matching else 1), run.stdout + run.stderr
+    assert not golden.exists() and not actual.exists()

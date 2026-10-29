@@ -40,8 +40,8 @@ def read_comparison_file(path):
 
 
 def comparison_details(output_np, golden_np, atol, rtol):
-    output = torch.from_numpy(output_np)
-    golden = torch.from_numpy(golden_np)
+    output = torch.from_numpy(output_np).to(torch.float64)
+    golden = torch.from_numpy(golden_np).to(torch.float64)
     diff = torch.abs(output - golden)
     max_abs_error = torch.max(diff).item()
     golden_norm = torch.norm(golden)

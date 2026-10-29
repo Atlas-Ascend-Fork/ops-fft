@@ -1,0 +1,32 @@
+# Copyright (c) 2026 Huawei Technologies Co., Ltd.
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# CANN Open Software License Agreement Version 2.0 (the "License").
+# Please refer to the License for details. You may not use this file except in compliance with the License.
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+# See LICENSE in the root of the software repository for the full text of the License.
+minimum_pre_commit_version: 4.0.0
+default_stages: [pre-commit]
+repos:
+  - repo: https://gitcode.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: detect-private-key
+  - repo: local
+    hooks:
+      - id: fft-comparison-host-tests
+        name: FFT comparison Host tests
+        entry: python -m pytest -q tests/host tests/python
+        language: python
+        additional_dependencies:
+          - numpy
+          - torch==2.8.0+cpu
+          - pytest
+          - --extra-index-url=https://download.pytorch.org/whl/cpu
+        pass_filenames: false
+        files: ^(src/.*/(compare_data|test_helper)\.py|tests/(host|python)/.*\.py)$

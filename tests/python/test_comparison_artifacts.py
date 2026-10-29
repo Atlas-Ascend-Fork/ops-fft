@@ -76,11 +76,11 @@ class TestComparisonArtifacts(unittest.TestCase):
             with self.subTest(arrays=arrays, detail=detail):
                 self._check_comparison(arrays, detail, False)
 
-    def test_missing_output_and_golden_skip_remain(self):
+    def test_missing_output_and_golden_fail(self):
         for role, detail in itertools.product((0, 1), (False, True)):
             with self.subTest(missing=role, detail=detail):
                 self._check_comparison(
-                    ([1.0], [1.0]), detail, role == 0, (role, "missing")
+                    ([1.0], [1.0]), detail, False, (role, "missing")
                 )
 
     def test_four_real_clis_preserve_valid_comparison(self):
