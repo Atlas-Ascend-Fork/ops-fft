@@ -46,7 +46,7 @@ extern "C" {
  */
 ACLFFT_API aclError aclfftRfft1D(float* x, float* y, uint32_t n, int32_t norm, uint32_t batches, void* stream);
 
-ACLFFT_API aclError aclfftRfft1DR2CFft(float* x, float* y, uint32_t n, uint32_t batches, int isForward, void* stream);
+ACLFFT_API aclError aclfftRfft1DR2CFft(float* x, float* y, uint32_t n, int32_t norm, uint32_t batches, int isForward, void* stream);
 
 ACLFFT_API aclError
 aclfftRfft1DFft(float* x, float* y, uint32_t n, int32_t norm, uint32_t batches, int isForward, void* stream);

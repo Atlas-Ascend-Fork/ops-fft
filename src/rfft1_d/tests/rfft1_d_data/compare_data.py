@@ -20,6 +20,10 @@ configs = {
     "r2c_basic": {"atol": 1e-3, "rtol": 1e-3},
     "r2c_n16": {"atol": 1e-3, "rtol": 1e-3},
     "r2c_n1024": {"atol": 1e-2, "rtol": 1e-3},
+    # issue #227: odd-n coverage on the DFT path
+    "r2c_dft_n7": {"atol": 1e-3, "rtol": 1e-3},
+    "r2c_dft_n15": {"atol": 1e-3, "rtol": 1e-3},
+    "r2c_dft_n255": {"atol": 1e-2, "rtol": 1e-3},
     "r2c_n2048": {"atol": 1e-2, "rtol": 1e-3},
     "r2c_n4096": {"atol": 1e-2, "rtol": 1e-3},
     "r2c_n2100": {"atol": 1e-2, "rtol": 1e-3},

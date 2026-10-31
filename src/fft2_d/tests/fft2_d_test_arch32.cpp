@@ -9,11 +9,13 @@
  */
 
 #include "fft2_d_test.h"
+#include "fft2_d/fft2_d.h"
 
 namespace Fft2DApiIntegrationTest {
     // 前置声明：调用点位于 run_all_tests 内，而定义在其后（static 内部链接，
     // 调用点之前必须有可见声明，否则编译失败）
     static void run_makeplan2d_type_reject_test(OpsFftTest::TestStats& stats);
+    static void run_fft2dd_entry_reject_test(OpsFftTest::TestStats& stats);
 
     void run_all_tests(aclrtStream stream, OpsFftTest::TestStats& stats) {
         std::vector<C2C2DTestCase> cases = {
@@ -39,6 +41,7 @@ namespace Fft2DApiIntegrationTest {
         };
         OpsFftTest::RunBatchTests(stream, stats, "fft2_d", cases, run_c2c_2d_case);
         run_makeplan2d_type_reject_test(stats);
+        run_fft2dd_entry_reject_test(stats);
     }
 
     // issue #208: aclfftMakePlan2d 创建期拒绝当前无 2D 执行实现的类型
@@ -78,6 +81,27 @@ namespace Fft2DApiIntegrationTest {
         } else {
             TEST_CASE_FAIL_DETAIL(stats, "makeplan2d_type_reject",
                                    "MakePlan2d type gate mismatch (see build log)");
+        }
+    }
+
+    // issue #227: aclfftFft2DDd 入口级校验（#193 落地的 isForward/batches==0 守卫）
+    // 此前无 UT——对照 fft1_d entry_reject_regression 口径补齐，防止校验被重构删除
+    static void run_fft2dd_entry_reject_test(OpsFftTest::TestStats& stats) {
+        TEST_CASE_BEGIN("fft2dd_entry_reject");
+        float dummy = 0.0f;
+        bool all_ok = true;
+        // 1) 空指针拒绝（issue #53）
+        if (aclfftFft2DDd(nullptr, &dummy, 64, 64, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        // 2) isForward 域拒绝（issue #193，对齐 1D #147/#167 口径）
+        if (aclfftFft2DDd(&dummy, &dummy, 64, 64, 1, 2, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        // 3) batches==0 拒绝（issue #193，对齐 1D #188 口径）
+        if (aclfftFft2DDd(&dummy, &dummy, 64, 64, 0, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (all_ok) {
+            TEST_CASE_PASS_DETAIL(stats, "fft2dd_entry_reject",
+                                   "aclfftFft2DDd rejects null/isForward=2/batches=0 with ACL_ERROR_INVALID_PARAM");
+        } else {
+            TEST_CASE_FAIL_DETAIL(stats, "fft2dd_entry_reject",
+                                   "some aclfftFft2DDd reject path missing or wrong error code (see build log)");
         }
     }
 }

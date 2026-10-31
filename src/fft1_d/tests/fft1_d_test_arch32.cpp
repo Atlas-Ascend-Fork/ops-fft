@@ -86,8 +86,8 @@ namespace Fft1DApiIntegrationTest {
         TEST_CASE_BEGIN("host_entry_unsupported_n");
         std::vector<float> in(64 * 2, 0.0f);
         std::vector<float> out(64 * 2, 0.0f);
-        bool b_ok = aclfftFft1DB(in.data(), out.data(), 64, 1, 1, nullptr) != ACL_SUCCESS;
-        bool stride_ok = aclfftFft1DStride(in.data(), out.data(), 64, 2, 1, 1, nullptr) != ACL_SUCCESS;
+        bool b_ok = aclfftFft1DB(in.data(), out.data(), 64, 0, 1, 1, nullptr) != ACL_SUCCESS;
+        bool stride_ok = aclfftFft1DStride(in.data(), out.data(), 64, 0, 2, 1, 1, nullptr) != ACL_SUCCESS;
         if (b_ok && stride_ok) {
             TEST_CASE_PASS_DETAIL(stats, "host_entry_unsupported_n",
                                    "unsupported n rejected with error code, no exception");
@@ -103,10 +103,10 @@ namespace Fft1DApiIntegrationTest {
         float dummy = 0.0f;
         bool all_ok = true;
         if (aclfftFft1DDft(nullptr, &dummy, 256, 1, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
-        if (aclfftFft1DB(nullptr, &dummy, 512, 2, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftFft1DB(nullptr, &dummy, 512, 0, 2, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (aclfftFft1DN(nullptr, &dummy, 32768, 1, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
-        if (aclfftFft1DMix(nullptr, &dummy, 210, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
-        if (aclfftFft1DStride(nullptr, &dummy, 256, 128, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftFft1DMix(nullptr, &dummy, 210, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftFft1DStride(nullptr, &dummy, 256, 0, 128, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (all_ok) {
             TEST_CASE_PASS_DETAIL(stats, "host_entry_null_pointer",
                                    "all 5 exported entries reject null pointers with ACL_ERROR_INVALID_PARAM");
@@ -126,12 +126,12 @@ namespace Fft1DApiIntegrationTest {
         // norm 传 0（本版本仅支持 0=BACKWARD）：norm!=0 的校验先于目标校验执行，
         // 若此位误传 1 用例会被 norm 拒绝路径"假通过"（PR #93 检视修正）
         // 1) n==0 拒绝（Mix/R2CFft/C2RFft 家族，issue #164/#165/#166）
-        if (aclfftFft1DMix(&dummy, &dummy, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
-        if (aclfftRfft1DR2CFft(&dummy, &dummy, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
-        if (aclfftIrfft1DC2RFft(&dummy, &dummy, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftFft1DMix(&dummy, &dummy, 0, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DR2CFft(&dummy, &dummy, 0, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftIrfft1DC2RFft(&dummy, &dummy, 0, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         // 2) n > 2^27 上界拒绝（Fft1DN/Mix/R2CFft/C2RFft，issue #161/#187）
         if (aclfftFft1DN(&dummy, &dummy, (1u << 27) + 1, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
-        if (aclfftFft1DMix(&dummy, &dummy, (1u << 27) + 1, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftFft1DMix(&dummy, &dummy, (1u << 27) + 1, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         // 3) batches==0 拒绝（issue #188）
         if (aclfftFft1DN(&dummy, &dummy, 32768, 0, 0, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (aclfftFft1DDft(&dummy, &dummy, 256, 0, 0, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
@@ -158,12 +158,58 @@ namespace Fft1DApiIntegrationTest {
         }
     }
 
+    // issue #224: arch32 norm!=0 门禁此前仅覆盖 dft/fft_n/R2C 幂次路径，fft_b/
+    // fft_mix/fft_stride/R2C MIX/C2R MIX 五条分发路径静默按 BACKWARD 计算并返回
+    // 成功。补齐后同一 norm 请求在全部档位行为一致（外层翻译为 NOT_IMPLEMENTED）
+    static void run_norm_gate_reject_test(OpsFftTest::TestStats& stats) {
+        TEST_CASE_BEGIN("norm_gate_reject");
+        float dummy = 0.0f;
+        bool all_ok = true;
+        if (aclfftFft1DB(&dummy, &dummy, 512, 1, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftFft1DMix(&dummy, &dummy, 210, 1, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftFft1DStride(&dummy, &dummy, 256, 1, 128, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DR2CFft(&dummy, &dummy, 2048, 1, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftIrfft1DC2RFft(&dummy, &dummy, 2048, 1, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        // norm=0 正常语义不受影响（校验仅拒绝非 0 值，n 域内不应被 norm 检查拦截，
+        // 此处以 n=0 既有拒绝路径佐证 norm=0 已越过 norm 门）
+        if (aclfftFft1DB(&dummy, &dummy, 0, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (all_ok) {
+            TEST_CASE_PASS_DETAIL(stats, "norm_gate_reject",
+                                  "norm!=0 rejected with ACL_ERROR_INVALID_PARAM on fft_b/fft_mix/fft_stride/R2C MIX/C2R MIX");
+        } else {
+            TEST_CASE_FAIL_DETAIL(stats, "norm_gate_reject",
+                                  "some path accepted norm!=0 or wrong error code (see build log)");
+        }
+    }
+
+    // issue #229: arch32 fft_b/fft_mix/fft_stride/fft_n 四入口此前对 isForward 一律
+    // 按 (isForward != 0) 判方向，任意非 0 值静默按正向执行。对齐 dft/arch35 的
+    // 0/1 值域校验后，越值应返回 ACL_ERROR_INVALID_PARAM
+    static void run_isforward_domain_reject_test(OpsFftTest::TestStats& stats) {
+        TEST_CASE_BEGIN("isforward_domain_reject");
+        float dummy = 0.0f;
+        bool all_ok = true;
+        if (aclfftFft1DB(&dummy, &dummy, 512, 0, 1, 2, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftFft1DMix(&dummy, &dummy, 210, 0, 1, 2, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftFft1DStride(&dummy, &dummy, 256, 0, 128, 1, 2, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftFft1DN(&dummy, &dummy, 32768, 0, 1, 2, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (all_ok) {
+            TEST_CASE_PASS_DETAIL(stats, "isforward_domain_reject",
+                                  "isForward=2 rejected with ACL_ERROR_INVALID_PARAM on fft_b/fft_mix/fft_stride/fft_n");
+        } else {
+            TEST_CASE_FAIL_DETAIL(stats, "isforward_domain_reject",
+                                  "some entry accepted isForward=2 or wrong error code (see build log)");
+        }
+    }
+
     void run_all_tests(aclrtStream stream, OpsFftTest::TestStats& stats) {
         OpsFftTest::RunBatchTests(stream, stats, "fft1_d", build_precision_cases(), run_c2c_case);
         run_vertical_unsupported_test(stats);
         run_host_entry_unsupported_n_test(stats);
         run_host_entry_null_pointer_test(stats);
         run_entry_reject_regression_test(stats);
+        run_norm_gate_reject_test(stats);
+        run_isforward_domain_reject_test(stats);
     }
 }
 

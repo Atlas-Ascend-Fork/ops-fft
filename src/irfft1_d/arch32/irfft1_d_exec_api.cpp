@@ -41,10 +41,10 @@ aclfftResult aclfftExecC2R_1D(aclfftHandle plan, aclfftComplex* idata, aclfftRea
             int radix = ChooseRadix(aclfftType::ACLFFT_C2R, uniques);
             if (radix == K_RADIX_MIX) {
                 err = aclfftIrfft1DC2RFft(
-                    reinterpret_cast<float*>(idata), reinterpret_cast<float*>(odata), static_cast<uint32_t>(n), batch,
-                    isForward, impl->stream);
+                    reinterpret_cast<float*>(idata), reinterpret_cast<float*>(odata), static_cast<uint32_t>(n),
+                    irfft_norm, batch, isForward, impl->stream);
             } else {
-                std::cout << "[ops-fft] C2R: n=" << n << " not supported" << std::endl;
+                std::cerr << "[ops-fft] C2R: n=" << n << " not supported" << std::endl;
                 return ACLFFT_NOT_IMPLEMENTED;
             }
         }

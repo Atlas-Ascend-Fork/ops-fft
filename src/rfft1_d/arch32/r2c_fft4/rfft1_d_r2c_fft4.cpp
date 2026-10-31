@@ -162,20 +162,18 @@ extern "C" aclError aclfftRfft1DR2CFft4(float *x, float *y, uint32_t n,
     Rfft1DR2CFftTilingData tilingData;
     RfftHost::InitializeTiling<4>(tilingData, fftN, batches, n1, n2, n3, n4);
 
-    uint8_t* twiddleHost;
-    uint8_t* gatherHost;
-    uint8_t* eyeHost;
-
-    CHECK_ACL(aclrtMallocHost((void**)(&twiddleHost), twiddleSize));
-    CHECK_ACL(aclrtMallocHost((void**)(&gatherHost), gatherSize));
-    CHECK_ACL(aclrtMallocHost((void**)(&eyeHost), eyeSize));
-    GenerateTiling(fftN, n1, n2, n3, n4, coreNum, twiddleHost, gatherHost, eyeHost);
+    // host pinned 缓冲纳入 RAII（issue #223）：twiddle/gather/eye 三块缓冲任一
+    // CHECK_ACL 早退路径自动释放
+    RfftHost::HostBuffers host;
+    CHECK_ACL(host.Allocate(twiddleSize, gatherSize, eyeSize));
+    GenerateTiling(fftN, n1, n2, n3, n4, coreNum, static_cast<uint8_t *>(host.twiddle.get()),
+                   static_cast<uint8_t *>(host.gather.get()), static_cast<uint8_t *>(host.eye.get()));
 
     RfftHost::DeviceBuffers dev;
     RfftHost::BufferSizes sizes{inputSize, outputSize, workSize, twiddleSize, gatherSize, tilingSize, eyeSize};
-    CHECK_ACL(dev.Prepare(sizes, x, twiddleHost, gatherHost, &tilingData, eyeHost));
+    CHECK_ACL(dev.Prepare(sizes, x, host.twiddle.get(), host.gather.get(), &tilingData, host.eye.get()));
 
     CHECK_ACL(ExecuteFft4(dev, coreNum, stream, y, outputSize));
 
-    return RfftHost::FreeHostBuffers(twiddleHost, gatherHost, eyeHost);
+    return ACL_SUCCESS;
 }

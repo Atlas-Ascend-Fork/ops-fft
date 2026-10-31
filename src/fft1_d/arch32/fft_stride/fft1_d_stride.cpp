@@ -44,11 +44,26 @@ static uint32_t ComputeS0(uint32_t fftN, uint32_t strideSize)
 }
 
 aclError aclfftFft1DStride(
-    float* x, float* y, uint32_t n, uint32_t stride, uint32_t batches, int isForward, void* stream)
+    float* x, float* y, uint32_t n, int32_t norm, uint32_t stride, uint32_t batches, int isForward, void* stream)
 {
     // 防护: 本函数经 ACLFFT_API 导出可被外部直接调用，需校验输入输出指针（issue #76）
     if (x == nullptr || y == nullptr) {
         std::cerr << "[ops-fft] aclfftFft1DStride: input/output pointer is null" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    // 当前版本仅支持 norm=0（BACKWARD，无缩放）；norm!=0 显式报错而非静默按
+    // BACKWARD 计算（issue #224，对齐 dft/fft_n 路径口径，消除 norm 行为随档位分裂）
+    if (norm != 0) {
+        std::cerr << "[ops-fft] aclfftFft1DStride: norm=" << norm << " is not supported (only 0=BACKWARD in this version)"
+                  << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    // isForward 域校验（issue #229，对齐 dft/arch35 口径）：合法取值仅 0(正向)/1(反向)。
+    // 本入口无校验时任意非 0 值经 isForward 真值判定静默按正向执行，方向语义与
+    // 文档 0/1 两值契约不符
+    if (isForward != 0 && isForward != 1) {
+        std::cerr << "[ops-fft] aclfftFft1DStride: isForward=" << isForward
+                  << " invalid (expected 0 or 1)" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
     // 内核仅处理单个 n*stride 矩阵、host 缓冲也按单矩阵分配：batches>=2 时其余矩阵

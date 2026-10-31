@@ -279,6 +279,14 @@ extern "C" aclError aclfftFft1DN(
                   << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // isForward 域校验（issue #229，对齐 dft/arch35 口径）：合法取值仅 0(正向)/1(反向)。
+    // 本入口无校验时任意非 0 值经 (isForward != 0) 判定静默按正向执行，方向语义与
+    // 文档 0/1 两值契约不符
+    if (isForward != 0 && isForward != 1) {
+        std::cerr << "[ops-fft] aclfftFft1DN: isForward=" << isForward
+                  << " invalid (expected 0 or 1)" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();
     uint32_t coreNum = ascendcPlatform->GetCoreNumAic();
     if (coreNum == 0) {

@@ -102,16 +102,15 @@ extern "C" aclError aclfftRfft1DR2CFft1(float *x, float *y, uint32_t n,
     tilingData.N = fftN;
     tilingData.batch = batches;
 
-    uint8_t* twiddleHost;
-    uint8_t* gatherHost;
-
-    CHECK_ACL(aclrtMallocHost((void**)(&twiddleHost), twiddleSize));
-    CHECK_ACL(aclrtMallocHost((void**)(&gatherHost), gatherSize));
-    GenerateTiling(fftN, twiddleHost, gatherHost);
+    // host pinned 缓冲纳入 RAII（issue #223）：任一 CHECK_ACL 早退路径自动释放，
+    // 不再依赖函数末尾的显式 aclrtFreeHost（原早退路径会跳过释放造成泄漏）
+    RfftHost::HostBuffers host;
+    CHECK_ACL(host.Allocate(twiddleSize, gatherSize));
+    GenerateTiling(fftN, static_cast<uint8_t *>(host.twiddle.get()), static_cast<uint8_t *>(host.gather.get()));
 
     RfftHost::DeviceBuffers dev;
     RfftHost::BufferSizes sizes{inputSize, outputSize, 0, twiddleSize, gatherSize, tilingSize, 0};
-    CHECK_ACL(dev.Prepare(sizes, x, twiddleHost, gatherHost, &tilingData));
+    CHECK_ACL(dev.Prepare(sizes, x, host.twiddle.get(), host.gather.get(), &tilingData));
     // cube 路径 Fixpipe 每行只写前 N+1 个 float，输出行宽 N+2 中下标 N+1 的 Nyquist
     // 虚部槽位（Im(X[N/2])，实输入恒为 0）无人写入，来自未初始化内存（issue #215，
     // 旧 DFT 路径曾显式写 0）。启动前将输出缓冲清零，保证该槽位确定性为 0。
@@ -126,9 +125,6 @@ extern "C" aclError aclfftRfft1DR2CFft1(float *x, float *y, uint32_t n,
     );
 
     CHECK_ACL(dev.CopyOutput(y, outputSize, stream));
-
-    CHECK_ACL(aclrtFreeHost(twiddleHost));
-    CHECK_ACL(aclrtFreeHost(gatherHost));
 
     return ACL_SUCCESS;
 }

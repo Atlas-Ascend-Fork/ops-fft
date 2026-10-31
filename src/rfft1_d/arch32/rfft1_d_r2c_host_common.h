@@ -185,6 +185,32 @@ private:
     }
 };
 
+// host pinned 缓冲 RAII 守卫（issue #223）：twiddle/gather/eye 宿主缓冲原以裸指针
+// aclrtMallocHost 分配、仅在全部成功后于函数末尾 aclrtFreeHost 释放，任一后续
+// CHECK_ACL 失败提前 return 时跳过释放语句，pinned host 内存随失败调用累积泄漏。
+// 仿照 DeviceBuffers 以 unique_ptr + aclrtFreeHost 删除器接管生命周期：
+// 正常路径行为零变更，失败路径随栈对象析构自动释放已分配缓冲
+struct HostBuffers {
+    using HostBuffer = std::unique_ptr<void, AclrtFreeHostDeleter>;
+    HostBuffer twiddle, gather, eye;
+
+    aclError Allocate(size_t twiddleSize, size_t gatherSize, size_t eyeSize = 0)
+    {
+        void *twiddlePtr = nullptr;
+        CHECK_ACL(aclrtMallocHost(&twiddlePtr, twiddleSize));
+        twiddle.reset(twiddlePtr);
+        void *gatherPtr = nullptr;
+        CHECK_ACL(aclrtMallocHost(&gatherPtr, gatherSize));
+        gather.reset(gatherPtr);
+        if (eyeSize != 0) {
+            void *eyePtr = nullptr;
+            CHECK_ACL(aclrtMallocHost(&eyePtr, eyeSize));
+            eye.reset(eyePtr);
+        }
+        return ACL_SUCCESS;
+    }
+};
+
 inline void GenerateBlockedTwiddle(int n, int row, int col, int blockNum,
                                    int stepN, int l2Step, uint8_t *twiddleBuf)
 {
@@ -266,13 +292,6 @@ inline void InitializeTiling(TilingData &tilingData, int64_t n, uint32_t batches
     if constexpr (Radices >= 5) tilingData.n5 = n5;
 }
 
-inline aclError AllocateFft3HostBuffers(uint8_t *&twiddleHost, uint8_t *&gatherHost,
-                                        size_t twiddleSize, size_t gatherSize)
-{
-    CHECK_ACL(aclrtMallocHost((void**)(&twiddleHost), twiddleSize));
-    return aclrtMallocHost((void**)(&gatherHost), gatherSize);
-}
-
 template<typename Launch>
 inline aclError ExecuteFft3(DeviceBuffers &dev, float *y, size_t outputSize, void *stream,
                             uint32_t coreNum, Launch launch)
@@ -281,19 +300,11 @@ inline aclError ExecuteFft3(DeviceBuffers &dev, float *y, size_t outputSize, voi
     return dev.CopyOutput(y, outputSize, stream);
 }
 
-inline aclError FreeHostBuffers(uint8_t *twiddleHost, uint8_t *gatherHost, uint8_t *eyeHost = nullptr)
+// 完成收尾：输出拷回。宿主 pinned 缓冲改由 HostBuffers RAII 接管（issue #223），
+// 不再在此处显式释放，避免调用方早退路径跳过释放造成泄漏
+inline aclError CompleteFft(DeviceBuffers &dev, float *y, size_t outputSize, void *stream)
 {
-    CHECK_ACL(aclrtFreeHost(twiddleHost));
-    CHECK_ACL(aclrtFreeHost(gatherHost));
-    if (eyeHost != nullptr) CHECK_ACL(aclrtFreeHost(eyeHost));
-    return ACL_SUCCESS;
-}
-
-inline aclError CompleteFft(DeviceBuffers &dev, float *y, size_t outputSize, void *stream,
-                            uint8_t *twiddleHost, uint8_t *gatherHost)
-{
-    CHECK_ACL(dev.CopyOutput(y, outputSize, stream));
-    return FreeHostBuffers(twiddleHost, gatherHost);
+    return dev.CopyOutput(y, outputSize, stream);
 }
 
 template<typename TilingData, typename Launch>
@@ -315,17 +326,16 @@ inline aclError RunFft3(float *x, float *y, uint32_t n,
     TilingData tilingData;
     InitializeTiling<3>(tilingData, n, batches, n1, n2, n3);
 
-    uint8_t* twiddleHost;
-    uint8_t* gatherHost;
-    CHECK_ACL(AllocateFft3HostBuffers(twiddleHost, gatherHost, twiddleSize, gatherSize));
-    GenerateTiling3(fftN, n1, n2, n3, coreNum, twiddleHost, gatherHost);
+    HostBuffers host;
+    CHECK_ACL(host.Allocate(twiddleSize, gatherSize));
+    GenerateTiling3(fftN, n1, n2, n3, coreNum, static_cast<uint8_t *>(host.twiddle.get()),
+                    static_cast<uint8_t *>(host.gather.get()));
 
     DeviceBuffers dev;
     BufferSizes sizes{inputSize, outputSize, workSize, twiddleSize, gatherSize, tilingSize, 0};
-    CHECK_ACL(dev.Prepare(sizes, x, twiddleHost, gatherHost, &tilingData));
+    CHECK_ACL(dev.Prepare(sizes, x, host.twiddle.get(), host.gather.get(), &tilingData));
 
     CHECK_ACL(ExecuteFft3(dev, y, outputSize, stream, coreNum, launch));
-    CHECK_ACL(FreeHostBuffers(twiddleHost, gatherHost));
 
     return ACL_SUCCESS;
 }

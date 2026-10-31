@@ -19,6 +19,10 @@ import test_helper
 configs = {
     "c2r_basic": {"atol": 1e-3, "rtol": 1e-3},
     "c2r_n16": {"atol": 1e-3, "rtol": 1e-3},
+    # issue #227: odd-n coverage on the DFT path
+    "c2r_dft_n7": {"atol": 1e-3, "rtol": 1e-3},
+    "c2r_dft_n15": {"atol": 1e-3, "rtol": 1e-3},
+    "c2r_dft_n255": {"atol": 1e-2, "rtol": 1e-3},
     "c2r_n2100": {"atol": 1.0, "rtol": 1e-2},
     "c2r_n5040": {"atol": 5.0, "rtol": 1e-2},
     "c2r_fft_n1536": {"atol": 5e-2, "rtol": 1e-2},

@@ -97,8 +97,8 @@ aclfftResult aclfftExecC2C_1D(aclfftHandle plan, aclfftComplex* idata, aclfftCom
                 return ACLFFT_NOT_IMPLEMENTED;
             }
             err = aclfftFft1DStride(
-                reinterpret_cast<float*>(idata), reinterpret_cast<float*>(odata), n, impl->stride[0], batch, isForward,
-                impl->stream);
+                reinterpret_cast<float*>(idata), reinterpret_cast<float*>(odata), n, fft_norm, impl->stride[0], batch,
+                isForward, impl->stream);
         } else {
             int radix = ChooseRadix(impl->type, uniques);
             FftCoreSelect configCore = FindConfig(batch, static_cast<int64_t>(n));
@@ -108,7 +108,7 @@ aclfftResult aclfftExecC2C_1D(aclfftHandle plan, aclfftComplex* idata, aclfftCom
                     impl->stream);
             } else if (configCore == FftCoreSelect::kFftB) {
                 err = aclfftFft1DB(
-                    reinterpret_cast<float*>(idata), reinterpret_cast<float*>(odata), n, batch, isForward,
+                    reinterpret_cast<float*>(idata), reinterpret_cast<float*>(odata), n, fft_norm, batch, isForward,
                     impl->stream);
             } else if (configCore == FftCoreSelect::kFftN) {
                 err = aclfftFft1DN(
@@ -121,7 +121,7 @@ aclfftResult aclfftExecC2C_1D(aclfftHandle plan, aclfftComplex* idata, aclfftCom
             } else if (radix == K_RADIX_2) {
                 if (n < K_N_FFT_32768) {
                     err = aclfftFft1DB(
-                        reinterpret_cast<float*>(idata), reinterpret_cast<float*>(odata), n, batch, isForward,
+                        reinterpret_cast<float*>(idata), reinterpret_cast<float*>(odata), n, fft_norm, batch, isForward,
                         impl->stream);
                 } else {
                     err = aclfftFft1DN(
@@ -130,7 +130,7 @@ aclfftResult aclfftExecC2C_1D(aclfftHandle plan, aclfftComplex* idata, aclfftCom
                 }
             } else if (radix == K_RADIX_MIX) {
                 err = aclfftFft1DMix(
-                    reinterpret_cast<float*>(idata), reinterpret_cast<float*>(odata), n, batch, isForward,
+                    reinterpret_cast<float*>(idata), reinterpret_cast<float*>(odata), n, fft_norm, batch, isForward,
                     impl->stream);
             } else {
                 std::cerr << "[ops-fft] C2C arch32: n=" << n << " C2C exec path not implemented" << std::endl;

@@ -54,6 +54,16 @@ struct AclrtFreeDeleter {
     }
 };
 
+// 自定义删除器（host 固定内存），安全处理空指针（issue #223，与 AclrtFreeDeleter 同口径）
+struct AclrtFreeHostDeleter {
+    void operator()(void* ptr) const
+    {
+        if (ptr != nullptr) {
+            aclrtFreeHost(ptr);
+        }
+    }
+};
+
 /* ======================== Mix-radix FFT shared constants ======================== */
 
 constexpr int64_t TWO_MUL = 2;
@@ -213,7 +223,8 @@ inline void InitMixRadixLong(int64_t fftN, std::vector<int64_t>& radixVec)
         return;
     }
     if (inputLen == RADIX_LEN_243) {
-        radixVec = {27, 9, 81};
+        // 243=3^5=27*9；原 {27,9,81} 系自 RADIX_LEN_19683 分支复制的笔误，乘积 19683!=243（issue #228）
+        radixVec = {27, 9};
         return;
     }
     if (inputLen == RADIX_LEN_729) {

@@ -35,7 +35,7 @@ aclfftIrfft1DFft(float* x, float* y, uint32_t n, int32_t norm, uint32_t batches,
 ACLFFT_API aclError
 aclfftIrfft1DDft(float* x, float* y, uint32_t n, int32_t norm, uint32_t batches, int isForward, void* stream);
 
-ACLFFT_API aclError aclfftIrfft1DC2RFft(float* x, float* y, uint32_t n, uint32_t batches, int isForward, void* stream);
+ACLFFT_API aclError aclfftIrfft1DC2RFft(float* x, float* y, uint32_t n, int32_t norm, uint32_t batches, int isForward, void* stream);
 
 #ifdef __cplusplus
 }

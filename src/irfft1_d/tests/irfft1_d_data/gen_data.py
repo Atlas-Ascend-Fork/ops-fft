@@ -25,6 +25,10 @@ logger = logging.getLogger(__name__)
 configs = [
     {"name": "c2r_basic", "n": 8, "batch": 1},
     {"name": "c2r_n16", "n": 16, "batch": 1},
+    # issue #227: odd-n coverage on the DFT path
+    {"name": "c2r_dft_n7", "n": 7, "batch": 1},
+    {"name": "c2r_dft_n15", "n": 15, "batch": 1},
+    {"name": "c2r_dft_n255", "n": 255, "batch": 1},
     {"name": "c2r_n2100", "n": 2100, "batch": 1},
     {"name": "c2r_n5040", "n": 5040, "batch": 1},
     {"name": "c2r_fft_n1536", "n": 1536, "batch": 4},

@@ -11,6 +11,7 @@
 #include "../../irfft1_d.h"
 #include "fft_common_core.h"
 #include "fft_all_mix_tiling_data.h"
+#include "fft_mix_host_common.h"
 #include "irfft1_d_c2r_fft_kernel.h"
 
 /* ======================== C2R-specific: InitInputOutputIndex + InitABTable ======================== */
@@ -119,10 +120,18 @@ static void GenABTable(int64_t fftN, int parity, bool forward, std::vector<float
 
 /* ======================== Host entry point ======================== */
 
-extern "C" aclError aclfftIrfft1DC2RFft(float* x, float* y, uint32_t n, uint32_t batches, int isForward, void* stream)
+// 入参校验链（!102 codecheck 拆分）：经 CHECK_ACL 调用保持失败早退语义
+static aclError ValidateIrfft1DC2RFftParams(const float* x, const float* y, uint32_t n, int32_t norm, uint32_t batches)
 {
     if (x == nullptr || y == nullptr) {
         std::cerr << "[ops-fft] aclfftIrfft1DC2RFft: input/output pointer is null" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    // 当前版本仅支持 norm=0（BACKWARD，无缩放）；norm!=0 显式报错而非静默按
+    // BACKWARD 计算（issue #224，对齐 C2R DFT 路径口径，消除 norm 行为随档位分裂）
+    if (norm != 0) {
+        std::cerr << "[ops-fft] aclfftIrfft1DC2RFft: norm=" << norm << " is not supported (only 0=BACKWARD in this version)"
+                  << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
     // n==0 拒绝（issue #166，对齐同族入口口径）：n=0 时 fftN=0，InitMixRadixShort(0)
@@ -145,6 +154,41 @@ extern "C" aclError aclfftIrfft1DC2RFft(float* x, float* y, uint32_t n, uint32_t
         std::cerr << "[ops-fft] aclfftIrfft1DC2RFft: batches=0 is not supported" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    return ACL_SUCCESS;
+}
+
+// 内核档位选择与启动（!102 codecheck 拆分）：aivSplitWay 1..3 有专属内核、4..6 回退
+// 档位 1（原 switch default 语义）；parity 奇偶分别派发 odd/even batch 变体
+static aclError LaunchC2RFftKernel(int64_t fftN, std::vector<int64_t> &radixVec, int64_t parity,
+                                   uint32_t needCoreNum, void *stream, const FftMixHostCommon::MixFftDevBuffers &dev)
+{
+    int32_t aivSplitWay = InitAiVSplitWay(fftN, radixVec);
+    uint8_t* sync = nullptr;
+    CHECK_ACL(aclrtGetHardwareSyncAddr((void**)&sync));
+    const int idx = (aivSplitWay >= 1 && aivSplitWay <= 3) ? aivSplitWay : 1;
+    const int variant = (parity == 1) ? idx : idx + 16;
+#define LAUNCH_C2R_VARIANT(NAME, IDX)                                                                              \
+    FFT1DC2RFftKernel::fft_c2r_##IDX##NAME<<<needCoreNum, nullptr, stream>>>(                                      \
+        (__gm__ uint8_t*)sync, (__gm__ float*)dev.in.get(), (__gm__ uint32_t*)dev.inIdx.get(),                     \
+        (__gm__ float*)dev.a.get(), (__gm__ float*)dev.b.get(), (__gm__ uint32_t*)dev.outIdx.get(),                \
+        (__gm__ float*)dev.dft.get(), (__gm__ float*)dev.tw.get(), (__gm__ int32_t*)dev.radix.get(),               \
+        (__gm__ float*)dev.out.get(), (__gm__ float*)dev.ws.get(), (__gm__ uint8_t*)dev.til.get())
+    switch (variant) {
+        case 1: LAUNCH_C2R_VARIANT(_odd, 1); break;
+        case 2: LAUNCH_C2R_VARIANT(_odd, 2); break;
+        case 3: LAUNCH_C2R_VARIANT(_odd, 3); break;
+        case 17: LAUNCH_C2R_VARIANT(_even, 1); break;
+        case 18: LAUNCH_C2R_VARIANT(_even, 2); break;
+        case 19: LAUNCH_C2R_VARIANT(_even, 3); break;
+        default: break;
+    }
+#undef LAUNCH_C2R_VARIANT
+    return ACL_SUCCESS;
+}
+
+extern "C" aclError aclfftIrfft1DC2RFft(float* x, float* y, uint32_t n, int32_t norm, uint32_t batches, int isForward, void* stream)
+{
+    CHECK_ACL(ValidateIrfft1DC2RFftParams(x, y, n, norm, batches));
     auto plat = platform_ascendc::PlatformAscendCManager::GetInstance();
     uint32_t coreNum = plat->GetCoreNumAic();
     if (coreNum == 0)
@@ -154,194 +198,49 @@ extern "C" aclError aclfftIrfft1DC2RFft(float* x, float* y, uint32_t n, uint32_t
     if (needCoreNum == 0)
         needCoreNum = 1;
 
-    bool forward = (isForward != 0);
     int64_t parity = n % 2;
     // For c2r: fftN in tiling = n/2 (even) or n (odd)
     int64_t fftN = (parity == 0) ? (int64_t)n / 2 : (int64_t)n;
     int64_t batchSize = batches;
 
-    // 1. Radix decomposition
     std::vector<int64_t> radixVec;
-    if (fftN >= N_FFT_C2C_MAX)
-        InitMixRadixLong(fftN, radixVec);
-    else
-        InitMixRadixShort(fftN, radixVec);
-    // 分解完整性校验（issue #113/#114，同 fft1_d_mix）
-    if (!IsMixRadixValid(radixVec, fftN)) {
-        std::cerr << "[ops-fft] aclfftIrfft1DC2RFft: unsupported fftN " << fftN << " (factorization incomplete)" << std::endl;
-        return ACL_ERROR_INVALID_PARAM;
-    }
-    int64_t radixListLen = (int64_t)radixVec.size();
-
-    // 2. DFT matrix (inverse for c2r)
-    int64_t dftLen = GetTwiddleMatrixLen(fftN, radixVec);
-    std::vector<float> dftHost(dftLen, 0.0f);
-    // GenWMatrixInverseForMultiLen 内部按 radixListLen 循环，单 radix（==1）同样适用，无需分支（issue #84）
-    GenWMatrixInverseForMultiLen(radixListLen, radixVec.data(), fftN, dftHost.data());
-
-    // 3. Twiddle matrix
-    int64_t twLen = GetTwMatrixLen(fftN, radixVec);
-    std::vector<float> twHost(twLen, 0.0f);
-    if (twLen > 0)
-        GenTwMatrix(fftN, radixVec, twHost.data());
-
-    // 4. Radix list
-    std::vector<int32_t> radixListHost(radixVec.begin(), radixVec.end());
-
-    // 5. C2R-specific: input/output index + A/B tables
+    std::vector<float> dftHost, twHost;
+    std::vector<int32_t> radixListHost;
     std::vector<uint32_t> inputIndex, outputIndex;
+    std::vector<float> aTable, bTable;
+    int64_t wsIn = 0, wsOut = 0, wsSync = 0, wsC2c = 0, wsAux = 0;
+    int64_t radixListLen = 0;
+    CHECK_ACL(FftMixHostCommon::BuildMixFftHostData(fftN, batchSize, parity, isForward != 0, "aclfftIrfft1DC2RFft",
+                                                    radixVec, dftHost, twHost, radixListHost,
+                                                    wsIn, wsOut, wsSync, wsC2c, wsAux, radixListLen));
     GenInputIndex(fftN, parity, inputIndex);
     GenOutputIndex(fftN, parity, outputIndex);
-    std::vector<float> aTable, bTable;
-    GenABTable(fftN, parity, forward, aTable, bTable);
-
-    // 6. Workspace
-    int64_t wsIn, wsOut, wsSync, wsC2c, wsAux;
-    InitMixRadixParam(parity, fftN, batchSize, radixVec, wsIn, wsOut, wsSync, wsC2c, wsAux);
+    GenABTable(fftN, parity, isForward != 0, aTable, bTable);
 
     OpsFft::FftAllMixTilingData tilingData = {};
-    tilingData.batchSize = batchSize;
-    tilingData.fftN = fftN;
-    tilingData.radixListLen = radixListLen;
-    tilingData.isInverse = 1; // c2r is always inverse
-    tilingData.workspaceOffsets[0] = 0;
-    tilingData.workspaceOffsets[1] = wsIn;
-    tilingData.workspaceOffsets[2] = wsIn + wsOut;
-    tilingData.workspaceOffsets[3] = wsIn + wsOut + wsSync;
-    tilingData.workspaceOffsets[4] = wsIn + wsOut + wsSync + wsC2c;
-    tilingData.isOddN = (int32_t)parity;
+    FftMixHostCommon::FillMixFftTiling(tilingData, fftN, batchSize, radixListLen, parity, 1, wsIn, wsOut, wsSync,
+                                       wsC2c);
     int64_t totalWs = wsIn + wsOut + wsSync + wsC2c + wsAux;
 
     // 7. Allocate & copy
     size_t inputSize = static_cast<size_t>(n / 2 + 1) * batches * sizeof(float) * 2;
     size_t outputSize = static_cast<size_t>(n) * batches * sizeof(float);
-    void *dIn = nullptr, *dOut = nullptr, *dDft = nullptr, *dTw = nullptr, *dRadix = nullptr, *dWs = nullptr,
-         *dTil = nullptr;
-    void *dInIdx = nullptr, *dA = nullptr, *dB = nullptr, *dOutIdx = nullptr;
-    // 守卫与 malloc 交错（issue #120）：任一分配失败时前序已分配内存自动释放
-    CHECK_ACL(aclrtMalloc(&dIn, inputSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    std::unique_ptr<void, AclrtFreeDeleter> g1(dIn);
-    CHECK_ACL(aclrtMalloc(&dOut, outputSize, ACL_MEM_MALLOC_HUGE_FIRST));
-    std::unique_ptr<void, AclrtFreeDeleter> g2(dOut);
-    CHECK_ACL(aclrtMalloc(&dDft, dftLen * sizeof(float), ACL_MEM_MALLOC_HUGE_FIRST));
-    std::unique_ptr<void, AclrtFreeDeleter> g3(dDft);
-    if (twLen > 0)
-        CHECK_ACL(aclrtMalloc(&dTw, twLen * sizeof(float), ACL_MEM_MALLOC_HUGE_FIRST));
-    std::unique_ptr<void, AclrtFreeDeleter> g4(dTw);
-    CHECK_ACL(aclrtMalloc(&dRadix, radixListHost.size() * sizeof(int32_t), ACL_MEM_MALLOC_HUGE_FIRST));
-    std::unique_ptr<void, AclrtFreeDeleter> g5(dRadix);
-    CHECK_ACL(aclrtMalloc(&dWs, totalWs, ACL_MEM_MALLOC_HUGE_FIRST));
-    std::unique_ptr<void, AclrtFreeDeleter> g6(dWs);
-    CHECK_ACL(aclrtMalloc(&dTil, sizeof(OpsFft::FftAllMixTilingData), ACL_MEM_MALLOC_HUGE_FIRST));
-    std::unique_ptr<void, AclrtFreeDeleter> g7(dTil);
-    CHECK_ACL(aclrtMalloc(&dInIdx, inputIndex.size() * sizeof(uint32_t), ACL_MEM_MALLOC_HUGE_FIRST));
-    std::unique_ptr<void, AclrtFreeDeleter> g8(dInIdx);
-    // 兜底分配按最大可能拷贝长度（sizeof(float)）而非 1 字节：奇数 n 时表为空但仍执行
-    // 4 字节零值拷贝，1 字节分配会越界写（issue #88）
-    CHECK_ACL(aclrtMalloc(&dA, std::max(sizeof(float), aTable.size() * sizeof(float)), ACL_MEM_MALLOC_HUGE_FIRST));
-    std::unique_ptr<void, AclrtFreeDeleter> g9(dA);
-    CHECK_ACL(aclrtMalloc(&dB, std::max(sizeof(float), bTable.size() * sizeof(float)), ACL_MEM_MALLOC_HUGE_FIRST));
-    std::unique_ptr<void, AclrtFreeDeleter> g10(dB);
-    CHECK_ACL(aclrtMalloc(&dOutIdx, outputIndex.size() * sizeof(uint32_t), ACL_MEM_MALLOC_HUGE_FIRST));
-    std::unique_ptr<void, AclrtFreeDeleter> g11(dOutIdx);
-    CHECK_ACL(aclrtMemcpy(dIn, inputSize, x, inputSize, ACL_MEMCPY_HOST_TO_DEVICE));
-    CHECK_ACL(
-        aclrtMemcpy(dDft, dftLen * sizeof(float), dftHost.data(), dftLen * sizeof(float), ACL_MEMCPY_HOST_TO_DEVICE));
-    if (twLen > 0)
-        CHECK_ACL(
-            aclrtMemcpy(dTw, twLen * sizeof(float), twHost.data(), twLen * sizeof(float), ACL_MEMCPY_HOST_TO_DEVICE));
-    CHECK_ACL(aclrtMemcpy(
-        dRadix, radixListHost.size() * sizeof(int32_t), radixListHost.data(), radixListHost.size() * sizeof(int32_t),
-        ACL_MEMCPY_HOST_TO_DEVICE));
-    CHECK_ACL(aclrtMemcpy(
-        dTil, sizeof(OpsFft::FftAllMixTilingData), &tilingData, sizeof(OpsFft::FftAllMixTilingData),
-        ACL_MEMCPY_HOST_TO_DEVICE));
-    if (!inputIndex.empty())
-        CHECK_ACL(aclrtMemcpy(
-            dInIdx, inputIndex.size() * sizeof(uint32_t), inputIndex.data(), inputIndex.size() * sizeof(uint32_t),
-            ACL_MEMCPY_HOST_TO_DEVICE));
-    if (!aTable.empty())
-        CHECK_ACL(aclrtMemcpy(
-            dA, aTable.size() * sizeof(float), aTable.data(), aTable.size() * sizeof(float),
-            ACL_MEMCPY_HOST_TO_DEVICE));
-    else {
-        float z = 0;
-        CHECK_ACL(aclrtMemcpy(dA, sizeof(float), &z, sizeof(float), ACL_MEMCPY_HOST_TO_DEVICE));
-    }
-    if (!bTable.empty())
-        CHECK_ACL(aclrtMemcpy(
-            dB, bTable.size() * sizeof(float), bTable.data(), bTable.size() * sizeof(float),
-            ACL_MEMCPY_HOST_TO_DEVICE));
-    else {
-        float z = 0;
-        CHECK_ACL(aclrtMemcpy(dB, sizeof(float), &z, sizeof(float), ACL_MEMCPY_HOST_TO_DEVICE));
-    }
-    if (!outputIndex.empty())
-        CHECK_ACL(aclrtMemcpy(
-            dOutIdx, outputIndex.size() * sizeof(uint32_t), outputIndex.data(), outputIndex.size() * sizeof(uint32_t),
-            ACL_MEMCPY_HOST_TO_DEVICE));
+    FftMixHostCommon::MixFftDevBuffers dev;
+    // 索引/表缓冲分配尺寸按 C2R 原口径：inIdx/outIdx 按表实际大小，A/B 空表带
+    // sizeof(float) 兜底（issue #88）
+    CHECK_ACL(FftMixHostCommon::AllocMixFftDevBuffers(
+        dev, inputSize, outputSize, dftHost.size(), twHost.size(), radixListHost.size(),
+        inputIndex.size() * sizeof(uint32_t),
+        std::max(sizeof(float), aTable.size() * sizeof(float)),
+        std::max(sizeof(float), bTable.size() * sizeof(float)),
+        outputIndex.size() * sizeof(uint32_t), totalWs));
+    CHECK_ACL(FftMixHostCommon::CopyMixFftHostToDevice(dev, x, inputSize, dftHost, twHost, radixListHost,
+                                                       inputIndex, aTable, bTable, outputIndex, tilingData,
+                                                       false));
 
-    // 8. Select kernel variant + launch
-    int32_t aivSplitWay = InitAiVSplitWay(fftN, radixVec);
-    uint8_t* sync = nullptr;
-    CHECK_ACL(aclrtGetHardwareSyncAddr((void**)&sync));
-
-#define LAUNCH_C2R(IDX)                                                                                            \
-    FFT1DC2RFftKernel::fft_c2r_##IDX<<<needCoreNum, nullptr, stream>>>(                                            \
-        (__gm__ uint8_t*)sync, (__gm__ float*)dIn, (__gm__ uint32_t*)dInIdx, (__gm__ float*)dA, (__gm__ float*)dB, \
-        (__gm__ uint32_t*)dOutIdx, (__gm__ float*)dDft, (__gm__ float*)dTw, (__gm__ int32_t*)dRadix,               \
-        (__gm__ float*)dOut, (__gm__ float*)dWs, (__gm__ uint8_t*)dTil)
-#define LAUNCH_C2R_EVEN(IDX)                                                                                       \
-    FFT1DC2RFftKernel::fft_c2r_##IDX##_even<<<needCoreNum, nullptr, stream>>>(                                     \
-        (__gm__ uint8_t*)sync, (__gm__ float*)dIn, (__gm__ uint32_t*)dInIdx, (__gm__ float*)dA, (__gm__ float*)dB, \
-        (__gm__ uint32_t*)dOutIdx, (__gm__ float*)dDft, (__gm__ float*)dTw, (__gm__ int32_t*)dRadix,               \
-        (__gm__ float*)dOut, (__gm__ float*)dWs, (__gm__ uint8_t*)dTil)
-#define LAUNCH_C2R_ODD(IDX)                                                                                        \
-    FFT1DC2RFftKernel::fft_c2r_##IDX##_odd<<<needCoreNum, nullptr, stream>>>(                                      \
-        (__gm__ uint8_t*)sync, (__gm__ float*)dIn, (__gm__ uint32_t*)dInIdx, (__gm__ float*)dA, (__gm__ float*)dB, \
-        (__gm__ uint32_t*)dOutIdx, (__gm__ float*)dDft, (__gm__ float*)dTw, (__gm__ int32_t*)dRadix,               \
-        (__gm__ float*)dOut, (__gm__ float*)dWs, (__gm__ uint8_t*)dTil)
-
-    // C2R always uses batch variants (matching original behavior)
-    if (parity == 1) {
-        // odd: use odd_batch variant
-        switch (aivSplitWay) {
-            case 1:
-                LAUNCH_C2R_ODD(1);
-                break;
-            case 2:
-                LAUNCH_C2R_ODD(2);
-                break;
-            case 3:
-                LAUNCH_C2R_ODD(3);
-                break;
-            default:
-                LAUNCH_C2R_ODD(1);
-                break;
-        }
-    } else {
-        // even: always use even_batch variant
-        switch (aivSplitWay) {
-            case 1:
-                LAUNCH_C2R_EVEN(1);
-                break;
-            case 2:
-                LAUNCH_C2R_EVEN(2);
-                break;
-            case 3:
-                LAUNCH_C2R_EVEN(3);
-                break;
-            default:
-                LAUNCH_C2R_EVEN(1);
-                break;
-        }
-    }
-
-#undef LAUNCH_C2R
-#undef LAUNCH_C2R_EVEN
-#undef LAUNCH_C2R_ODD
+    CHECK_ACL(LaunchC2RFftKernel(fftN, radixVec, parity, needCoreNum, stream, dev));
 
     CHECK_ACL(aclrtSynchronizeStream(stream));
-    CHECK_ACL(aclrtMemcpy(y, outputSize, dOut, outputSize, ACL_MEMCPY_DEVICE_TO_HOST));
+    CHECK_ACL(aclrtMemcpy(y, outputSize, dev.out.get(), outputSize, ACL_MEMCPY_DEVICE_TO_HOST));
     return ACL_SUCCESS;
 }

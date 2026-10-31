@@ -185,16 +185,15 @@ extern "C" aclError aclfftRfft1DR2CFft5(float *x, float *y, uint32_t n,
     Rfft1DR2CFftTilingData tilingData;
     RfftHost::InitializeTiling<5>(tilingData, fftN, batches, n1, n2, n3, n4, n5);
 
-    uint8_t* twiddleHost;
-    uint8_t* gatherHost;
-
-    CHECK_ACL(aclrtMallocHost((void**)(&twiddleHost), twiddleSize));
-    CHECK_ACL(aclrtMallocHost((void**)(&gatherHost), gatherSize));
-    GenerateTiling(halfN, n1, n2, n3, n4, n5, coreNum, twiddleHost, gatherHost);
+    // host pinned 缓冲纳入 RAII（issue #223）：任一 CHECK_ACL 早退路径自动释放
+    RfftHost::HostBuffers host;
+    CHECK_ACL(host.Allocate(twiddleSize, gatherSize));
+    GenerateTiling(halfN, n1, n2, n3, n4, n5, coreNum, static_cast<uint8_t *>(host.twiddle.get()),
+                   static_cast<uint8_t *>(host.gather.get()));
 
     RfftHost::DeviceBuffers dev;
     RfftHost::BufferSizes sizes{inputSize, outputSize, workSize, twiddleSize, gatherSize, tilingSize, 0};
-    CHECK_ACL(dev.Prepare(sizes, x, twiddleHost, gatherHost, &tilingData));
+    CHECK_ACL(dev.Prepare(sizes, x, host.twiddle.get(), host.gather.get(), &tilingData));
 
     Rfft1DR2CFft5Kernel::fft5_r2c<<<coreNum, nullptr, stream>>>(
         (__gm__ uint8_t *)dev.input.get(),
@@ -205,5 +204,5 @@ extern "C" aclError aclfftRfft1DR2CFft5(float *x, float *y, uint32_t n,
         (__gm__ uint8_t *)dev.tiling.get()
     );
 
-    return RfftHost::CompleteFft(dev, y, outputSize, stream, twiddleHost, gatherHost);
+    return RfftHost::CompleteFft(dev, y, outputSize, stream);
 }

@@ -45,11 +45,11 @@ aclfftFft1DN(float* x, float* y, uint32_t n, int32_t norm, uint32_t batches, int
  * 单个 n*stride 矩阵处理，batches>1 返回 ACL_ERROR_INVALID_PARAM（issue #86）。
  */
 ACLFFT_API aclError
-aclfftFft1DStride(float* x, float* y, uint32_t n, uint32_t stride, uint32_t batches, int isForward, void* stream);
+aclfftFft1DStride(float* x, float* y, uint32_t n, int32_t norm, uint32_t stride, uint32_t batches, int isForward, void* stream);
 
-ACLFFT_API aclError aclfftFft1DB(float* x, float* y, uint32_t n, uint32_t batches, int isForward, void* stream);
+ACLFFT_API aclError aclfftFft1DB(float* x, float* y, uint32_t n, int32_t norm, uint32_t batches, int isForward, void* stream);
 
-ACLFFT_API aclError aclfftFft1DMix(float* x, float* y, uint32_t n, uint32_t batches, int isForward, void* stream);
+ACLFFT_API aclError aclfftFft1DMix(float* x, float* y, uint32_t n, int32_t norm, uint32_t batches, int isForward, void* stream);
 
 ACLFFT_API aclError
 aclfftFft1DC2C(float* x, float* y, uint32_t n, int32_t norm, uint32_t batches, int isForward, void* stream);

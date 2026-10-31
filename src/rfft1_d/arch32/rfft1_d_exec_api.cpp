@@ -45,26 +45,20 @@ static aclError DispatchPowerOfTwoR2C(aclfftHandle_t *impl, aclfftReal *idata, a
     auto *output = reinterpret_cast<float *>(odata);
     uint32_t size = static_cast<uint32_t>(n);
     if (n <= FFT_1) {
-        std::cout << "[ops-fft] using FFT 1" << std::endl;
         return aclfftRfft1DR2CFft1(input, output, size, batch, isForward, impl->stream);
     }
     if (n <= FFT_2) {
-        std::cout << "[ops-fft] using FFT 2" << std::endl;
         return aclfftRfft1DR2CFft2(input, output, size, batch, isForward, impl->stream);
     }
     if (n <= FFT_3_1) {
-        std::cout << "[ops-fft] using FFT 3.1" << std::endl;
         return aclfftRfft1DR2CFft31(input, output, size, batch, isForward, impl->stream);
     }
     if (n <= FFT_3_2) {
-        std::cout << "[ops-fft] using FFT 3.2" << std::endl;
         return aclfftRfft1DR2CFft32(input, output, size, batch, isForward, impl->stream);
     }
     if (n <= FFT_4) {
-        std::cout << "[ops-fft] using FFT 4" << std::endl;
         return aclfftRfft1DR2CFft4(input, output, size, batch, isForward, impl->stream);
     }
-    std::cout << "[ops-fft] using FFT 5" << std::endl;
     return aclfftRfft1DR2CFft5(input, output, size, batch, isForward, impl->stream);
 }
 
@@ -82,7 +76,9 @@ static aclError DispatchNonPowerOfTwoR2C(aclfftHandle_t *impl, aclfftReal *idata
     std::vector<int64_t> uniques = deDuplicates(factors);
     int radix = ChooseRadix(aclfftType::ACLFFT_R2C, uniques);
     if (radix == K_RADIX_MIX) {
-        return aclfftRfft1DR2CFft(input, output, size, batch, isForward, impl->stream);
+        // MIX 分支此前丢弃 norm 形参致 norm!=0 静默按 BACKWARD 计算（issue #224），
+        // 补传后由入口显式拒绝
+        return aclfftRfft1DR2CFft(input, output, size, norm, batch, isForward, impl->stream);
     }
     std::cerr << "[ops-fft] R2C: n=" << n << " not supported" << std::endl;
     return ACLFFT_NOT_IMPLEMENTED;

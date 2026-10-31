@@ -26,6 +26,10 @@ configs = [
     {"name": "r2c_basic", "n": 8, "batch": 1},
     {"name": "r2c_n16", "n": 16, "batch": 1},
     {"name": "r2c_n1024", "n": 1024, "batch": 1},
+    # issue #227: odd-n coverage on the DFT path
+    {"name": "r2c_dft_n7", "n": 7, "batch": 1},
+    {"name": "r2c_dft_n15", "n": 15, "batch": 1},
+    {"name": "r2c_dft_n255", "n": 255, "batch": 1},
     {"name": "r2c_n2048", "n": 2048, "batch": 1},
     {"name": "r2c_n4096", "n": 4096, "batch": 1},
     {"name": "r2c_n2100", "n": 2100, "batch": 1},
