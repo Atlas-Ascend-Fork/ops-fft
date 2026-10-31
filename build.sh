@@ -182,7 +182,6 @@ soc_to_npu_arch() {
     esac
 }
 
-
 # 检查 ASCEND 环境变量
 check_ascend_env() {
     log_info "Checking ASCEND environment..."

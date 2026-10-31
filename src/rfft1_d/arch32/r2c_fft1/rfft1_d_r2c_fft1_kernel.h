@@ -1,6 +1,6 @@
 /*
  * PACO FFT — An I/O-Efficient Parallel FFT for Heterogeneous Architectures via a Single Global Exchange and Implementation
- * 
+ *
  * Copyright (c) 2026 Shina Guo <fs20091003@163.com>, Yuan Tang <yuantang@fudan.edu.cn>
  * All rights reserved.
  *
@@ -15,7 +15,7 @@
  *
  * This program is free software: you may redistribute it and/or modify it under
  * the terms of the GPL. It is distributed "as is", without warranty.
- * See COPYING (full GPL) and COMMERCIAL-LICENSE (commercial terms) at the repo root.
+ * See COPYING-PACO (full GPL) and LICENSE-PACO (commercial terms) at the repo root.
  * Commercial licensing contact: yuantang@fudan.edu.cn
  *
  * -------------------------------------------------------------------------
@@ -30,7 +30,7 @@
  * 二者任选其一。默认条款以 GPL-3.0-or-later 为准。
  *
  * 本程序是自由软件，你可依 GPL 条款重新发布或修改；基于“原样”提供，无担保。
- * 详情见仓库根目录 COPYING（GPL 全文）与 COMMERCIAL-LICENSE（商业条款）。
+ * 详情见仓库根目录 COPYING-PACO（GPL 全文）与 LICENSE-PACO（商业条款）。
  * 商业授权联系：yuantang@fudan.edu.cn
  */
 
@@ -91,7 +91,7 @@ public:
         int blockM = (realM + 127) / 128 * 128;
         int blockN = (realN - 1) * 2;
         int blockK = realK;
-        
+
         // default: (256, 128, 32)
         baseN = min(blockN, 256);
         baseK = min(blockK, 32);
@@ -129,7 +129,7 @@ public:
                     int offsetB_1 = offsetB + k * baseK * strideB + i * baseN;
 
                     CopyInA(offsetA_1, cnt, curM);
-                    
+
                     LocalTensor<T> a1Local = inQueueA1.DeQue<T>();
 
                     // C1 += A1B1
@@ -221,7 +221,7 @@ private:
             mmadParams.cmatrixInitVal = false;
             Mmad(c1Local, a2Local, b2Local, c1Local, mmadParams);
         }
-        if (baseM * baseN < 2560) 
+        if (baseM * baseN < 2560)
             PipeBarrier<PIPE_M>();
         inQueueA2.FreeTensor(a2Local);
         inQueueB2.FreeTensor(b2Local);
@@ -291,11 +291,11 @@ public:
             int calcMCeil = (calcM + elementsPerBlock - 1) / elementsPerBlock * elementsPerBlock;
             DataCopy(xLocal, xGlobal[i * n], calcMCeil * n);
             inQueueSrc.EnQue(xLocal);
-            
+
             xLocal = inQueueSrc.DeQue<T>();
             LocalTensor<T> yLocal = outQueueDst.AllocTensor<T>();
             LocalTensor<T> tmpLocal = outQueueDst.AllocTensor<T>();
-            
+
             if (n == 2) {
                 Gather(yLocal, xLocal, gatherLocal, 0u, TILE_LENGTH);
                 inQueueSrc.FreeTensor(xLocal);
@@ -360,10 +360,10 @@ extern "C" __global__ __aicore__ void fft1_r2c(
     yGlobal.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(Y_gm));
     twiddleGlobal.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(twiddle_gm));
     gatherGlobal.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t *>(gather_gm));
-    
+
     TPipe pipe;
     int halfN = N / 2;
-    
+
     #ifdef __DAV_C220_VEC__
         if (N < 8) {
             FFTCustom<float> op;

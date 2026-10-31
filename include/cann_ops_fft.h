@@ -143,7 +143,7 @@ extern "C" {
 ACLFFT_API aclfftResult aclfftPlan1d(aclfftHandle* plan,
                                      int           nx,
                                      aclfftType    type,
-                                     int           batch, /* deprecated: batch 参数由 plan 携带，见 aclfftPlan1d 文档 */
+                                     int           batch,
                                      int           dimType);
 
 /*! @brief Create a new two-dimensional FFT plan.
