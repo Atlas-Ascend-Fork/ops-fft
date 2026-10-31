@@ -9,8 +9,32 @@
  */
 
 #include "fft1_d_test.h"
+#include "fft1_d/fft1_d.h"
+#include "rfft1_d/rfft1_d.h"
+#include "irfft1_d/irfft1_d.h"
 
 namespace Fft1DApiIntegrationTest {
+    // issue #226: arch35 五个 1D 直连入口此前缺 batches==0 拒绝校验（arch32 已按
+    // #188 补齐），batches=0 时 0 字节拷贝与空内核启动返回"成功"但输出缓冲未写入。
+    // 对照 fft1_d entry_reject_regression 口径补断言，防止校验被重构删除
+    static void run_batches_zero_reject_test(OpsFftTest::TestStats& stats) {
+        TEST_CASE_BEGIN("batches_zero_reject");
+        float dummy = 0.0f;
+        bool all_ok = true;
+        if (aclfftFft1DC2C(&dummy, &dummy, 512, 0, 0, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftFft1DC2CMix(&dummy, &dummy, 420, 0, 0, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DFft(&dummy, &dummy, 512, 0, 0, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftIrfft1DFft(&dummy, &dummy, 512, 0, 0, 0, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1D(&dummy, &dummy, 512, 0, 0, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (all_ok) {
+            TEST_CASE_PASS_DETAIL(stats, "batches_zero_reject",
+                                   "all 5 arch35 1D entries reject batches==0 with ACL_ERROR_INVALID_PARAM");
+        } else {
+            TEST_CASE_FAIL_DETAIL(stats, "batches_zero_reject",
+                                   "some arch35 entry accepted batches==0 or wrong error code (see build log)");
+        }
+    }
+
     void run_all_tests(aclrtStream stream, OpsFftTest::TestStats& stats) {
         std::vector<C2CTestCase> cases = {
             // radix-2 (N=2^k) -> arch35/fft/ : fft_c2c_arch35_multi_core
@@ -39,6 +63,7 @@ namespace Fft1DApiIntegrationTest {
             {"mix_roundtrip_n210",  210,   1, 0},
         };
         OpsFftTest::RunBatchTests(stream, stats, "fft1_d", cases, run_c2c_case);
+        run_batches_zero_reject_test(stats);
     }
 }
 

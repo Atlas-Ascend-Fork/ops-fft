@@ -156,6 +156,12 @@ extern "C" aclError aclfftFft1DC2C(
         std::cerr << "[ops-fft] aclfftFft1DC2C: n=" << n << " out of supported range (0, 2^27]" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // batches==0 拒绝（issue #226，补齐 arch35 对 arch32 #188 同款守卫的遗漏）：
+    // batches=0 时输入尺寸为 0，0 字节拷贝与空内核启动返回"成功"但输出缓冲未写入
+    if (batches == 0) {
+        std::cerr << "[ops-fft] aclfftFft1DC2C: batches=0 is not supported" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();
     uint32_t coreNum = ascendcPlatform->GetCoreNumAiv();
     if (coreNum == 0) {
