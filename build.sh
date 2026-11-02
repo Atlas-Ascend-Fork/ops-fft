@@ -683,9 +683,10 @@ main() {
         THREAD_NUM=8
     fi
 
-    # 验证算子
+    # 验证算子（parse_operators 统一承担逗号拆分与 "all" 直通，issue #231：
+    # 原内联拆分与死函数 parse_operators 同构两处维护，收敛为函数单点实现）
+    mapfile -t OPS < <(parse_operators "$BUILD_OPERATORS")
     if [ "$BUILD_OPERATORS" != "all" ]; then
-        IFS=',' read -ra OPS <<< "$BUILD_OPERATORS"
         validate_operators "${OPS[*]}"
     fi
 

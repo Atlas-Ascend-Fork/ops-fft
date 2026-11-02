@@ -46,7 +46,6 @@ struct TestStats {
 
 // 全局测试统计（所有算子累计）
 extern TestStats g_global_stats;
-extern int g_compare_failures;
 extern std::vector<std::string> g_failed_cases;
 
 // 测试用例开始标记
@@ -307,53 +306,6 @@ inline std::string GetDataRoot(const std::string& op_name) {
         return path + "/src/" + op_name + "/tests/" + op_name + "_data";
     }
     return op_name + "_data";
-}
-
-// Generate test case data via python script
-inline void GenCaseData(const std::string& data_dir, const std::string& name) {
-    std::string cmd = "cd " + data_dir + " && PYTHONPATH=" + data_dir + "/../../common/host TORCH_DEVICE_BACKEND_AUTOLOAD=0 python3 gen_data.py --case " + name + " 2>/dev/null";
-    system(cmd.c_str());
-}
-
-// Cleanup test case .bin files
-inline void CleanupCaseData(const std::string& data_dir, const std::string& name) {
-    std::string cmd = "rm -f " + data_dir + "/" + name + "_*.bin";
-    system(cmd.c_str());
-}
-
-// Compare output vs golden and cleanup, return true if passed
-inline bool CompareAndCleanup(const std::string& data_dir, const std::string& name, std::string& detail) {
-    std::string cmd = "cd " + data_dir + " && PYTHONPATH=" + data_dir + "/../../common/host TORCH_DEVICE_BACKEND_AUTOLOAD=0 python3 compare_data.py --case " + name + " 2>/dev/null";
-    std::array<char, 512> buffer;
-    FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) {
-        g_compare_failures++;
-        detail = "compare_data.py failed to start";
-        return false;
-    }
-    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
-        detail += buffer.data();
-    }
-    int ret = pclose(pipe);
-    while (!detail.empty() && (detail.back() == '\n' || detail.back() == '\r')) {
-        detail.pop_back();
-    }
-    if (ret != 0) {
-        g_compare_failures++;
-        return false;
-    }
-    return true;
-}
-
-// Report error, mark case as failed, cleanup files, print separator
-// Usage: return FailAndCleanup(stats, name, data_dir, "error message");
-inline int FailAndCleanup(TestStats& stats, const std::string& name,
-                          const std::string& data_dir, const std::string& error_msg) {
-    std::cerr << "  [ERROR] " << error_msg << std::endl;
-    TEST_CASE_FAIL(stats, name);
-    std::cout << "----------------------------------------" << std::endl;
-    CleanupCaseData(data_dir, name);
-    return 0;
 }
 
 // Batch generate all test data (one Python call)

@@ -19,7 +19,6 @@ namespace OpsFftTest {
 
 // 全局测试统计定义
 TestStats g_global_stats;
-int g_compare_failures = 0;
 std::vector<std::string> g_failed_cases;
 
 // ACL 初始化

@@ -124,7 +124,6 @@ static int SetTilingData(
 
     int64_t fftPointCount = isOddN ? fftN : (fftN / 2);
     int64_t perBatchComplexBytes = fftPointCount * sizeof(float) * 2;
-    int64_t workspaceSize = 2 * perBatchComplexBytes * batches;
 
     tiling.workspaceOffsets[0] = 0;
     tiling.workspaceOffsets[1] = perBatchComplexBytes * batches;
@@ -185,8 +184,9 @@ extern "C" aclError aclfftRfft1DFft(
     std::vector<float> allTwiddleFactors;
 
     bool isOddN = (fftN % 2 != 0);
-    int64_t tempN = isOddN ? fftN : (fftN / 2);
 
+    // radix/M 直接取自 tilingData（issue #233：原 tempN 中间变量仅写不读，
+    // 与前一分解作用域的同名实参变量易混淆，已删除）
     for (int32_t s = 0; s < tilingData.radixListLen; s++) {
         int32_t radix = tilingData.radix_arr[s];
         int64_t M = tilingData.M_arr[s];
@@ -196,8 +196,6 @@ extern "C" aclError aclfftRfft1DFft(
 
         allDftMatrices.insert(allDftMatrices.end(), dftMat.begin(), dftMat.end());
         allTwiddleFactors.insert(allTwiddleFactors.end(), twMat.begin(), twMat.end());
-
-        tempN = M;
     }
 
     std::vector<float> twPostProcess;
