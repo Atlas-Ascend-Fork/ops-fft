@@ -169,7 +169,7 @@ __aicore__ __inline__ void SeparateRI(__gm__ float *__restrict__ gm_dst, __gm__ 
 
     AscendC::GlobalTensor<float> gm_src_tensor;
     AscendC::GlobalTensor<float> gm_dst_tensor;
- 
+
     gm_src_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_src));
     gm_dst_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_dst));
 
@@ -218,7 +218,10 @@ __aicore__ __inline__ void SeparateRI(__gm__ float *__restrict__ gm_dst, __gm__ 
 
         WAIT_FLAG(MTE3, MTE2, event_id);
         //load data from gm to ub
-        auto gm_src_tensor_shifted = gm_src_tensor[n_loop_idx * n_repeat_count * srcDValue * COMPLEX_DOUBLE];
+        // GM 元素偏移按 int64 计算（issue #234）：n*stride 可达 2^30 量级，
+        // int32 乘法在 ×COMPLEX_DOUBLE 后回绕致越界读写
+        auto gm_src_tensor_shifted =
+            gm_src_tensor[static_cast<int64_t>(n_loop_idx) * n_repeat_count * srcDValue * COMPLEX_DOUBLE];
         LoadDataFromGmToUbDev(complex_buf_tensor, gm_src_tensor_shifted,
                            n_repeat_current, dValue * COMPLEX_DOUBLE, srcDValue * COMPLEX_DOUBLE);
         SET_FLAG(MTE2, V, event_id);
@@ -234,10 +237,11 @@ __aicore__ __inline__ void SeparateRI(__gm__ float *__restrict__ gm_dst, __gm__ 
         SET_FLAG(V, MTE3, event_id);
         WAIT_FLAG(V, MTE3, event_id);
         //save data from ub to gm
-        auto gm_dst_tensor_shifted1 = gm_dst_tensor[n_loop_idx * n_repeat_count * dValue];
+        auto gm_dst_tensor_shifted1 = gm_dst_tensor[static_cast<int64_t>(n_loop_idx) * n_repeat_count * dValue];
         SaveDataFromUbToGmDev(gm_dst_tensor_shifted1, real_buf_tensor, n_repeat_current, dValue, dValue);
 
-        auto gm_dst_tensor_shifted2 = gm_dst_tensor[nValue * dValue + n_loop_idx * n_repeat_count * dValue];
+        auto gm_dst_tensor_shifted2 = gm_dst_tensor[static_cast<int64_t>(nValue) * dValue +
+                                                    static_cast<int64_t>(n_loop_idx) * n_repeat_count * dValue];
         SaveDataFromUbToGmDev(gm_dst_tensor_shifted2, imag_buf_tensor, n_repeat_current, dValue, dValue);
         SET_FLAG(MTE3, MTE2, event_id);
         flag = 1 - flag;
@@ -256,7 +260,7 @@ __aicore__ __inline__ void TransposeWithStrideAndCombineRI(__gm__ float *__restr
 
     AscendC::GlobalTensor<float> gm_src_tensor;
     AscendC::GlobalTensor<float> gm_dst_tensor;
- 
+
     gm_src_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_src));
     gm_dst_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_dst));
 
@@ -299,11 +303,15 @@ __aicore__ __inline__ void TransposeWithStrideAndCombineRI(__gm__ float *__restr
             auto buf1_tensor = flag ? buf11_tensor : buf21_tensor;
             auto event_id = flag ? EVENT_ID0 : EVENT_ID1;
             WAIT_FLAG(MTE3, MTE2, event_id);
-            auto gm_src_tensor_shifted1 = gm_src_tensor[(p_loop_idx * singleBufRepeatCnt * Q + q_idx) * singleUnitElementCount];
+            auto gm_src_tensor_shifted1 =
+                gm_src_tensor[static_cast<int64_t>(p_loop_idx) * singleBufRepeatCnt * Q * singleUnitElementCount +
+                              q_idx * singleUnitElementCount];
             LoadDataFromGmToUbDev(buf0_tensor, gm_src_tensor_shifted1,
                                current_repeat_cnt, dValue, Q * singleUnitElementCount);
             auto buf0_tensor_shifted = buf0_tensor[current_repeat_cnt * dValue];
-            auto gm_src_tensor_shifted2 = gm_src_tensor[(p_loop_idx * singleBufRepeatCnt * Q + q_idx) * singleUnitElementCount + dValue];
+            auto gm_src_tensor_shifted2 =
+                gm_src_tensor[static_cast<int64_t>(p_loop_idx) * singleBufRepeatCnt * Q * singleUnitElementCount +
+                              q_idx * singleUnitElementCount + dValue];
             LoadDataFromGmToUbDev(buf0_tensor_shifted, gm_src_tensor_shifted2,
                                current_repeat_cnt, dValue, Q * singleUnitElementCount);
 
@@ -385,7 +393,9 @@ __aicore__ __inline__ void TransposeWithStrideAndCombineRI(__gm__ float *__restr
 
             SET_FLAG(V, MTE3, event_id);
             WAIT_FLAG(V, MTE3, event_id);
-            auto gm_dst_final_shifted = gm_dst_tensor[(q_idx * P + p_loop_idx * singleBufRepeatCnt) * dstDValue * COMPLEX_DOUBLE];
+            auto gm_dst_final_shifted =
+                gm_dst_tensor[static_cast<int64_t>(q_idx) * P * dstDValue * COMPLEX_DOUBLE +
+                              static_cast<int64_t>(p_loop_idx) * singleBufRepeatCnt * dstDValue * COMPLEX_DOUBLE];
             SaveDataFromUbToGmDev(gm_dst_final_shifted, buf0_tensor, current_repeat_cnt, singleUnitElementCount, dstDValue * COMPLEX_DOUBLE);
             SET_FLAG(MTE3, MTE2, event_id);
             flag = 1 - flag;
@@ -415,7 +425,7 @@ __aicore__ __inline__ void TransposeAndMatmul(__gm__ float *__restrict__ gm_c, _
 
     gm_a_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_a));
     gm_b_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_b));
-    gm_c_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_c));    
+    gm_c_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_c));
 
     AsdopsBuffer<ArchType::ASCEND_V220> buf;
     AscendC::LocalTensor<float> l1_base_a_tensor = buf.GetBuffer<BufferType::ASCEND_CB, float>(0);
@@ -606,7 +616,7 @@ __aicore__ __inline__ void TransposeAndMatmul(__gm__ float *__restrict__ gm_c, _
                                     0,                             // indexID
                                     k0_round / R0,         // repeat
                                     M0 / R0,               // srcStride
-                                    1,                             // dstGap 
+                                    1,                             // dstGap
                                     0,                             // dstFracStride
                                     inc                           // addrmode
                                 )
@@ -667,7 +677,7 @@ __aicore__ __inline__ void TransposeAndMatmul(__gm__ float *__restrict__ gm_c, _
                                 0,                             // indexID
                                 k0_round / R0,         // repeat
                                 N0 / R0,               // srcStride
-                                2 * n_round / R0 - 1,  // dstGap 
+                                2 * n_round / R0 - 1,  // dstGap
                                 n_round / R0 - 1,      // dstFracStride
                                 inc                           // addrmode
                             )

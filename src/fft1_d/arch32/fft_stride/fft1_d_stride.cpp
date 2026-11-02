@@ -75,6 +75,15 @@ aclError aclfftFft1DStride(
                   << " is not supported (only single matrix batches=1 in this version)" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // n*stride 乘积上界守卫（issue #234）：VERTICAL 布局按 n×stride 单矩阵组织，
+    // kernel 侧 GM 元素偏移最大约为 n*stride*2 个 float，历史按 int32 计算，
+    // n*stride > 2^30 时偏移回绕致越界读写且异步流上 host 侧仍返回成功；
+    // 超界组合显式拒绝，n*stride ≤ 2^30 的存量形状行为不变
+    if (static_cast<uint64_t>(n) * stride > (1ULL << 30)) {
+        std::cerr << "[ops-fft] aclfftFft1DStride: n*stride=" << static_cast<uint64_t>(n) * stride
+                  << " exceeds limit 2^30 (int32 GM offset range)" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();
     uint32_t coreNum = ascendcPlatform->GetCoreNumAic();
     if (coreNum == 0) {

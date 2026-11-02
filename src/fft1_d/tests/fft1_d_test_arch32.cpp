@@ -149,6 +149,9 @@ namespace Fft1DApiIntegrationTest {
         if (aclfftPlan1d(&plan, (1 << 27) + 1, ACLFFT_C2C, 1, ACLFFT_HORIZONTAL) != ACLFFT_INVALID_SIZE) all_ok = false;
         if (aclfftPlan1d(&plan, 128, ACLFFT_C2C, 1, ACLFFT_VERTICAL) != ACLFFT_INVALID_SIZE) all_ok = false;
         if (aclfftPlan1d(&plan, 300, ACLFFT_C2C, 1, ACLFFT_VERTICAL) != ACLFFT_INVALID_SIZE) all_ok = false;
+        // 8) n*stride 乘积上界拒绝（issue #234）：n=2^16、stride=2^15，乘积 2^31 > 2^30，
+        // kernel 侧 int32 GM 偏移会回绕，入口须显式拒绝而非静默下发
+        if (aclfftFft1DStride(&dummy, &dummy, 65536, 0, 32768, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (all_ok) {
             TEST_CASE_PASS_DETAIL(stats, "entry_reject_regression",
                                    "all reject paths return the documented error codes");
