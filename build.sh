@@ -453,10 +453,13 @@ build_package() {
 
     if [ $cpack_result -eq 0 ]; then
         log_success "Package created successfully"
-        # 查找生成的 .run 文件
-        local run_file=$(ls *.run 2>/dev/null | head -n 1)
+        # 查找生成的 .run 文件（issue #242：CMAKE_INSTALL_PREFIX/CPACK_PACKAGE_DIRECTORY
+        # 固定在源码根 build_out/，makeself 产物 mv 至该目录，包不会落在 build/）
+        local run_file=$(ls "$SCRIPT_DIR/build_out"/*.run 2>/dev/null | head -n 1)
         if [ -n "$run_file" ]; then
-            log_success "Package file: $BUILD_DIR/$run_file"
+            log_success "Package file: $run_file"
+        else
+            log_error "Package file not found under $SCRIPT_DIR/build_out"
         fi
     else
         log_error "Package creation failed"

@@ -98,6 +98,11 @@ endif()
 file(STRINGS ${CPACK_CMAKE_BINARY_DIR}/makeself.txt script_output)
 string(REPLACE " " ";" makeself_param_string "${script_output}")
 string(REGEX MATCH "cann.*\\.run" package_name "${makeself_param_string}")
+# 包名兜底校验（issue #243）：makeself.txt 格式变化时匹配可能为空，空包名会使
+# 后续 mv 源路径非法且流程以成功状态收尾
+if(NOT package_name)
+    message(FATAL_ERROR "package name not found in makeself.txt (regex 'cann.*\\.run' matched nothing)")
+endif()
 
 list(LENGTH makeself_param_string LIST_LENGTH)
 math(EXPR INSERT_INDEX "${LIST_LENGTH} - 2")
@@ -122,12 +127,25 @@ if(NOT EXEC_RESULT EQUAL 0)
 endif()
 
 # 移动最终包到输出目录
+# 移动安装包到目标目录（issue #243：mkdir/mv 补结果校验 + 产物存在性断言，
+# 任一失败不再以"打包成功"静默收尾）
 execute_process(
     COMMAND mkdir -p ${CPACK_PACKAGE_DIRECTORY}
+    RESULT_VARIABLE MKDIR_RESULT
 )
+if(NOT MKDIR_RESULT EQUAL 0)
+    message(FATAL_ERROR "failed to create package directory ${CPACK_PACKAGE_DIRECTORY}")
+endif()
 execute_process(
     COMMAND mv ${STAGING_DIR}/${package_name} ${CPACK_PACKAGE_DIRECTORY}/
+    RESULT_VARIABLE MV_RESULT
 )
+if(NOT MV_RESULT EQUAL 0)
+    message(FATAL_ERROR "failed to move package ${STAGING_DIR}/${package_name} to ${CPACK_PACKAGE_DIRECTORY}")
+endif()
+if(NOT EXISTS "${CPACK_PACKAGE_DIRECTORY}/${package_name}")
+    message(FATAL_ERROR "package ${CPACK_PACKAGE_DIRECTORY}/${package_name} not found after mv")
+endif()
 execute_process(
     COMMAND echo "Build package success: ${CPACK_PACKAGE_DIRECTORY}/${package_name}"
 )

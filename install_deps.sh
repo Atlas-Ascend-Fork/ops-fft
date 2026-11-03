@@ -108,10 +108,12 @@ install_gawk() {
 }
 
 install_python() {
-    # Python version >= 3.7.0, < 3.10
+    # Python version >= 3.7.0, < 3.14 (issue #244: align with torch 2.8.0 support matrix;
+    # the former <3.10 hard cap exited on mainstream distros like Ubuntu 22.04/24.04)
+    # Note: versions beyond the cap warn but no longer abort the whole setup
     echo -e "\n==== Checking Python ===="
     local req_ver="3.7.0"
-    local max_ver="3.10.0"
+    local max_ver="3.14.0"
     local curr_ver=""
 
     if command -v python3 &> /dev/null; then
@@ -121,8 +123,7 @@ install_python() {
             echo "Python version meets requirements"
             return
         elif version_ge "$curr_ver" "$max_ver"; then
-            echo "Python version $curr_ver is not supported (required: >= 3.7.0, < 3.10)"
-            exit 1
+            echo "WARNING: Python version $curr_ver is newer than the tested range (>= 3.7.0, < 3.14); continuing, report issues if build tools misbehave"
         fi
     fi
     echo "Installing Python..."
