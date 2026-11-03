@@ -41,29 +41,23 @@ endmacro()
 
 # 2. 设置 NPU 架构（SoC 映射）
 macro(_setup_npu_arch)
-    # 映射表（注意：dav-3101 已改名为 dav-3510）
-    set(SOC_TO_NPU_ARCH_MAP
-        "Ascend950"     "dav-3510"
-        "Ascend910B"    "dav-2201"
-        "Ascend910_93"  "dav-2201"
-        "Ascend910"     "dav-2101"
-        "Ascend310P"    "dav-2101"
-    )
+    # SoC 映射收敛为单一事实源（issue #257）：表定义见 soc_map.cmake，
+    # build.sh 侧亦经该文件查询，不再两处重复维护
+    include(${CMAKE_SOURCE_DIR}/cmake/soc_map.cmake)
 
-    # 确定架构（优先级：直接指定 > SoC映射 > 默认）
+    # 确定架构优先级：显式指定 > SoC映射 > 默认
     if(DEFINED ASCEND_NPU_ARCH AND NOT "${ASCEND_NPU_ARCH}" STREQUAL "")
-        message(STATUS "✓ NPU: ${ASCEND_NPU_ARCH} (user)")
+        message(STATUS "? NPU: ${ASCEND_NPU_ARCH} (user)")
     elseif(DEFINED ASCEND_SOC)
-        list(FIND SOC_TO_NPU_ARCH_MAP "${ASCEND_SOC}" IDX)
-        if(IDX EQUAL -1)
-            message(FATAL_ERROR "✗ Unknown SoC: ${ASCEND_SOC}")
+        fft_soc_to_npu_arch("${ASCEND_SOC}" _ARCH)
+        if(_ARCH STREQUAL "")
+            message(FATAL_ERROR "? Unknown SoC: ${ASCEND_SOC}")
         endif()
-        math(EXPR IDX "${IDX} + 1")
-        list(GET SOC_TO_NPU_ARCH_MAP ${IDX} ASCEND_NPU_ARCH)
-        message(STATUS "✓ NPU: ${ASCEND_NPU_ARCH} (${ASCEND_SOC})")
+        set(ASCEND_NPU_ARCH "${_ARCH}")
+        message(STATUS "? NPU: ${ASCEND_NPU_ARCH} (${ASCEND_SOC})")
     else()
         set(ASCEND_NPU_ARCH "dav-3510")
-        message(STATUS "✓ NPU: ${ASCEND_NPU_ARCH} (default)")
+        message(STATUS "? NPU: ${ASCEND_NPU_ARCH} (default)")
     endif()
 endmacro()
 

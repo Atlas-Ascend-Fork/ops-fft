@@ -153,36 +153,22 @@ get_soc_version() {
     esac
 }
 
-# SoC 名称映射到 NPU 架构标识（用于 CMake arch 目录选择）
+# SoC 名称映射到 NPU 架构标识（决定 CMake arch 目录选择）
+# issue #257：映射收敛至 cmake/soc_map.cmake 单一事实源，此处经脚本模式查询，
+# 不再自维护第二份映射；未识别的 SoC 返回非零并由调用方报错
 soc_to_npu_arch() {
     local soc_name="$1"
     local soc_lower=$(echo "$soc_name" | tr '[:upper:]' '[:lower:]')
-
-    case "$soc_lower" in
-        "ascend950")
-            echo "dav-3510"
-            ;;
-        "ascend910b"|"ascend910_b")
-            echo "dav-2201"
-            ;;
-        "ascend910_93")
-            echo "dav-2201"
-            ;;
-        "ascend910")
-            echo "dav-2101"
-            ;;
-        "ascend310p"|"ascend310_p")
-            echo "dav-2101"
-            ;;
-        "ascend310b"|"ascend310_b")
-            log_error "SoC '${soc_name}' is recognized but not supported in the current version."
-            exit 1
-            ;;
-        *)
-            log_error "Unknown SoC architecture: '${soc_name}'. Supported SoCs: Ascend950, Ascend910B, Ascend910_93, Ascend910, Ascend310P"
-            exit 1
-            ;;
-    esac
+    local query_result=""
+    # cmake -P 的 message() 输出走 stderr（issue #257）：合并后再取末行；
+    # 查询失败/未识别均以 UNSUPPORTED_SOC 哨兵回传，调用方显式报错（不触发 set -e）
+    query_result=$(cmake -DSOC_NAME="${SOC_NAME}" -P "$SCRIPT_DIR/cmake/soc_map.cmake" 2>/dev/null | tail -n 1)
+    if [ -z "$query_result" ] || [ "$query_result" = "UNSUPPORTED_SOC" ]; then
+        log_error "Unknown SoC: '${soc_name}'. Recognized SoCs: Ascend950, Ascend910B, Ascend910_93, Ascend910, Ascend310P"
+        echo "UNSUPPORTED_SOC"
+        return 0
+    fi
+    echo "$query_result"
 }
 
 # 检查 ASCEND 环境变量
