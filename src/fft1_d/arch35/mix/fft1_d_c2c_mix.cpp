@@ -16,7 +16,8 @@
 
 #include "../../fft1_d.h"
 #include "fft_common_core.h"
-#include "fft1_d_c2c_mix_tilingdata.h"
+// FftAllMixTilingData 统一取自公共定义（issue #254，原 arch35 本地副本已删除）
+#include "fft_all_mix_tiling_data.h"
 #include "fft1_d_c2c_mix_kernel.h"
 
 static constexpr int64_t MIX_ALLOWED_RADICES[] = {2, 3, 5, 7, 11, 13, 17, 19};
@@ -34,7 +35,7 @@ static int SetMixTilingData(
     for (int i = 0; i < 5; i++) {
         t.workspaceOffsets[i] = 0;
     }
-    for (int i = 0; i < MAX_FFT_STAGES_TILING_MIX; i++) {
+    for (int i = 0; i < OpsFft::MAX_FFT_STAGES_TILING; i++) {
         t.radix_arr[i] = 0;
         t.M_arr[i] = 0;
         t.dft_offset_arr[i] = 0;

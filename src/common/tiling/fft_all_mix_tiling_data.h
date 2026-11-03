@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef ASDOPS_FFT_ALL_MIX_TILING_DATA
-#define ASDOPS_FFT_ALL_MIX_TILING_DATA
+#ifndef FFT_ALL_MIX_TILING_DATA_H
+#define FFT_ALL_MIX_TILING_DATA_H
 
 #include <cstdint>
 
@@ -23,7 +23,7 @@ struct FftAllMixTilingData {
     // for now, c2r is only inverse and inverse = 1, r2c is only forward and inverse = 0
     int32_t isInverse;
     int64_t workspaceOffsets[5];
-    
+
     // Precomputed plan data (moved from device to host to avoid VLOOP nesting)
     int32_t radix_arr[MAX_FFT_STAGES_TILING];
     int64_t M_arr[MAX_FFT_STAGES_TILING];
@@ -37,5 +37,13 @@ struct FftAllMixTilingData {
     int32_t transpose;
 };
 }
+
+// arch35 c2c_mix 等以全局名引用该类型（issue #254 收敛后保持原引用形态）
+using OpsFft::FftAllMixTilingData;
+
+// 设备侧按 C 布局 offset 解析 tiling，布局漂移无编译期信号，以字节数断言兜底
+// （int64*2 + int32*2 + int64[5] + int32[32] + int64[32]*4 + int32*4 = 1232 字节）
+static_assert(sizeof(OpsFft::FftAllMixTilingData) == 1232,
+              "FftAllMixTilingData layout changed; sync all device-side parsing sites");
 
 #endif

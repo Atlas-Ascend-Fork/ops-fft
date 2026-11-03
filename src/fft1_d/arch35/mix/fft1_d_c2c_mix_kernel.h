@@ -1,6 +1,7 @@
 #ifndef FFT1_D_C2C_MIX_KERNEL_H
 #define FFT1_D_C2C_MIX_KERNEL_H
-#include "fft1_d_c2c_mix_tilingdata.h"
+// FftAllMixTilingData 统一取自公共定义（issue #254，原 arch35 本地副本已删除）
+#include "fft_all_mix_tiling_data.h"
 
 #if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 3510)
 
