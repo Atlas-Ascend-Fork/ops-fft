@@ -149,7 +149,9 @@ namespace Fft1DApiIntegrationTest {
         if (aclfftPlan1d(&plan, (1 << 27) + 1, ACLFFT_C2C, 1, ACLFFT_HORIZONTAL) != ACLFFT_INVALID_SIZE) all_ok = false;
         if (aclfftPlan1d(&plan, 128, ACLFFT_C2C, 1, ACLFFT_VERTICAL) != ACLFFT_INVALID_SIZE) all_ok = false;
         if (aclfftPlan1d(&plan, 300, ACLFFT_C2C, 1, ACLFFT_VERTICAL) != ACLFFT_INVALID_SIZE) all_ok = false;
-        // 8) n*stride 乘积上界拒绝（issue #234）：n=2^16、stride=2^15，乘积 2^31 > 2^30，
+        // 8) stride==0 拒绝（issue #238，对齐 #188 口径）：0 字节 aclrtMalloc 与空跑返回成功
+        if (aclfftFft1DStride(&dummy, &dummy, 256, 0, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        // 9) n*stride 乘积上界拒绝（issue #234）：n=2^16、stride=2^15，乘积 2^31 > 2^30，
         // kernel 侧 int32 GM 偏移会回绕，入口须显式拒绝而非静默下发
         if (aclfftFft1DStride(&dummy, &dummy, 65536, 0, 32768, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (all_ok) {
@@ -205,6 +207,23 @@ namespace Fft1DApiIntegrationTest {
         }
     }
 
+    // issue #235: 直连执行回归——aclfftFft1DMix n=64 走 InitMixRadixShort 单因子
+    // 分解、GetTwMatrixLen==0，mix 族设备缓冲曾在此形态下别名共享（dev.tw 与
+    // dev.dft 同址）、析构双重释放；修复后直连执行应返回成功且进程存活
+    static void run_mix_twlen_zero_direct_exec_test(aclrtStream stream, OpsFftTest::TestStats& stats) {
+        TEST_CASE_BEGIN("mix_twlen_zero_direct_exec");
+        std::vector<float> in(64 * 2, 1.0f);
+        std::vector<float> out(64 * 2, 0.0f);
+        aclError res = aclfftFft1DMix(in.data(), out.data(), 64, 0, 1, 1, stream);
+        if (res == ACL_SUCCESS) {
+            TEST_CASE_PASS_DETAIL(stats, "mix_twlen_zero_direct_exec",
+                                  "aclfftFft1DMix n=64 (twLen==0) direct execution without double free");
+        } else {
+            TEST_CASE_FAIL_DETAIL(stats, "mix_twlen_zero_direct_exec",
+                                  "direct execution returned " + std::to_string(static_cast<int>(res)));
+        }
+    }
+
     void run_all_tests(aclrtStream stream, OpsFftTest::TestStats& stats) {
         OpsFftTest::RunBatchTests(stream, stats, "fft1_d", build_precision_cases(), run_c2c_case);
         run_vertical_unsupported_test(stats);
@@ -213,6 +232,7 @@ namespace Fft1DApiIntegrationTest {
         run_entry_reject_regression_test(stats);
         run_norm_gate_reject_test(stats);
         run_isforward_domain_reject_test(stats);
+        run_mix_twlen_zero_direct_exec_test(stream, stats);
     }
 }
 

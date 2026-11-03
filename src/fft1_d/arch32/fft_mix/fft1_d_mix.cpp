@@ -124,8 +124,14 @@ static aclError AllocFft1DMixDevBuffers(Fft1DMixDevBuffers &dev, const float *x,
     dev.out.reset(ptr);
     CHECK_ACL(aclrtMalloc(&ptr, dftLen * sizeof(float), ACL_MEM_MALLOC_HUGE_FIRST));
     dev.dft.reset(ptr);
-    if (twLen > 0) CHECK_ACL(aclrtMalloc(&ptr, twLen * sizeof(float), ACL_MEM_MALLOC_HUGE_FIRST));
-    dev.tw.reset(ptr);
+    if (twLen > 0) {
+        CHECK_ACL(aclrtMalloc(&ptr, twLen * sizeof(float), ACL_MEM_MALLOC_HUGE_FIRST));
+        dev.tw.reset(ptr);
+    } else {
+        // twLen==0（单级 radix 分解）时 ptr 仍持有上一步 dft 缓冲指针，reset 会造成
+        // dev.tw 与 dev.dft 别名共享、析构双重释放（issue #235），显式置空
+        dev.tw.reset(nullptr);
+    }
     CHECK_ACL(aclrtMalloc(&ptr, radixListHost.size() * sizeof(int32_t), ACL_MEM_MALLOC_HUGE_FIRST));
     dev.radix.reset(ptr);
     CHECK_ACL(aclrtMalloc(&ptr, totalWs, ACL_MEM_MALLOC_HUGE_FIRST));

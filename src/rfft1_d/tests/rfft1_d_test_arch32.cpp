@@ -12,6 +12,29 @@
 #include "rfft1_d/rfft1_d.h"
 
 namespace Rfft1DApiIntegrationTest {
+    // issue #235: 直连执行回归——twLen==0（单级 radix 分解）时 mix 族设备缓冲曾
+    // 别名共享（dev.tw 与 dev.dft 指向同一地址），析构双重释放；修复后直连执行
+    // 应返回成功且进程存活（回归信号为崩溃/ACL 内存报错）
+    static void run_twlen_zero_direct_exec_test(aclrtStream stream, OpsFftTest::TestStats& stats) {
+        TEST_CASE_BEGIN("twlen_zero_direct_exec");
+        bool all_ok = true;
+        {
+            // aclfftRfft1DR2CFft n=4：fftN=2 单因子分解，GetTwMatrixLen==0
+            std::vector<float> in(4, 1.0f);
+            std::vector<aclfftComplex> out(3);
+            if (aclfftRfft1DR2CFft(in.data(), reinterpret_cast<float*>(out.data()), 4, 0, 1, 1, stream) !=
+                ACL_SUCCESS) all_ok = false;
+        }
+        // fft1_d 域的 aclfftFft1DMix n=64 直连执行用例见 fft1_d_test_arch32.cpp
+        if (all_ok) {
+            TEST_CASE_PASS_DETAIL(stats, "twlen_zero_direct_exec",
+                                  "R2C direct entry with twLen==0 executes without double free");
+        } else {
+            TEST_CASE_FAIL_DETAIL(stats, "twlen_zero_direct_exec",
+                                  "twLen==0 direct execution failed (double free or ACL error)");
+        }
+    }
+
     // issue #227: 对照 fft1_d 的 entry_reject_regression（fft1_d_test_arch32.cpp:121），
     // rfft1_d 此前仅有精度用例、无任何入口拒绝断言——入口校验被重构删除时 UT 仍全绿
     // （fft1_d 的 isForward 校验曾有 #147 先例）。逐一断言既有校验链的错误码
@@ -41,6 +64,12 @@ namespace Rfft1DApiIntegrationTest {
         if (aclfftRfft1DDft(&dummy, &dummy, 256, 0, 0, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (aclfftRfft1DDft(&dummy, &dummy, 256, 0, 0x80000000u, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (aclfftRfft1DR2CFft(&dummy, &dummy, 2048, 0, 0, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        // 6) 幂次直连入口门禁（issue #237/#239）：n=1 越界写防护、batches==0、
+        //    batch*(n+2) 溢出——原先只在 exec 分发层设防，直连可绕过
+        if (aclfftRfft1DR2CFft1(&dummy, &dummy, 1, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DR2CFft1(&dummy, &dummy, 2, 0, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DR2CFft31(&dummy, &dummy, 65536, 40000, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DR2CFft5(&dummy, &dummy, 67108864, 0, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (all_ok) {
             TEST_CASE_PASS_DETAIL(stats, "entry_reject_regression",
                                   "all rfft1_d reject paths return the documented error codes");
@@ -99,6 +128,7 @@ namespace Rfft1DApiIntegrationTest {
         };
         OpsFftTest::RunBatchTests(stream, stats, "rfft1_d", cases, run_r2c_case);
         run_entry_reject_regression_test(stats);
+        run_twlen_zero_direct_exec_test(stream, stats);
     }
 }
 

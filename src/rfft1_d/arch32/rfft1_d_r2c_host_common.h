@@ -307,6 +307,24 @@ inline aclError CompleteFft(DeviceBuffers &dev, float *y, size_t outputSize, voi
     return dev.CopyOutput(y, outputSize, stream);
 }
 
+// 幂次 R2C 直连入口公共校验（issue #239）：batches==0 与 batch*(n+2) ≤ 2^31 两道
+// 门禁原先只在 exec 分发层（rfft1_d_exec_api.cpp DispatchPowerOfTwoR2C，#188/#218/#219），
+// 六个 ACLFFT_API 导出入口可被直连绕过；此处下沉为公共实现供各入口调用，口径与 exec 层一致
+inline aclError ValidateR2CPowerOfTwoEntry(const char *entryName, int64_t n, uint32_t batches)
+{
+    if (n <= 0 || batches == 0) {
+        std::cerr << "[ops-fft] " << entryName << ": n=" << n << " batches=" << batches << " invalid" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    if (static_cast<uint64_t>(batches) * (static_cast<uint64_t>(n) + 2) > (1ULL << 31)) {
+        std::cerr << "[ops-fft] " << entryName << ": batch*(n+2)="
+                  << static_cast<uint64_t>(batches) * (static_cast<uint64_t>(n) + 2)
+                  << " not supported (int32 output-offset limit)" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    return ACL_SUCCESS;
+}
+
 template<typename TilingData, typename Launch>
 inline aclError RunFft3(float *x, float *y, uint32_t n,
                                      uint32_t batches, int isForward, void *stream, Launch launch)

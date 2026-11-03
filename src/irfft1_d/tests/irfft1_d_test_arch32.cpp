@@ -12,6 +12,23 @@
 #include "irfft1_d/irfft1_d.h"
 
 namespace Irfft1DApiIntegrationTest {
+    // issue #235: 直连执行回归——aclfftIrfft1DC2RFft n=6（fftN=3 单因子分解、
+    // GetTwMatrixLen==0）曾触发设备缓冲别名共享与析构双重释放；修复后直连执行
+    // 应返回成功且进程存活
+    static void run_twlen_zero_direct_exec_test(aclrtStream stream, OpsFftTest::TestStats& stats) {
+        TEST_CASE_BEGIN("twlen_zero_direct_exec");
+        std::vector<float> in(4 * 2, 1.0f);
+        std::vector<float> out(6, 0.0f);
+        aclError res = aclfftIrfft1DC2RFft(in.data(), out.data(), 6, 0, 1, 0, stream);
+        if (res == ACL_SUCCESS) {
+            TEST_CASE_PASS_DETAIL(stats, "twlen_zero_direct_exec",
+                                  "C2R direct entry with twLen==0 executes without double free");
+        } else {
+            TEST_CASE_FAIL_DETAIL(stats, "twlen_zero_direct_exec",
+                                  "direct execution returned " + std::to_string(static_cast<int>(res)));
+        }
+    }
+
     // issue #227: 对照 fft1_d 的 entry_reject_regression（fft1_d_test_arch32.cpp:121），
     // irfft1_d 此前仅有精度用例、无任何入口拒绝断言。逐一断言既有校验链的错误码
     static void run_entry_reject_regression_test(OpsFftTest::TestStats& stats) {
@@ -63,6 +80,7 @@ namespace Irfft1DApiIntegrationTest {
         };
         OpsFftTest::RunBatchTests(stream, stats, "irfft1_d", cases, run_c2r_case);
         run_entry_reject_regression_test(stats);
+        run_twlen_zero_direct_exec_test(stream, stats);
     }
 }
 

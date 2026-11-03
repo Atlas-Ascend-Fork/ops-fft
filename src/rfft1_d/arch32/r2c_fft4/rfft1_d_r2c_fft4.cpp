@@ -131,6 +131,8 @@ static aclError ExecuteFft4(RfftHost::DeviceBuffers &dev, uint32_t coreNum, void
 extern "C" aclError aclfftRfft1DR2CFft4(float *x, float *y, uint32_t n,
                                      uint32_t batches, int isForward, void *stream)
 {
+    // n==0/batches==0 与 batch*(n+2) 上界门禁（issue #239，防直连绕过 exec 层）
+    CHECK_ACL(RfftHost::ValidateR2CPowerOfTwoEntry("aclfftRfft1DR2CFft4", n, batches));
     int n1 = 0, n2 = 0, n3 = 0, n4 = 0;
     if (!GetFft4Factors(n, n1, n2, n3, n4)) return ACL_ERROR_INVALID_PARAM;
     uint32_t coreNum = RfftHost::GetCoreNum();

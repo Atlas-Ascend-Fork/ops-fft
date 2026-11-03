@@ -75,15 +75,24 @@ aclError aclfftFft1DStride(
                   << " is not supported (only single matrix batches=1 in this version)" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+
+    // stride==0 拒绝（issue #238，对齐 #188 batches==0 同口径）：stride=0 时
+    // inputSize=0 触发 0 字节 aclrtMalloc（ACL 语义要求 size>0）与内核空跑，
+    // 返回"成功"但输出缓冲未写入
+    if (stride == 0) {
+        std::cerr << "[ops-fft] aclfftFft1DStride: stride=0 is not supported" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     // n*stride 乘积上界守卫（issue #234）：VERTICAL 布局按 n×stride 单矩阵组织，
-    // kernel 侧 GM 元素偏移最大约为 n*stride*2 个 float，历史按 int32 计算，
-    // n*stride > 2^30 时偏移回绕致越界读写且异步流上 host 侧仍返回成功；
-    // 超界组合显式拒绝，n*stride ≤ 2^30 的存量形状行为不变
+    // kernel 侧 GM 元素偏移约为 n*stride*2 个 float，历史按 int32 计算，
+    // n*stride > 2^30 时偏移回绕致越界读写；超界组合显式拒绝（!107 随 #234 合入），
+    // n*stride ≤ 2^30 的存量形状行为不变
     if (static_cast<uint64_t>(n) * stride > (1ULL << 30)) {
         std::cerr << "[ops-fft] aclfftFft1DStride: n*stride=" << static_cast<uint64_t>(n) * stride
                   << " exceeds limit 2^30 (int32 GM offset range)" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+
     auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();
     uint32_t coreNum = ascendcPlatform->GetCoreNumAic();
     if (coreNum == 0) {

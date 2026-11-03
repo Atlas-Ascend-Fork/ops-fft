@@ -84,7 +84,12 @@ void GenerateTiling(int n, uint8_t *twiddleBuf, uint8_t *gatherBuf) {
 extern "C" aclError aclfftRfft1DR2CFft1(float *x, float *y, uint32_t n,
                                      uint32_t batches, int isForward, void *stream)
 {
-    if (n == 0) {
+    // n<2 拒绝（issue #237，n=1 时 GenerateTiling 第二张 gather 表按固定步长写穿
+    // host pinned 缓冲约 16KB；exec 分发层已将 n=1 改道 DFT，此处防直连绕过）；
+    // 同时覆盖 n==0 与 batches==0 门禁（issue #239，与 exec 层口径一致）
+    CHECK_ACL(RfftHost::ValidateR2CPowerOfTwoEntry("aclfftRfft1DR2CFft1", n, batches));
+    if (n < 2) {
+        std::cerr << "[ops-fft] aclfftRfft1DR2CFft1: n=" << n << " is not supported (n >= 2)" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
     uint32_t coreNum = RfftHost::GetCoreNum();
