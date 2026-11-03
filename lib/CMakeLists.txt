@@ -27,7 +27,7 @@ message(STATUS "Configuring API Layer")
 message(STATUS "==========================================")
 
 # 自动收集 API 层所有 .cpp 源文件
-file(GLOB API_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
+file(GLOB API_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/*.cpp")
 
 # 检查是否找到源文件
 if(NOT API_SOURCES)

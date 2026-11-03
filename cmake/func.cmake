@@ -58,7 +58,9 @@ function(register_operator)
             # 的源码，错误 SoC 选型被掩盖到内核编译期才暴露甚至产出未验证二进制；
             # 全部算子均被跳过时由顶层 CMakeLists 提前 FATAL_ERROR
             message(STATUS "  Operator: ${ARG_NAME} - SKIPPED (unsupported ASCEND_NPU_ARCH '${ASCEND_NPU_ARCH}')")
-            set(OP_${ARG_NAME}_SKIPPED TRUE PARENT_SCOPE)
+            # 跳过状态用全局属性传递（issue #241）：PARENT_SCOPE 只写到算子子目录作用域，
+            # tests/CMakeLists.txt（src/ 的同级目录）读不到，跳过机制曾完全失效
+            set_property(GLOBAL PROPERTY OP_${ARG_NAME}_SKIPPED TRUE)
             get_property(_ANY_SUPPORTED GLOBAL PROPERTY OPS_FFT_HAS_SUPPORTED_OPERATOR)
             if(NOT _ANY_SUPPORTED)
                 set_property(GLOBAL PROPERTY OPS_FFT_ALL_OPERATORS_SKIPPED TRUE)
@@ -76,12 +78,12 @@ function(register_operator)
     set(ARCH_DIR_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${ARG_ARCH_DIR}")
     if(NOT EXISTS "${ARCH_DIR_PATH}")
         message(STATUS "  Operator: ${ARG_NAME} - SKIPPED (no ${ARG_ARCH_DIR} directory for ${ASCEND_NPU_ARCH})")
-        set(OP_${ARG_NAME}_SKIPPED TRUE PARENT_SCOPE)
+        set_property(GLOBAL PROPERTY OP_${ARG_NAME}_SKIPPED TRUE)
         # 即使跳过，也加入算子主目录的 include path（让 fft_exec_api.cpp 能找到头文件）
         target_include_directories(${OPS_FFT} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
         return()
     endif()
-    set(OP_${ARG_NAME}_SKIPPED FALSE PARENT_SCOPE)
+    set_property(GLOBAL PROPERTY OP_${ARG_NAME}_SKIPPED FALSE)
 
     message(STATUS "  Operator: ${ARG_NAME}, ARCH_DIR: ${ARG_ARCH_DIR} (NPU: ${ASCEND_NPU_ARCH})")
 
@@ -92,10 +94,10 @@ function(register_operator)
     set(OP_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
     # 收集当前目录下的所有 .cpp 文件（非递归）
-    file(GLOB CPP_SOURCES "${OP_SOURCE_DIR}/*.cpp")
+    file(GLOB CPP_SOURCES CONFIGURE_DEPENDS "${OP_SOURCE_DIR}/*.cpp")
 
     # 收集架构目录下的所有 .cpp 文件（非递归）
-    file(GLOB_RECURSE ARCH_SOURCES "${OP_SOURCE_DIR}/${ARG_ARCH_DIR}/*.cpp")
+    file(GLOB_RECURSE ARCH_SOURCES CONFIGURE_DEPENDS "${OP_SOURCE_DIR}/${ARG_ARCH_DIR}/*.cpp")
 
     # 合并所有源文件
     set(ALL_SOURCES ${CPP_SOURCES} ${ARCH_SOURCES})

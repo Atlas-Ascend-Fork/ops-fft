@@ -10,6 +10,10 @@
 
 set_package(ops_fft VERSION "9.0.0")
 
+# 版本号单一来源镜像（issue #259：根 CMakeLists 的 project(VERSION) 引用此变量，
+# 发版仅需修改本文件一处）
+set(OPS_FFT_PROJECT_VERSION "9.0.0")
+
 # 编译依赖
 set_build_dependencies(runtime ">=8.5")
 set_build_dependencies(opbase ">=8.5")

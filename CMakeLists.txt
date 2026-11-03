@@ -18,21 +18,21 @@ cmake_minimum_required(VERSION 3.16)
 # 一、基础配置
 ##############################################################################
 
-# 项目声明
-project(ops_fft)
-
-# 包含变量和版本配置
+# 公共函数与版本管理（issue #259：版本号单一来源收敛至 version.cmake；
+# 原 project(ops_fft) 无版本且与正式 project() 重复，版本号曾双源头硬编码）
 include(cmake/func.cmake)
-include(cmake/variables.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/version.cmake)
 
-# 设置项目变量
+# 设置项目名称与版本（引用 version.cmake 定义的镜像变量）
 set(OPS_FFT ops_fft)
-set(PROJECT_VERSION "9.0.0")
+set(PROJECT_VERSION ${OPS_FFT_PROJECT_VERSION})
 
-# 查找 ASC 编译器
+# 检查 ASC 工具链（需在 project(LANGUAGES ASC) 前完成语言注册）
 find_package(ASC REQUIRED)
 project(${OPS_FFT} VERSION ${PROJECT_VERSION} LANGUAGES ASC CXX)
+
+# 安装路径/架构变量（CMAKE_SYSTEM_PROCESSOR 依赖 project() 的平台检测，置于其后）
+include(cmake/variables.cmake)
 
 ##############################################################################
 # 二、环境初始化（封装）

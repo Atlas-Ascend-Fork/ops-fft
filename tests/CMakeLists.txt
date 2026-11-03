@@ -22,8 +22,9 @@ if(BUILD_TESTING)
     set(TEST_SOURCES "")
 
     foreach(OP ${BUILD_OPERATORS})
-        # 跳过没有对应 arch 目录的算子的测试
-        if(DEFINED OP_${OP}_SKIPPED AND OP_${OP}_SKIPPED)
+        # 跳过没有对应 arch 目录的算子的测试（全局属性由 register_operator 写入，issue #241）
+        get_property(_OP_SKIPPED GLOBAL PROPERTY OP_${OP}_SKIPPED)
+        if(_OP_SKIPPED)
             message(STATUS "  Skipping tests for ${OP} (no arch directory)")
             continue()
         endif()
