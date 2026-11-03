@@ -261,6 +261,7 @@ aclfftResult aclfftExecC2R(aclfftHandle     plan,
 | C2C | DFT（`aclfftFft1DDft`） | 表内/默认/兜底 | 任意正整数，n≤256（受 batch 影响，见选核说明） | 任意 | 横向 | 前向+后向 | 复数（aclfftComplex） |
 | C2C | Mix（`aclfftFft1DMix`） | radix==mix | 256 < nx ≤ $2^{27}$，质因子 ⊆ {2,3,5,7,11,13,17,19,23,29,31,37,41,43,47} | 任意 | 横向 | 前向+后向 | 复数（aclfftComplex） |
 | R2C | DFT（`aclfftRfft1DDft`） | n ≤ 1024 | 任意正整数，1 ≤ nx ≤ 1024 | 任意 | 横向 | **仅前向** | 实数（aclfftReal） |
+| R2C | 幂次（`aclfftRfft1DR2CFft1/2/31/32/4/5`） | n 为 2 的幂（n>1） | 2 ≤ nx ≤ $2^{29}$，按区间路由：≤128→Fft1、≤16384→Fft2、≤65536→Fft31、≤$2^{21}$→Fft32、≤$2^{25}$→Fft4、其余→Fft5；约束 batch*(n+2) ≤ $2^{31}$ | 多batch | 多stream | **正向仅** | 输入类型：aclfftReal |
 | R2C | R2C FFT（`aclfftRfft1DR2CFft`） | radix==mix | 1024 < nx ≤ $2^{27}$，质因子 ⊆ {2,3,5,7,11,13,17,19,23,29,31,37,41,43,47} | 任意 | 横向 | **仅前向** | 实数（aclfftReal） |
 | C2R | DFT（`aclfftIrfft1DDft`） | n ≤ 1024 | 任意正整数，1 ≤ nx ≤ 1024 | 任意 | 横向 | **仅后向** | 复数（aclfftComplex） |
 | C2R | C2R FFT（`aclfftIrfft1DC2RFft`） | radix==mix | 1024 < nx ≤ $2^{27}$，质因子 ⊆ {2,3,5,7,11,13,17,19,23,29,31,37,41,43,47} | 任意 | 横向 | **仅后向** | 复数（aclfftComplex） |
@@ -289,11 +290,14 @@ aclfftResult aclfftExecC2R(aclfftHandle     plan,
 | [96, 1024) | {256, 512} | {1024 ~ 16384} | — |
 | [1024, 65537) | {256} | {512 ~ 16384} | — |
 
-batch 不在上述范围或 nx 未命中时按以下规则兜底：`nx ≤ 256 → DFT`；`2 的幂且 < 32768 → FFTB`；`2 的幂且 ≥ 32768 → FFTN`；`含非 2 质因子（radix==mix）且 nx > 256 → Mix（aclfftFft1DMix）`；其余不支持。因此 DFT 在小 batch 时可处理更大的 nx（如 batch∈[8,96)
+batch 不在上述范围或 nx 未命中时按以下规则兜底：`nx ≤ 256 → DFT`；`2 的幂且 < 32768 → FFTB`；`2 的幂且 ≥ 32768 → FFTN`；`含非 2 质因子（radix==mix）且 nx > 256 → Mix（aclfftFft1DMix）`；其余不支持。因此 DFT 在小 batch 时可处理更大的 nx（如 batch∈[8,96) 时 DFT 可处理的 nx 上界为 1024，即该档 DFT 支持的 nx 集合 {256, 512, 1024}）
 
 **910B R2C / C2R 选核**
 
-`n ≤ 1024 → DFT`；`n > 1024 且 radix==mix → R2C FFT（aclfftRfft1DR2CFft）/ C2R FFT（aclfftIrfft1DC2RFft）`；其余不支持。质因子需 ⊆ {2,3,5,7,11,13,17,19,23,29,31,37,41,43,47}。
+910B R2C/C2R 选核与实现（rfft1_d_exec_api.cpp / irfft1_d_exec_api.cpp）一致：
+
+- R2C：n 为 2 的幂（n>1）时走幂次路径，按区间路由至 `aclfftRfft1DR2CFft1/2/31/32/4/5`（区间见上表），且需满足 `batch*(n+2) ≤ 2^31`（exec 层门禁，超限返回 `ACLFFT_NOT_IMPLEMENTED`）；n 非 2 的幂时，`n ≤ 1024 → DFT`、`n > 1024 且 radix==mix → R2C FFT（aclfftRfft1DR2CFft）`，其余不支持（质因子需 ⊆ {2,3,5,7,11,13,17,19,23,29,31,37,41,43,47}）。
+- C2R：`n ≤ 1024 → DFT`；`n > 1024 且 radix==mix → C2R FFT（aclfftIrfft1DC2RFft）`；其余不支持。
 
 **950 C2C 选核（radix-2 vs mixed-radix）**
 

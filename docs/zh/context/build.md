@@ -35,12 +35,15 @@ build.sh 支持多种功能，可通过 `--help` 参数查看所有选项：
 | 参数 | 必选/可选 | 说明 |
 |------|----------|------|
 | `--ops=OP_LIST` | 可选 | 指定要编译的算子列表，多个算子用逗号分隔（如：`--ops=rfft1_d,irfft1_d`）。不指定时编译所有算子。 |
-| `--run` | 可选 | 编译后执行测试。需要配合 `BUILD_TESTING=ON` 使用。 |
+| `--run` | 可选 | 编译后执行测试（脚本内部自动启用 BUILD_TESTING，无需手动设置）。 |
 | `--pkg` | 可选 | 编译并打包成 .run 安装包。 |
 | `--soc=SOC` | 可选 | 指定目标 SoC 型号，支持大小写不敏感输入（如：`--soc=ascend950` 或 `--soc=Ascend950`）。默认为 `Ascend950`。 |
 | `--cann_3rd_lib_path=PATH` | 可选 | 指定 CANN 三方依赖目录。默认为项目根目录下的 `third_party`，指定的目录必须已存在。 |
 | `-j[N]` | 可选 | 指定编译线程数，默认为 8（如：`-j16`）。若线程数超过 CPU 核心数，会自动调整为 CPU 核心数。 |
 | `--test-timeout=N` | 可选 | 指定测试超时时间（单位：秒），默认为 300。仅在 `--run` 模式下有效。 |
+| `--test=TEST_FILTER` | 可选 | 按过滤条件只运行指定测试（逗号分隔，如 `--test=fft1_d`）。仅在 `--run` 模式下有效。 |
+| `-v, --verbose` | 可选 | 输出详细构建日志。 |
+| `--make_clean` | 可选 | 清理构建产物。 |
 | `-h, --help` | 可选 | 显示帮助信息。 |
 
 ## 支持的 SoC 型号
@@ -50,7 +53,7 @@ build.sh 支持多种功能，可通过 `--help` 参数查看所有选项：
 | Ascend950 | ascend950 | dav-3510（arch35） | 默认支持，对应 `src/<op>/arch35/` 实现 |
 | Ascend910B | ascend910b | dav-2201（arch32） | 已支持，对应 `src/<op>/arch32/` 实现 |
 
-> **说明**：`build.sh` 的 `--soc` 还可识别 `ascend910_93`/`ascend910`/`ascend310p` 等名称，但当前仅有 Ascend950 与 Ascend910B 提供算子实现目录（`arch35`/`arch32`）；其他型号的 NPU 架构（如 dav-2101）不受支持，各算子注册时会被显式跳过（日志输出 `SKIPPED (unsupported ASCEND_NPU_ARCH ...)`）。
+> **说明**：`build.sh` 的 `--soc` 还可识别 `ascend910_93`/`ascend910`/`ascend310p` 等名称，其中 `ascend910_93` 映射到 dav-2201（与 Ascend910B 同架构，arch32 实现目录齐备，已支持按 `--soc=Ascend910_93` 构建使用）；其他未提供对应实现目录的型号（如映射 dav-2101 的 `Ascend910`）不受支持，各算子注册时会被显式跳过（日志输出 `SKIPPED (unsupported ASCEND_NPU_ARCH ...)`）。
 
 
 ## 使用示例
@@ -143,7 +146,7 @@ build/
 
 ### 打包输出
 
-打包成功后，会在 `build/` 目录生成 .run 文件：
+打包成功后，会在源码根目录的 `build_out/` 目录生成 .run 文件（`CMAKE_INSTALL_PREFIX`/`CPACK_PACKAGE_DIRECTORY` 固定指向该目录）：
 
 ```
 build_out/cann-{soc}-ops-fft_{version}_linux-{arch}.run

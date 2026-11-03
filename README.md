@@ -136,9 +136,9 @@ sudo ./cann-950-ops-fft_9.0.0_linux-*.run --upgrade
 
 | SoC 型号 | SOC_VERSION | 支持状态 |
 |---------|-------------|---------|
-| Ascend950 | ascend950dt_9595 | ✅ 默认支持 |
+| Ascend950 | ascend950 | ✅ 默认支持 |
 | Ascend910B | ascend910b | ✅ 已支持 |
-| Ascend910_93 | ascend910_93 | ❌ 暂不支持 |
+| Ascend910_93 | ascend910_93 | 已支持（复用 dav-2201/arch32 路径，与 Ascend910B 同实现） |
 | Ascend910 | ascend910 | ❌ 暂不支持 |
 | Ascend310P | ascend310p | ❌ 暂不支持 |
 | Ascend310B | ascend310b | ❌ 暂不支持 |

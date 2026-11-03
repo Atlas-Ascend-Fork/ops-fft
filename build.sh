@@ -24,6 +24,9 @@
 #                       Ascend910_93、Ascend910、Ascend310P，支持小写输入)
 #   -j[N]               编译线程数，默认为 8，例如: -j16
 #   --test-timeout=N    测试超时时间（秒），默认为 300
+#   --test=TEST_FILTER  按过滤条件只运行指定测试（逗号分隔，如 fft1_d）
+#   -v, --verbose       输出详细构建日志
+#   --make_clean        清理构建产物
 #   --cann_3rd_lib_path=PATH
 #                       指定 CANN 三方依赖目录 (默认: ./third_party)
 #   -h, --help          显示帮助信息
