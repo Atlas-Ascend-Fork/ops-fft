@@ -35,7 +35,7 @@ build.sh 支持多种功能，可通过 `--help` 参数查看所有选项：
 | 参数 | 必选/可选 | 说明 |
 |------|----------|------|
 | `--ops=OP_LIST` | 可选 | 指定要编译的算子列表，多个算子用逗号分隔（如：`--ops=rfft1_d,irfft1_d`）。不指定时编译所有算子。 |
-| `--run` | 可选 | 编译后执行测试（脚本内部自动启用 BUILD_TESTING，无需手动设置）。 |
+| `--run` | 可选 | 编译后执行测试（脚本内部自动启用 BUILD_TESTING，无需手动设置）。除 NPU 算子用例外，还会自动执行 tests/host、tests/python、tests/scripts 三个 pytest 回归目录（需 pytest，未安装时跳过并告警）。 |
 | `--pkg` | 可选 | 编译并打包成 .run 安装包。 |
 | `--soc=SOC` | 可选 | 指定目标 SoC 型号，支持大小写不敏感输入（如：`--soc=ascend950` 或 `--soc=Ascend950`）。默认为 `Ascend950`。 |
 | `--cann_3rd_lib_path=PATH` | 可选 | 指定 CANN 三方依赖目录。默认为项目根目录下的 `third_party`，指定的目录必须已存在。 |

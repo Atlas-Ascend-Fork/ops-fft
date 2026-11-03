@@ -488,11 +488,51 @@ run_tests() {
 
     cd "$SCRIPT_DIR"
 
-    if [ $test_result -ge 124 ]; then
+    # 超时判定精确化（issue #256）：仅 124 为命令超时；125=timeout 自身失败、
+    # 126/127=命令不可执行、>128=信号终止（如 139 段错误），均按测试失败上报
+    # 原始退出码，避免段错误被误报成超时误导排查
+    # NPU 失败不立即退出（issue #255）：仍执行后续 pytest 回归目录，最后统一退出
+    npu_failed=0
+    if [ $test_result -eq 124 ]; then
         log_error "Test timeout (${TEST_TIMEOUT}s exceeded)"
-        exit 1
+        npu_failed=1
     elif [ $test_result -ne 0 ]; then
         log_error "NPU test failed (exit code: $test_result)"
+        npu_failed=1
+    fi
+    # host/python/scripts 三个 pytest 回归目录（issue #255）：随 --run 自动执行，
+    # 保证存量用例"有人跑"；pytest 未安装时跳过并告警，不影响 NPU 测试结论
+    if command -v python3 &> /dev/null && python3 -m pytest --version &> /dev/null; then
+        for pt_dir in tests/host tests/python tests/scripts; do
+            # tests/scripts 下是 bash 用例（pytest 不收集 .sh），按 shell 直接执行
+            if [ "$pt_dir" = "tests/scripts" ]; then
+                for sh_test in "$SCRIPT_DIR/$pt_dir"/test_*.sh; do
+                    [ -f "$sh_test" ] || continue
+                    log_info "Running bash test: $sh_test"
+                    bash "$sh_test"
+                    sh_result=$?
+                    if [ $sh_result -ne 0 ]; then
+                        log_error "bash test failed: $sh_test (exit code: $sh_result)"
+                        npu_failed=1
+                    fi
+                done
+                continue
+            fi
+            if [ -d "$SCRIPT_DIR/$pt_dir" ] && ls "$SCRIPT_DIR/$pt_dir"/test_*.py &> /dev/null; then
+                log_info "Running pytest suite: $pt_dir"
+                (cd "$SCRIPT_DIR" && TORCH_DEVICE_BACKEND_AUTOLOAD=0 python3 -m pytest -q "$pt_dir")
+                pytest_result=$?
+                if [ $pytest_result -ne 0 ]; then
+                    log_error "pytest suite failed: $pt_dir (exit code: $pytest_result)"
+                    npu_failed=1
+                fi
+            fi
+        done
+    else
+        log_warning "pytest not installed, skipping host/python/scripts regression suites (pip install pytest)"
+    fi
+
+    if [ $npu_failed -ne 0 ]; then
         exit 1
     fi
     log_success "All tests passed"
@@ -556,8 +596,17 @@ parse_arguments() {
                 fi
                 ;;
             --test-timeout=*)
-                # 提取测试超时时间
+                # 读取测试超时时间（issue #256：非数字或 <=0 会使 timeout 行为异常，
+                # 解析后立即校验并给出用法提示）
                 TEST_TIMEOUT="${1#*=}"
+                if [[ ! "$TEST_TIMEOUT" =~ ^[0-9]+$ ]]; then
+                    log_error "non-integer argument for --test-timeout: $TEST_TIMEOUT"
+                    exit 1
+                fi
+                if [ "$TEST_TIMEOUT" -lt 1 ]; then
+                    log_error "Test timeout must be >= 1, got: $TEST_TIMEOUT"
+                    exit 1
+                fi
                 shift
                 ;;
             -h|--help)
