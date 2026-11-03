@@ -45,6 +45,13 @@ extern "C" aclError aclfftRfft1DDft(
         std::cerr << "[ops-fft] aclfftRfft1DDft: input/output pointer is null" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // isForward 契约统一（issue #240）：R2C 语义上恒为正向，仅接受 1。原实现该形参
+    // 完全未使用亦未校验，直连 isForward=0 仍按正向计算并返回成功
+    if (isForward != 1) {
+        std::cerr << "[ops-fft] aclfftRfft1DDft: isForward=" << isForward
+                  << " invalid (R2C is always forward; expected 1)" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     // 当前版本仅支持 norm=0（BACKWARD，无缩放）；norm!=0 显式报错而非静默忽略（issue #89）
     if (norm != 0) {
         std::cerr << "[ops-fft] aclfftRfft1DDft: norm=" << norm << " is not supported (only 0=BACKWARD in this version)"

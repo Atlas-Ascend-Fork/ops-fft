@@ -125,9 +125,11 @@ extern "C" aclError aclfftIrfft1DFft(
                   << " is not supported (only 0=BACKWARD in this version)" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
-    // isForward 域校验（issue #147 附注）：合法取值仅 0(正向)/1(反向)
-    if (isForward != 0 && isForward != 1) {
-        std::cerr << "[ops-fft] aclfftIrfft1DFft: isForward=" << isForward << " invalid (expected 0 or 1)" << std::endl;
+    // isForward 契约统一（issue #240，对齐 arch32 dft 族 #169 口径）：C2R 语义上
+    // 恒为逆变换，仅接受 0；原 0/1 域校验放行了语义非法的 1
+    if (isForward != 0) {
+        std::cerr << "[ops-fft] aclfftIrfft1DFft: isForward=" << isForward
+                  << " invalid (C2R is always inverse; expected 0)" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
     // n 域校验（issue #140）：与 #130 修复的 aclfftFft1DC2C 口径一致，n ∈ (0, 2^27]。

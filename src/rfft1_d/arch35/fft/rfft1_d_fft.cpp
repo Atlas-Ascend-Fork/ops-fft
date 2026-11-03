@@ -147,9 +147,11 @@ extern "C" aclError aclfftRfft1DFft(
                   << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
-    // isForward 域校验（issue #147 附注）：合法取值仅 0(正向)/1(反向)
-    if (isForward != 0 && isForward != 1) {
-        std::cerr << "[ops-fft] aclfftRfft1DFft: isForward=" << isForward << " invalid (expected 0 or 1)" << std::endl;
+    // isForward 契约统一（issue #240，对齐 plan 层 R2C=FORWARD 语义）：R2C 语义上
+    // 恒为正向，仅接受 1；原 0/1 域校验放行了语义非法的 0
+    if (isForward != 1) {
+        std::cerr << "[ops-fft] aclfftRfft1DFft: isForward=" << isForward
+                  << " invalid (R2C is always forward; expected 1)" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
     // n 域校验（issue #140）：与 #130 修复的 aclfftFft1DC2C 口径一致，n ∈ (0, 2^27]。

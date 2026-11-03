@@ -35,6 +35,7 @@ aclfftIrfft1DFft(float* x, float* y, uint32_t n, int32_t norm, uint32_t batches,
 ACLFFT_API aclError
 aclfftIrfft1DDft(float* x, float* y, uint32_t n, int32_t norm, uint32_t batches, int isForward, void* stream);
 
+// isForward 契约（issue #240）：C2R 恒为逆变换，仅接受 0
 ACLFFT_API aclError aclfftIrfft1DC2RFft(float* x, float* y, uint32_t n, int32_t norm, uint32_t batches, int isForward, void* stream);
 
 #ifdef __cplusplus

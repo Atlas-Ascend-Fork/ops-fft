@@ -121,10 +121,19 @@ static void GenABTable(int64_t fftN, int parity, bool forward, std::vector<float
 /* ======================== Host entry point ======================== */
 
 // 入参校验链（!102 codecheck 拆分）：经 CHECK_ACL 调用保持失败早退语义
-static aclError ValidateIrfft1DC2RFftParams(const float* x, const float* y, uint32_t n, int32_t norm, uint32_t batches)
+static aclError ValidateIrfft1DC2RFftParams(const float* x, const float* y, uint32_t n, int32_t norm,
+                                            uint32_t batches, int isForward)
 {
     if (x == nullptr || y == nullptr) {
         std::cerr << "[ops-fft] aclfftIrfft1DC2RFft: input/output pointer is null" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    // isForward 契约统一（issue #240，对齐 dft 族 #169 口径）：C2R 语义上恒为逆变换，
+    // 仅接受 0。原实现完全不校验，直连 isForward=1（"前向"）会翻转 A/B 表符号
+    // （GenABTable 内 forward 分支），静默产出错误结果并返回成功
+    if (isForward != 0) {
+        std::cerr << "[ops-fft] aclfftIrfft1DC2RFft: isForward=" << isForward
+                  << " invalid (C2R is always inverse; expected 0)" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
     // 当前版本仅支持 norm=0（BACKWARD，无缩放）；norm!=0 显式报错而非静默按
@@ -188,7 +197,7 @@ static aclError LaunchC2RFftKernel(int64_t fftN, std::vector<int64_t> &radixVec,
 
 extern "C" aclError aclfftIrfft1DC2RFft(float* x, float* y, uint32_t n, int32_t norm, uint32_t batches, int isForward, void* stream)
 {
-    CHECK_ACL(ValidateIrfft1DC2RFftParams(x, y, n, norm, batches));
+    CHECK_ACL(ValidateIrfft1DC2RFftParams(x, y, n, norm, batches, isForward));
     auto plat = platform_ascendc::PlatformAscendCManager::GetInstance();
     uint32_t coreNum = plat->GetCoreNumAic();
     if (coreNum == 0)

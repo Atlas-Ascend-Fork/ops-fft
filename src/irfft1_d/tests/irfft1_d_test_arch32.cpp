@@ -52,6 +52,9 @@ namespace Irfft1DApiIntegrationTest {
         if (aclfftIrfft1DDft(&dummy, &dummy, 256, 0, 0, 0, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (aclfftIrfft1DDft(&dummy, &dummy, 256, 0, 0x80000000u, 0, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (aclfftIrfft1DC2RFft(&dummy, &dummy, 2048, 0, 0, 0, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        // 6) isForward 方向契约（issue #240）：C2R 恒为逆变换仅接受 0，mix 入口此前
+        //    完全不校验，直连 isForward=1 会翻转 A/B 表符号产出错误结果
+        if (aclfftIrfft1DC2RFft(&dummy, &dummy, 2048, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (all_ok) {
             TEST_CASE_PASS_DETAIL(stats, "entry_reject_regression",
                                   "all irfft1_d reject paths return the documented error codes");

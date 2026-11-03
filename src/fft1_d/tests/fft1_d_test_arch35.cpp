@@ -35,6 +35,26 @@ namespace Fft1DApiIntegrationTest {
         }
     }
 
+    // issue #240: arch35 R2C/C2R 方向契约——R2C 恒为正向仅接受 1、C2R 恒为逆变换
+    // 仅接受 0；原 0/1 域校验放行了语义非法的方向值
+    static void run_direction_contract_reject_test(OpsFftTest::TestStats& stats) {
+        TEST_CASE_BEGIN("direction_contract_reject");
+        float dummy = 0.0f;
+        bool all_ok = true;
+        if (aclfftRfft1DFft(&dummy, &dummy, 512, 0, 1, 0, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftIrfft1DFft(&dummy, &dummy, 512, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        // 合法方向不受影响（以 n=0 既有拒绝路径佐证方向门已越过）
+        if (aclfftRfft1DFft(&dummy, &dummy, 0, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftIrfft1DFft(&dummy, &dummy, 0, 0, 1, 0, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (all_ok) {
+            TEST_CASE_PASS_DETAIL(stats, "direction_contract_reject",
+                                   "arch35 R2C/C2R entries reject semantically invalid isForward");
+        } else {
+            TEST_CASE_FAIL_DETAIL(stats, "direction_contract_reject",
+                                   "some arch35 entry accepted an invalid direction (see build log)");
+        }
+    }
+
     void run_all_tests(aclrtStream stream, OpsFftTest::TestStats& stats) {
         std::vector<C2CTestCase> cases = {
             // radix-2 (N=2^k) -> arch35/fft/ : fft_c2c_arch35_multi_core
@@ -64,6 +84,7 @@ namespace Fft1DApiIntegrationTest {
         };
         OpsFftTest::RunBatchTests(stream, stats, "fft1_d", cases, run_c2c_case);
         run_batches_zero_reject_test(stats);
+        run_direction_contract_reject_test(stats);
     }
 }
 
