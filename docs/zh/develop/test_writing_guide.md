@@ -72,7 +72,10 @@ void test_xxx(aclrtStream stream, OpsFftTest::TestStats& stats) {
 
     // 验证结果
     TEST_ASSERT(stats, result == ACLFFT_SUCCESS, "failed");
-    TEST_ASSERT_ARRAY_NEAR(stats, (float*)output, (float*)expected, 4, 1e-6f, "mismatch");
+    // 宏对实参调用 .size()，须传 std::vector 而非裸指针（issue #247）
+    std::vector<float> out_flat(reinterpret_cast<float*>(output), reinterpret_cast<float*>(output) + 4);
+    std::vector<float> exp_flat(reinterpret_cast<float*>(expected), reinterpret_cast<float*>(expected) + 4);
+    TEST_ASSERT_ARRAY_NEAR(stats, out_flat, exp_flat, 4, 1e-6f, "mismatch");
 
     TEST_CASE_PASS(stats, "test_xxx");
 }
@@ -129,7 +132,10 @@ void test_basic(aclrtStream stream, OpsFftTest::TestStats& stats) {
     aclfftDestroy(plan);
 
     TEST_ASSERT(stats, result == ACLFFT_SUCCESS, "failed");
-    TEST_ASSERT_ARRAY_NEAR(stats, (float*)y, (float*)expected, 4, 1e-6f, "mismatch");
+    // 宏对实参调用 .size()，须传 std::vector 而非裸指针（issue #247）
+    std::vector<float> y_flat(reinterpret_cast<float*>(y), reinterpret_cast<float*>(y) + 4);
+    std::vector<float> exp_flat(reinterpret_cast<float*>(expected), reinterpret_cast<float*>(expected) + 4);
+    TEST_ASSERT_ARRAY_NEAR(stats, y_flat, exp_flat, 4, 1e-6f, "mismatch");
 
     TEST_CASE_PASS(stats, "test_basic");
 }

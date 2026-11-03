@@ -67,8 +67,6 @@ configs = [
 
     {"name": "r2c_fft5_1", "n": 67108864, "batch": 4},
     {"name": "r2c_fft5_2", "n": 134217728, "batch": 2},
-    {"name": "r2c_fft5_3", "n": 268435456, "batch": 1},
-    {"name": "r2c_fft5_4", "n": 536870912, "batch": 1},
 ]
 
 

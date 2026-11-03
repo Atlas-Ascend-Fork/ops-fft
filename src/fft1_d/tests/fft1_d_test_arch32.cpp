@@ -207,6 +207,16 @@ namespace Fft1DApiIntegrationTest {
         }
     }
 
+    // issue #247: TEST_ASSERT_ARRAY_NEAR 最小使用用例——指南示例已改为 vector 形态，
+    // 宏与示例保持被验证状态（宏内部断言失败会终止进程，此处覆盖通过路径）
+    static void run_array_near_macro_test(OpsFftTest::TestStats& stats) {
+        TEST_CASE_BEGIN("array_near_macro");
+        std::vector<float> actual = {1.0f, -2.0f, 3.0f, 4.0f};
+        std::vector<float> expected = {1.0f, -2.0f, 3.0000001f, 4.0f};
+        TEST_ASSERT_ARRAY_NEAR(stats, actual, expected, 4, 1e-6f, "array near self-check");
+        TEST_CASE_PASS(stats, "array_near_macro");
+    }
+
     // issue #235: 直连执行回归——aclfftFft1DMix n=64 走 InitMixRadixShort 单因子
     // 分解、GetTwMatrixLen==0，mix 族设备缓冲曾在此形态下别名共享（dev.tw 与
     // dev.dft 同址）、析构双重释放；修复后直连执行应返回成功且进程存活
@@ -232,8 +242,10 @@ namespace Fft1DApiIntegrationTest {
         run_entry_reject_regression_test(stats);
         run_norm_gate_reject_test(stats);
         run_isforward_domain_reject_test(stats);
+        run_array_near_macro_test(stats);
         run_mix_twlen_zero_direct_exec_test(stream, stats);
     }
+
 }
 
 REGISTER_OP_TEST(Fft1DApiIntegration)

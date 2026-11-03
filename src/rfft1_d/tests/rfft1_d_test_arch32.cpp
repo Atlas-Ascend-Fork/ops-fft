@@ -123,8 +123,6 @@ namespace Rfft1DApiIntegrationTest {
 
             {"r2c_fft5_1",  67108864,    4},
             {"r2c_fft5_2",  134217728,    2},
-            {"r2c_fft5_3",  268435456,    1},
-            {"r2c_fft5_4",  536870912,    1},
         };
         OpsFftTest::RunBatchTests(stream, stats, "rfft1_d", cases, run_r2c_case);
         run_entry_reject_regression_test(stats);

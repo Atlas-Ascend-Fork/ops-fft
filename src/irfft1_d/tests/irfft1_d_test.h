@@ -44,7 +44,10 @@ inline bool run_c2r_case(aclrtStream stream, const C2RTestCase& tc) {
     aclfftDestroy(plan);
     if (res != ACLFFT_SUCCESS) return false;
 
-    OpsFftTest::WriteFile(output_file, output);
+    // 写盘失败按用例失败处理（issue #249）：环境问题不再伪装成比对失败/假通过
+    if (!OpsFftTest::WriteFile(output_file, output)) {
+        return false;
+    }
     return true;
 }
 

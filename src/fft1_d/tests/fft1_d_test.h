@@ -64,7 +64,10 @@ inline bool run_c2c_case(aclrtStream stream, const C2CTestCase& tc) {
         output_flat[i * 2] = output[i].x;
         output_flat[i * 2 + 1] = output[i].y;
     }
-    OpsFftTest::WriteFile(output_file, output_flat);
+    // 写盘失败按用例失败处理（issue #249）：环境问题不再伪装成比对失败/假通过
+    if (!OpsFftTest::WriteFile(output_file, output_flat)) {
+        return false;
+    }
     return true;
 }
 

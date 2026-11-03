@@ -123,6 +123,8 @@ extern std::vector<std::string> g_failed_cases;
     } while(0)
 
 // 容差数组比较宏（浮点数，带容差）
+// 循环上界取 length 与 size() 的较小者（issue #247）：length 为调用方传入值，
+// 与实际 size() 脱节时不再越界读
 #define TEST_ASSERT_ARRAY_NEAR(local_stats, actual, expected, length, tol, error_msg) \
     do { \
         bool all_match = true; \
@@ -132,7 +134,7 @@ extern std::vector<std::string> g_failed_cases;
             std::cerr << "  [ERROR] " << (error_msg) << ": actual.size() (" << (actual).size() \
                       << ") != expected.size() (" << (expected).size() << ")" << std::endl; \
         } else { \
-            for (size_t _i = 0; _i < static_cast<size_t>(length); ++_i) { \
+            for (size_t _i = 0; _i < std::min(static_cast<size_t>(length), (actual).size()); ++_i) { \
                 if (std::abs((actual)[_i] - (expected)[_i]) > (tol)) { \
                     all_match = false; \
                     first_mismatch = _i; \
@@ -164,7 +166,7 @@ extern std::vector<std::string> g_failed_cases;
         std::cout << "========================================" << std::endl; \
         std::cout << "       " << (op_name) << "算子测试结果" << std::endl; \
         std::cout << "========================================" << std::endl; \
-        (local_stats).print(#op_name); \
+        (local_stats).print(op_name); \
         std::cout << "========================================" << std::endl; \
     } while(0)
 
@@ -277,15 +279,6 @@ inline bool WriteFile(const std::string& filepath, const std::vector<float>& buf
         return false;
     }
     return true;
-}
-
-// Get data directory path (relative to test executable)
-inline std::string GetDataDir() {
-    const char* env = std::getenv("OPS_FFT_DATA_DIR");
-    if (env && std::strlen(env) > 0) {
-        return std::string(env);
-    }
-    return "fft1_d_data/";
 }
 
 // Get operator-specific data root directory
