@@ -216,14 +216,12 @@ aclError aclfftFft1DStride(
     tilingData.fftStride = stride;
     tilingData.fftDirection = isForward ? -1 : 1;
     tilingData.iterCount = static_cast<uint32_t>(radixVec.size());
-    for (size_t i = 0; i < radixVec.size() && i < 5; i++) {
+    for (size_t i = 0; i < radixVec.size() && i < FFT1_D_STRIDE_MAX_ITERATION; i++) {
         tilingData.radixVec[i] = radixVec[i];
     }
     tilingData.s0 = s0;
 
     CHECK_ACL(aclrtMemcpy(dev_tiling, tilingSize, &tilingData, tilingSize, ACL_MEMCPY_HOST_TO_DEVICE));
-
-    uint8_t* ffts_addr_ptr = static_cast<uint8_t*>(dev_workspace) + kernelWorkspaceSize;
 
     uint8_t* sync = nullptr;
     CHECK_ACL(aclrtGetHardwareSyncAddr((void**)&sync));

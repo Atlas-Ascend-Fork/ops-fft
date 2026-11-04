@@ -60,7 +60,7 @@ function(pack_built_in)
         ${COMMON_FILES}
         ${CMAKE_SOURCE_DIR}/scripts/package/common/sh/multi_version.inc
     )
-    set(LATEST_MANGER_FILES
+    set(LATEST_MANAGER_FILES
         ${COMMON_FILES}
         ${CMAKE_SOURCE_DIR}/scripts/package/common/sh/common_func.inc
         ${CMAKE_SOURCE_DIR}/scripts/package/common/sh/version_compatiable.inc
@@ -85,7 +85,7 @@ function(pack_built_in)
         DESTINATION share/info/ops_fft/script
         OPTIONAL
     )
-    install(FILES ${LATEST_MANGER_FILES}
+    install(FILES ${LATEST_MANAGER_FILES}
         DESTINATION latest_manager
         OPTIONAL
     )

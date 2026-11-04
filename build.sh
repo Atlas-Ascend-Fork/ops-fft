@@ -52,7 +52,7 @@
 #   ./build.sh --pkg                      # 编译所有算子并打包 (默认: Ascend950)
 #   ./build.sh --ops=rfft1_d --pkg        # 编译 rfft1_d 算子并打包
 #   ./build.sh --soc=ascend950 --pkg      # 为 Ascend950 打包 (支持小写输入)
-#   ./build.sh --test-timeout=600 --run   # 运行测试 with 600s timeout
+#   ./build.sh --test-timeout=600 --run   # Run tests with 600s timeout
 #
 # 支持的 SoC 型号:
 #   Ascend950   (dav-3510, 默认)
@@ -301,8 +301,13 @@ parse_operators() {
 }
 
 # 获取所有可用的算子
+# 可移植写法（issue #268）：原 `find -printf` 为 GNU findutils 专有选项，BSD find
+# （macOS）不支持且报错曾被 2>/dev/null 吞掉，导致 --ops 校验在 macOS 上以
+# "Invalid operators" 误导性失败；glob 展开不依赖 find 实现，失败可见
 get_available_operators() {
-    find "$SCRIPT_DIR/src" -mindepth 1 -maxdepth 1 -type d -printf "%f\n" 2>/dev/null | sort
+    for d in "$SCRIPT_DIR"/src/*/; do
+        [ -d "$d" ] && basename "$d"
+    done | sort
 }
 
 # 验证指定的算子是否存在
@@ -587,7 +592,7 @@ parse_arguments() {
                     shift
                 fi
                 if [[ ! "$THREAD_NUM" =~ ^[0-9]+$ ]]; then
-                    log_error "non-integer argument:$THREAD_NUM"
+                    log_error "non-integer argument: $THREAD_NUM"
                     exit 1
                 fi
                 if [ "$THREAD_NUM" -lt 1 ]; then

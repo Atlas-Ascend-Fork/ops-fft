@@ -12,9 +12,6 @@
 # 包名称
 set(PKG_NAME "ops_fft")
 
-# 默认 KERNEL_ARCH（简化处理 ascend950）
-set(KERNEL_ARCH "ascend950")
-
 # 架构检测
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64")
     set(ARCH x86_64)
@@ -45,5 +42,4 @@ set(OPS_FFT_SCRIPT_DIR ${SCRIPT_PACKAGE_DIR}/ops_fft/scripts)
 
 message(STATUS "Package: ${PKG_NAME}")
 message(STATUS "Architecture: ${ARCH}")
-message(STATUS "Kernel Arch: ${KERNEL_ARCH}")
 message(STATUS "Install Prefix: ${CMAKE_INSTALL_PREFIX}")

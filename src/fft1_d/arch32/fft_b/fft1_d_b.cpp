@@ -10,12 +10,17 @@
 
 #include "../../fft1_d.h"
 #include "fft_common_core.h"
+#include "fft_radix2_host_common.h"
 #include "fft1_d_b_tilingdata.h"
 #include "fft1_d_b_kernel.h"
 
 /* ========================================================================== */
-/* fft_b: radix-2 batched FFT (n = 256~262144, batch >= 2) implementation     */
+/* fft_b: radix-2 batched FFT (n = 256~262144, batch >= 1) implementation     */
 /* ========================================================================== */
+// batch 下界更正（issue #278）：原 "batch >= 2" 与实现不符，入口仅拒绝 batches==0，
+// batch=1 合法（needCoreNum=1 单核执行）
+
+constexpr int32_t SCRATCH_SIZES_B = sizeof(float) * 655360;
 
 static bool InitRadixB(uint32_t n, std::vector<uint32_t> &radixVec)
 {
@@ -76,61 +81,6 @@ static std::vector<int32_t> InitIndexB(uint32_t n, const std::vector<uint32_t> &
     return index;
 }
 
-static std::vector<float> InitWMatrixRadix2(uint32_t radix, bool forward, bool isLastIter)
-{
-    int32_t size = 2 * radix * 2 * radix;
-    std::vector<float> matrix(size, 0.f);
-    double K_2PI = 2.0 * 3.14159265358979323846;
-
-    if (isLastIter) {
-        for (int64_t k = 0; k < radix * radix; ++k) {
-            int64_t i = k / (radix ? radix : 1);
-            int64_t j = k % (radix ? radix : 1);
-            matrix[i * 2 * radix + j] = cos(-1.0 * K_2PI / (radix ? radix : 1) * i * j);
-            matrix[i * 2 * radix + radix + j] = sin(-1.0 * K_2PI / (radix ? radix : 1) * i * j) * (forward ? (-1.0) : (1.0));
-            matrix[(i + radix) * 2 * radix + j] = sin(1.0 * K_2PI / (radix ? radix : 1) * i * j) * (forward ? (-1.0) : (1.0));
-            matrix[(i + radix) * 2 * radix + radix + j] = cos(-1.0 * K_2PI / (radix ? radix : 1) * i * j);
-        }
-    } else {
-        for (int64_t k = 0; k < radix * radix; ++k) {
-            int64_t i = k / (radix ? radix : 1);
-            int64_t j = k % (radix ? radix : 1);
-            matrix[2 * i * 2 * radix + j] = cos(-1.0 * K_2PI / (radix ? radix : 1) * i * j);
-            matrix[2 * i * 2 * radix + radix + j] = sin(-1.0 * K_2PI / (radix ? radix : 1) * i * j) * (forward ? (-1.0) : (1.0));
-            matrix[(2 * i + 1) * 2 * radix + j] = sin(1.0 * K_2PI / (radix ? radix : 1) * i * j) * (forward ? (-1.0) : (1.0));
-            matrix[(2 * i + 1) * 2 * radix + radix + j] = cos(-1.0 * K_2PI / (radix ? radix : 1) * i * j);
-        }
-    }
-    return matrix;
-}
-
-static std::vector<float> InitTMatrix(uint32_t fftN, const std::vector<uint32_t>& radixVec, uint32_t iterIndex, bool forward)
-{
-    double K_2PI = 2.0 * 3.14159265358979323846;
-
-    uint32_t tempRow = radixVec[iterIndex] * 2;
-    uint32_t tempCol = 1;
-    for (uint32_t j = iterIndex + 1; j < radixVec.size(); j++) {
-        tempCol *= radixVec[j];
-    }
-
-    uint32_t size = tempRow * tempCol;
-    std::vector<float> matrix(size, 0.f);
-
-    double angle_base = -1.0 * K_2PI / (tempRow / 2 * tempCol);
-
-    for (uint32_t i = 0; i < tempRow / 2; ++i) {
-        for (uint32_t j = 0; j < tempCol; ++j) {
-            double angle = angle_base * i * j;
-            matrix[2 * i * tempCol + j] = static_cast<float>(cos(angle));
-            matrix[(2 * i + 1) * tempCol + j] = static_cast<float>(sin(angle));
-        }
-    }
-    return matrix;
-}
-
-constexpr int32_t SCRATCH_SIZES_B = sizeof(float) * 655360;
-
 // 入参校验链（!102 codecheck 拆分）：经 CHECK_ACL 调用保持失败早退语义
 static aclError ValidateFft1BParams(const float *x, const float *y, int32_t norm, int isForward, uint32_t batches)
 {
@@ -190,7 +140,7 @@ static void BuildFft1BHostTables(uint32_t n, const std::vector<uint32_t> &radixV
         tRadixVec = {4, 64, 64};
     }
     for (size_t i = 0; i < tRadixVec.size() - 1; i++) {
-        std::vector<float> stageT = InitTMatrix(n, tRadixVec, static_cast<uint32_t>(i), isForward != 0);
+        std::vector<float> stageT = InitTMatrix(tRadixVec, static_cast<uint32_t>(i));
         tMatrixHost.insert(tMatrixHost.end(), stageT.begin(), stageT.end());
     }
     tMatrixSize = tMatrixHost.size() * sizeof(float);

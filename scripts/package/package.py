@@ -244,10 +244,10 @@ def parse_install_info(infos: List,
         target_name = get_target_name(target_config)
         if target_config.get("optional") == 'true' and operate_type in ('copy', 'move'):
             path = os.path.join(TOP_DIR, DELIVERY_PATH, target_config.get('dst_path'))
-            vaule = os.path.join(TOP_DIR, DELIVERY_PATH, target_config.get('dst_path'), target_name)
+            value = os.path.join(TOP_DIR, DELIVERY_PATH, target_config.get('dst_path'), target_name)
             if not os.path.exists(path):
                 continue
-            if not os.path.exists(vaule):
+            if not os.path.exists(value):
                 continue
         if operate_type in ('copy', 'move'):
             relative_path_in_pkg = os.path.join(target_config.get('dst_path'), target_name)
@@ -618,7 +618,7 @@ def main(pkg_name='', xml_file='', main_args=None):
         return FAIL
 
     generate_config_inc(xml_config.package_attr)
-    
+
     if main_args.independent_pkg:
         src_file_path = os.path.join(TOP_DIR, "build", "filelist.csv")
         dst_file_path = os.path.join(main_args.pkg_output_dir, "share", "info", main_args.pkg_name, "script")
@@ -655,8 +655,6 @@ def args_parse():
                         help='This parameter define pkg_name for config_xml.')
     parser.add_argument('-o', '--os_arch', metavar='os_arch', required=False, dest='os_arch', nargs='?', const='',
                         default=None, help="This parameter define the package's os_arch")
-    parser.add_argument('-t', '--type', metavar='type', required=False, dest='type', nargs='?', const='',
-                        default='repack', help="This parameter define this script's function")
     parser.add_argument('-i', '--not_in_name', metavar='not_in_name', required=False, dest='not_in_name', nargs='?',
                         const='',
                         default='', help="This parameter define the package's name not contain the element")
@@ -682,9 +680,9 @@ def args_parse():
                         help="This parameter define package func name, has higher priority than func name in xml")
     parser.add_argument('--source_root', metavar='source_root', required=False, dest='source_root', nargs='?', const='',
                         help='source root dir.')
-    parser.add_argument('--makeself_dir', metavar='makeself_dir', required=False, dest='makeself_dir', 
+    parser.add_argument('--makeself_dir', metavar='makeself_dir', required=False, dest='makeself_dir',
                         nargs='?', const='', help='makeself dir.')
-    parser.add_argument('--independent_pkg', action='store_true', help='Independent pkg.')                    
+    parser.add_argument('--independent_pkg', action='store_true', help='Independent pkg.')
     parser.add_argument('--pkg-output-dir', default='', help='Package dirpath.')
     parser.add_argument('--version_dir', nargs='?', const='', default='', help='Set version dir.')
     parser.add_argument('--tag', metavar='tag', nargs='?', const='', default='')

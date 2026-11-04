@@ -90,10 +90,9 @@ static void GenOutputIndex(int64_t fftN, int parity, std::vector<uint32_t>& outp
 
 static void GenABTable(int64_t fftN, int parity, bool forward, std::vector<float>& aTable, std::vector<float>& bTable)
 {
-    bool isC2R = true; // c2r
-    double factor = 1.0;
-    if ((isC2R && forward))
-        factor = -1.0;
+    // isC2R 恒真常量删除（issue #271）：本文件为 C2R 专属实现，恒真条件退化为
+    // 对 forward 的直接判断
+    double factor = forward ? -1.0 : 1.0;
 
     if (parity == 0) {
         int32_t tableSize = (int32_t)fftN;
@@ -101,8 +100,8 @@ static void GenABTable(int64_t fftN, int parity, bool forward, std::vector<float
         aTable.assign(tableStride * 2, 0.0f);
         bTable.assign(tableStride * 2, 0.0f);
         for (int32_t i = 0; i < tableSize; ++i) {
-            double cosVal = std::cos(3.14159265358979323846 * i / tableSize);
-            double sinVal = std::sin(3.14159265358979323846 * i / tableSize);
+            double cosVal = std::cos(K_PI * i / tableSize);
+            double sinVal = std::sin(K_PI * i / tableSize);
             aTable[i] = (float)((1.0 - factor * sinVal));
             aTable[tableStride + i] = (float)(cosVal);
             bTable[i] = (float)((1.0 + factor * sinVal));
@@ -202,7 +201,7 @@ extern "C" aclError aclfftIrfft1DC2RFft(float* x, float* y, uint32_t n, int32_t 
     uint32_t coreNum = plat->GetCoreNumAic();
     if (coreNum == 0)
         coreNum = 1;
-    uint32_t maxCore = std::min(coreNum, 20u);
+    uint32_t maxCore = std::min(coreNum, FftMixHostCommon::MIX_MAX_CORES_FOR_WS);
     uint32_t needCoreNum = batches > maxCore ? maxCore : batches;
     if (needCoreNum == 0)
         needCoreNum = 1;

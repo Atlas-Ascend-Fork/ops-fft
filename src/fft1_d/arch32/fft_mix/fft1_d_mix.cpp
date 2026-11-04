@@ -11,6 +11,7 @@
 #include "../../fft1_d.h"
 #include "fft_common_core.h"
 #include "fft_all_mix_tiling_data.h"
+#include "fft_mix_host_common.h"
 #include "fft1_d_mix_kernel.h"
 
 /* ======================== Host entry point ======================== */
@@ -188,7 +189,7 @@ extern "C" aclError aclfftFft1DMix(float *x, float *y, uint32_t n, int32_t norm,
     CHECK_ACL(ValidateFft1DMixParams(x, y, n, norm, batches, isForward));
     auto plat = platform_ascendc::PlatformAscendCManager::GetInstance();
     uint32_t coreNum = plat->GetCoreNumAic(); if (coreNum == 0) coreNum = 1;
-    uint32_t maxCore = std::min(coreNum, 20u);
+    uint32_t maxCore = std::min(coreNum, FftMixHostCommon::MIX_MAX_CORES_FOR_WS);
     uint32_t needCoreNum = batches > maxCore ? maxCore : batches;
     if (needCoreNum == 0) needCoreNum = 1;
 

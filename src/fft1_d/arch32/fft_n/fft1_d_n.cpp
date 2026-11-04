@@ -17,13 +17,19 @@
 
 #include "../../fft1_d.h"
 #include "fft_common_core.h"
+#include "fft_radix2_host_common.h"
 #include "fft1_d_n_tilingdata.h"
 #include "fft1_d_n_kernel.h"
 
 /* ========================================================================== */
-/* fft_n: radix-2 large FFT (n >= 32768) implementation                       */
+/* fft_n: radix-2 large FFT (power of 2, 64 <= n <= 2^27) implementation      */
 /* ========================================================================== */
-#define FFT1_D_N_MAX_ITERATION 5
+// 支持域与入口校验对齐（issue #278）：原 "n >= 32768" 为过时描述，入口实际校验
+// n 为 2 的幂且 ∈ [64, 2^27]（:306 日志、InitRadix 首分支 64..4096），小 n 已归入
+// 本入口；口径与 docs/zh/API_Reference/FFT_1D.md 约束表一致
+// FFT1_D_N_MAX_ITERATION 统一引用 fft1_d_n_tilingdata.h 的 constexpr（issue #275）：
+// 原 cpp 侧 #define 与 tilingdata 同名常量双定义，单侧调参（如迭代上限改 6）时
+// 宏影响本文件循环边界、常量影响 tilingdata 数组容量，失配将导致越界或截断
 constexpr int RADIXVEC_SIZE_THREE = 3;
 constexpr int N_DOING_24 = 16777216;
 constexpr int N_DOING_27 = 134217728;
@@ -166,73 +172,7 @@ static void SetFft1DNTilingData(
     }
     tiling.fftDirection = (isForward != 0) ? -1 : 1;
 }
-static std::vector<float> InitWMatrixRadix2(uint32_t radix, bool forward, bool isLastIter)
-{
-    // InitWMatrixCommon logic exactly
-    // Has different layouts for last vs non-last iteration
-    int32_t size = 2 * radix * 2 * radix;
-    std::vector<float> matrix(size, 0.f);
-    double K_2PI = 2.0 * 3.14159265358979323846;
 
-    if (isLastIter) {
-        // Last iteration (radixVec.size() > 1 && it == radixVec.size() - 1)
-        // Layout: row i and row i+radix
-        for (int64_t k = 0; k < radix * radix; ++k) {
-            int64_t i = k / (radix ? radix : 1);
-            int64_t j = k % (radix ? radix : 1);
-            matrix[i * 2 * radix + j] = cos(-1.0 * K_2PI / (radix ? radix : 1) * i * j);
-            matrix[i * 2 * radix + radix + j] =
-                sin(-1.0 * K_2PI / (radix ? radix : 1) * i * j) * (forward ? (-1.0) : (1.0));
-            matrix[(i + radix) * 2 * radix + j] =
-                sin(1.0 * K_2PI / (radix ? radix : 1) * i * j) * (forward ? (-1.0) : (1.0));
-            matrix[(i + radix) * 2 * radix + radix + j] = cos(-1.0 * K_2PI / (radix ? radix : 1) * i * j);
-        }
-    } else {
-        // Non-last iteration (else case)
-        // Layout: row 2*i and row 2*i+1
-        for (int64_t k = 0; k < radix * radix; ++k) {
-            int64_t i = k / (radix ? radix : 1);
-            int64_t j = k % (radix ? radix : 1);
-            matrix[2 * i * 2 * radix + j] = cos(-1.0 * K_2PI / (radix ? radix : 1) * i * j);
-            matrix[2 * i * 2 * radix + radix + j] =
-                sin(-1.0 * K_2PI / (radix ? radix : 1) * i * j) * (forward ? (-1.0) : (1.0));
-            matrix[(2 * i + 1) * 2 * radix + j] =
-                sin(1.0 * K_2PI / (radix ? radix : 1) * i * j) * (forward ? (-1.0) : (1.0));
-            matrix[(2 * i + 1) * 2 * radix + radix + j] = cos(-1.0 * K_2PI / (radix ? radix : 1) * i * j);
-        }
-    }
-    return matrix;
-}
-static std::vector<float> InitTMatrix(
-    uint32_t fftN, const std::vector<uint32_t>& radixVec, uint32_t iterIndex, bool forward)
-{
-    // InitTMatrixCommon logic
-    // T matrix only for iterations 0 to size-1 (exclude last iteration)
-    double K_2PI = 2.0 * 3.14159265358979323846;
-
-    uint32_t tempRow = radixVec[iterIndex] * 2;
-    uint32_t tempCol = 1;
-    for (uint32_t j = iterIndex + 1; j < radixVec.size(); j++) {
-        tempCol *= radixVec[j];
-    }
-
-    uint32_t size = tempRow * tempCol; // Note: uses tempRow*tempCol not tempRow*tempCol*2
-    std::vector<float> matrix(size, 0.f);
-
-    // Formula: angle = -2*pi/(tempRow/2 * tempCol) * i * j
-    // Note: tempRow/2 = radixVec[iterIndex]
-    double angle_base = -1.0 * K_2PI / (tempRow / 2 * tempCol);
-
-    for (uint32_t i = 0; i < tempRow / 2; ++i) {
-        for (uint32_t j = 0; j < tempCol; ++j) {
-            // Layout: [2*i*tempCol + j] for real, [(2*i+1)*tempCol + j] for imag
-            double angle = angle_base * i * j;
-            matrix[2 * i * tempCol + j] = static_cast<float>(cos(angle));
-            matrix[(2 * i + 1) * tempCol + j] = static_cast<float>(sin(angle));
-        }
-    }
-    return matrix;
-}
 static std::vector<int32_t> InitIndexTable(uint32_t fftN, const std::vector<uint32_t>& radixVec)
 {
     // index generation in FFTCoreN::InitInDevice()
@@ -296,14 +236,14 @@ extern "C" aclError aclfftFft1DN(
     // 非 2 的幂的 n 会得到乘积不等于 n 的错误分解并被静默计算（issue #94），
     // 在此以真正的 2 的幂校验拦截
     if (n == 0 || (n & (n - 1)) != 0) {
-        std::cerr << "fft_n: n must be power of 2, got " << n << std::endl;
+        std::cerr << "[ops-fft] aclfftFft1DN: n must be power of 2, got " << n << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
     // n < 64 校验（issue #116）：InitRadix 对 n<64 落入 else 分支固定生成
     // {8,8,8,8,8}（乘积 32768 != n），内核按 32768 点流水处理造成设备越界
     // 读写；n>=64 下限与首个 {8,8} 分支衔接
     if (n < 64) {
-        std::cerr << "fft_n: n=" << n << " below minimum supported 64 (InitRadix domain)" << std::endl;
+        std::cerr << "[ops-fft] aclfftFft1DN: n=" << n << " below minimum supported 64 (InitRadix domain)" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
     // batch 上界校验（issue #119）：API 签名为 uint32_t，batch > INT32_MAX 时
@@ -313,11 +253,11 @@ extern "C" aclError aclfftFft1DN(
     // 触发 0 字节 aclrtMalloc（ACL 语义要求 size>0，行为未定义）与空内核启动，
     // 返回"成功"但输出缓冲未写入
     if (batches == 0) {
-        std::cerr << "fft_n: batches=0 is not supported" << std::endl;
+        std::cerr << "[ops-fft] aclfftFft1DN: batches=0 is not supported" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
     if (batches > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
-        std::cerr << "fft_n: batches=" << batches << " exceeds INT32_MAX" << std::endl;
+        std::cerr << "[ops-fft] aclfftFft1DN: batches=" << batches << " exceeds INT32_MAX" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
     // n 上界校验（issue #161，对齐 #130 arch35 aclfftFft1DC2C 口径与 FFT_1D.md
@@ -325,7 +265,7 @@ extern "C" aclError aclfftFft1DN(
     // bad_alloc 穿透 extern "C" 边界致 std::terminate，重则 size 回绕为 0
     // 触发 aclrtMalloc(0) + 0 字节拷贝，内核消费未初始化矩阵仍返回成功
     if (n > (1u << 27)) {
-        std::cerr << "fft_n: n=" << n << " out of supported range (0, 2^27]" << std::endl;
+        std::cerr << "[ops-fft] aclfftFft1DN: n=" << n << " out of supported range (0, 2^27]" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
     std::vector<uint32_t> radixVec;
@@ -350,7 +290,7 @@ extern "C" aclError aclfftFft1DN(
     std::vector<float> tMatrixHost;
     // T matrix only for iterations 0 to size-1 (exclude last iteration)
     for (size_t i = 0; i < radixVec.size() - 1; i++) {
-        std::vector<float> stageT = InitTMatrix(n, radixVec, static_cast<uint32_t>(i), isForward != 0);
+        std::vector<float> stageT = InitTMatrix(radixVec, static_cast<uint32_t>(i));
         tMatrixHost.insert(tMatrixHost.end(), stageT.begin(), stageT.end());
     }
     const size_t tMatrixSize = tMatrixHost.size() * sizeof(float);

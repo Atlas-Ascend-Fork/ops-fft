@@ -57,31 +57,21 @@ static void GenOutputIndex(int64_t fftN, int parity, std::vector<uint32_t>& outp
 
 static void GenABTable(int64_t fftN, int parity, bool forward, std::vector<float>& aTable, std::vector<float>& bTable)
 {
-    bool isR2c = true; // R2C
-    double factor = 1.0;
-    if ((isR2c && !forward) || (!isR2c && forward)) {
-        factor = -1.0;
-    }
-    // For R2C forward: (true && false) || (false && true) = false → factor = 1.0
+    // isR2c 恒真常量删除（issue #271）：本文件为 R2C 专属实现，自 C2R 同名函数
+    // 拷贝后未清理的方向开关退化为恒真条件与不可达 else（C2R 表布局）分支
+    double factor = forward ? 1.0 : -1.0;
 
     if (parity == 0) {
         int32_t tableSize = (int32_t)fftN;
         aTable.assign(tableSize * 2, 0.0f);
         bTable.assign(tableSize * 2, 0.0f);
         for (int32_t i = 0; i < tableSize; ++i) {
-            double cosVal = std::cos(3.14159265358979323846 * i / tableSize);
-            double sinVal = std::sin(3.14159265358979323846 * i / tableSize);
-            if (isR2c) {
-                aTable[i] = (float)((1.0 - factor * sinVal) / 2.0);
-                aTable[tableSize + i] = (float)(cosVal / (-2.0));
-                bTable[i] = (float)((1.0 + factor * sinVal) / 2.0);
-                bTable[tableSize + i] = (float)(cosVal / 2.0);
-            } else {
-                aTable[i] = (float)((1.0 - factor * sinVal));
-                aTable[tableSize + i] = (float)(cosVal);
-                bTable[i] = (float)((1.0 + factor * sinVal));
-                bTable[tableSize + i] = (float)(-1.0 * cosVal);
-            }
+            double cosVal = std::cos(K_PI * i / tableSize);
+            double sinVal = std::sin(K_PI * i / tableSize);
+            aTable[i] = (float)((1.0 - factor * sinVal) / 2.0);
+            aTable[tableSize + i] = (float)(cosVal / (-2.0));
+            bTable[i] = (float)((1.0 + factor * sinVal) / 2.0);
+            bTable[tableSize + i] = (float)(cosVal / 2.0);
         }
     } else {
         aTable.clear();
@@ -173,7 +163,7 @@ extern "C" aclError aclfftRfft1DR2CFft(float* x, float* y, uint32_t n, int32_t n
     uint32_t coreNum = plat->GetCoreNumAic();
     if (coreNum == 0)
         coreNum = 1;
-    uint32_t maxCore = std::min(coreNum, 20u);
+    uint32_t maxCore = std::min(coreNum, FftMixHostCommon::MIX_MAX_CORES_FOR_WS);
     uint32_t needCoreNum = batches > maxCore ? maxCore : batches;
     if (needCoreNum == 0)
         needCoreNum = 1;

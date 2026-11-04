@@ -21,6 +21,11 @@
 // R2C/C2R 差异经 forward/isInverse/入口名/空表兜底开关四个参数表达）
 namespace FftMixHostCommon {
 
+// 单批变换核间并行核数上限（issue #280 具名化）：mix 族入口按
+// min(AIC 核数, 该上限) 规划 needCoreNum，与 Ascend910B 满配 AIC 核数一致的经验值，
+// 超出部分由 batch 循环分批；原 20u 在三个入口重复硬编码，收敛为单点定义
+constexpr uint32_t MIX_MAX_CORES_FOR_WS = 20;
+
 // 设备缓冲集合：成员 unique_ptr 析构即释放
 struct MixFftDevBuffers {
     std::unique_ptr<void, AclrtFreeDeleter> in, out, dft, tw, radix, ws, til, inIdx, a, b, outIdx;

@@ -13,10 +13,6 @@
 set(MAKESELF_EXE ${CPACK_MAKESELF_PATH}/makeself.sh)
 set(MAKESELF_HEADER_EXE ${CPACK_MAKESELF_PATH}/makeself-header.sh)
 
-if(NOT MAKESELF_EXE)
-    message(FATAL_ERROR "makeself not found!")
-endif()
-
 # 创建临时安装目录
 set(STAGING_DIR "${CPACK_CMAKE_BINARY_DIR}/_CPack_Packages/makeself_staging")
 

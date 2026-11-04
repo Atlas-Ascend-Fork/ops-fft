@@ -13,13 +13,17 @@
 
 #include <cstdint>
 
+// radixVec 数组容量上限（issue #280 具名化）：host 侧拷贝分解表时以此为界，
+// 原裸 5 与同族 FFT_B_MAX_ITERATION/FFT1_D_N_MAX_ITERATION 口径一致
+constexpr uint32_t FFT1_D_STRIDE_MAX_ITERATION = 5;
+
 struct Fft1DStrideTilingData {
     uint32_t batchSize{0};
     uint32_t fftN{0};
     uint32_t fftStride{0};
     int32_t fftDirection{-1};
     uint32_t iterCount{0};
-    uint32_t radixVec[5];
+    uint32_t radixVec[FFT1_D_STRIDE_MAX_ITERATION];
     uint32_t s0{0};
 };
 
