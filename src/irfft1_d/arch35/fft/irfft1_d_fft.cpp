@@ -64,9 +64,12 @@ static std::vector<float> GenerateTwiddleFactorsHost(int32_t radix, int64_t M, i
     return tw;
 }
 
-static int SetTilingData(
-    Irfft1DfftTilingData& tiling, int64_t fftN, int32_t isInverse, uint32_t coreNum, uint32_t batches)
+static aclError SetTilingData(
+    Irfft1DfftTilingData& tiling, int64_t fftN, int32_t isInverse, uint32_t batches)
 {
+    // coreNum 死形参删除（issue #277）：函数体从不读取；返回类型统一为 aclError
+    // 口径（原 int 成功返回 0 与 ACL 错误码域混杂，成功值显式 ACL_SUCCESS），
+    // 与 fft1_d_c2c.cpp 同款
     tiling.batchSize = batches;
     tiling.fftN = fftN;
     tiling.isInverse = isInverse;
@@ -109,7 +112,7 @@ static int SetTilingData(
     tiling.workspaceOffsets[3] = 0;
     tiling.workspaceOffsets[4] = 0;
 
-    return 0;
+    return ACL_SUCCESS;
 }
 
 extern "C" aclError aclfftIrfft1DFft(
@@ -155,14 +158,13 @@ extern "C" aclError aclfftIrfft1DFft(
     int64_t fftN = static_cast<int64_t>(n);
 
     Irfft1DfftTilingData tilingData = {};
-    if (SetTilingData(tilingData, fftN, isInverse, coreNum, batches) != 0) {
+    if (SetTilingData(tilingData, fftN, isInverse, batches) != ACL_SUCCESS) {
         // 质因子不支持：按能力不支持返回参数错误，exec 层翻译为 NOT_IMPLEMENTED（issue #97）
         return ACL_ERROR_INVALID_PARAM;
     }
 
     std::vector<float> allfftMatrices;
     std::vector<float> allTwiddleFactors;
-    int64_t tempN = fftN;
 
     for (int32_t s = 0; s < tilingData.radixListLen; s++) {
         int32_t radix = tilingData.radix_arr[s];
@@ -173,8 +175,6 @@ extern "C" aclError aclfftIrfft1DFft(
 
         allfftMatrices.insert(allfftMatrices.end(), fftMat.begin(), fftMat.end());
         allTwiddleFactors.insert(allTwiddleFactors.end(), twMat.begin(), twMat.end());
-
-        tempN = M;
     }
 
     const size_t inputSize = static_cast<size_t>(batches) * (n / 2 + 1) * sizeof(float) * 2;

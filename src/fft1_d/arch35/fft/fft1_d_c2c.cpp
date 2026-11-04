@@ -78,9 +78,11 @@ static std::vector<float> GenerateTwiddleFactors(int32_t radix, int64_t M, int32
     return tw;
 }
 
-static int SetTilingData(
-    Fft1DC2CTilingData& tiling, int64_t fftN, int32_t isInverse, uint32_t coreNum, uint32_t batches)
+static aclError SetTilingData(
+    Fft1DC2CTilingData& tiling, int64_t fftN, int32_t isInverse, uint32_t batches)
 {
+    // coreNum 死形参删除（issue #277）：函数体从不读取；返回类型统一为 aclError
+    // 口径（原 int 成功返回 0 与 ACL 错误码域混杂，成功值显式 ACL_SUCCESS）
     tiling.batchSize = batches;
     tiling.fftN = fftN;
     tiling.isInverse = isInverse;
@@ -124,7 +126,7 @@ static int SetTilingData(
     tiling.workspaceOffsets[3] = 0;
     tiling.workspaceOffsets[4] = 0;
 
-    return 0;
+    return ACL_SUCCESS;
 }
 
 extern "C" aclError aclfftFft1DC2C(
@@ -172,14 +174,13 @@ extern "C" aclError aclfftFft1DC2C(
     int64_t fftN = static_cast<int64_t>(n);
 
     Fft1DC2CTilingData tilingData = {};
-    if (SetTilingData(tilingData, fftN, isInverse, coreNum, batches) != 0) {
+    if (SetTilingData(tilingData, fftN, isInverse, batches) != ACL_SUCCESS) {
         // 透传 SetTilingData 的 ACL_ERROR_INVALID_PARAM（issue #132），不再返回魔法值 1
         return ACL_ERROR_INVALID_PARAM;
     }
 
     std::vector<float> allDftMatrices;
     std::vector<float> allTwiddleFactors;
-    int64_t tempN = fftN;
     int64_t dftOff = 0;
     int64_t twOff = 0;
 
@@ -192,8 +193,6 @@ extern "C" aclError aclfftFft1DC2C(
 
         allDftMatrices.insert(allDftMatrices.end(), dftMat.begin(), dftMat.end());
         allTwiddleFactors.insert(allTwiddleFactors.end(), twMat.begin(), twMat.end());
-
-        tempN = M;
     }
 
     // 用 size_t 计算，避免 n*batches 等中间结果在 uint32_t 域溢出截断（issue #74）
