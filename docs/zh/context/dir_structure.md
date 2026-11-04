@@ -142,7 +142,10 @@
 │   ├── CMakeLists.txt                                  # 测试编译配置
 │   ├── all_tests.cpp.in                                # 测试入口模板
 │   ├── test_common.cpp                                 # 公共测试代码
-│   └── test_common.h                                   # 公共测试头文件
+│   ├── test_common.h                                   # 公共测试头文件
+│   ├── host/                                           # Host 侧比对/辅助 pytest 脚本
+│   ├── python/                                         # Python 侧辅助测试脚本
+│   └── scripts/                                        # 测试运行辅助脚本
 ├── CMakeLists.txt                                      # 项目工程cmakelist入口
 ├── CONTRIBUTING.md                                     # 项目贡献指南文件
 ├── README.md                                           # 项目工程总介绍文档
@@ -150,9 +153,11 @@
 ├── SECURITY.md                                         # 项目安全声明文件
 ├── OAT.xml                                             # 开源审计工具配置
 ├── build.sh                                            # 项目工程编译脚本
-├── version.cmake                                       # 版本号CMake配置
-└── version.info                                        # 项目版本信息
+└── version.cmake                                       # 版本号CMake配置
 ```
+
+> 说明：仓库根目录不存放静态 `version.info` 文件；版本信息 `version.ops_fft.info`
+> 由构建期（cmake/func.cmake 的版本信息目标）生成，随安装包发布。
 
 ## 目录说明
 
@@ -189,7 +194,6 @@
 | `build.sh` | 项目编译脚本，支持多种编译选项 |
 | `CMakeLists.txt` | CMake配置文件 |
 | `version.cmake` | 版本号CMake配置 |
-| `version.info` | 版本信息文件 |
 | `OAT.xml` | 开源审计工具配置 |
 
 ## 算子目录结构

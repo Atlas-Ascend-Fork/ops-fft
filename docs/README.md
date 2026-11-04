@@ -25,7 +25,6 @@ docs/
 │   │   ├── FFT_2D.md                  # 二维 FFT 接口
 │   │   └── figures/                   # 公式图片
 │   ├── op_list.md                     # 算子列表
-│   └── README.md                      # 中文文档索引
 └── README.md                          # 文档总入口
 ```
 

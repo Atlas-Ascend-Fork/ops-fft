@@ -171,6 +171,7 @@ ops-fft/
 │       │   └── test_writing_guide.md         # 测试编写指南
 │       ├── API_Reference/      # API 参考文档
 │       │   ├── README.md      # API 文档导航
+│       │   ├── FFT公共接口.md  # 公共数据类型与错误码说明
 │       │   ├── FFT_1D.md      # 1D FFT 接口说明
 │       │   ├── FFT_2D.md      # 2D FFT 接口说明
 │       │   └── figures/       # 文档图片
