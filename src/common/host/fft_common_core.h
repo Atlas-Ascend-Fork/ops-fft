@@ -12,12 +12,9 @@
 #define FFT_COMMON_CORE_H
 
 #include <cmath>
-#include <numeric>
 #include <vector>
-#include <fstream>
 #include <iostream>
 #include <algorithm>
-#include <stdexcept>
 
 #include "platform/platform_info.h"
 #include "tiling/platform/platform_ascendc.h"
@@ -77,7 +74,10 @@ constexpr int32_t ROUND_16 = 16;
 constexpr int32_t ROUND_32 = 32;
 constexpr int32_t AUXILSIZE = 64;
 constexpr int32_t VECVTRANS_LEN = 88;
-constexpr int32_t RADIX_LIST_LEN = 45;
+// AIV 分档阈值（issue #269 更名，原 RADIX_LIST_LEN）：InitAiVSplitWay 以
+// 末级 radix 尺寸是否不超过该阈值作为 aivSplitWay=1 的判定条件之一，
+// 与"radix 表长度"无关
+constexpr int32_t AIV_SPLIT_LAST_RADIX_THRESHOLD = 45;
 constexpr int32_t AIVSPLITWAY_TWO = 2;
 constexpr int32_t AIVSPLITWAY_THREE = 3;
 constexpr int64_t L2_CACHE_MAX_FLOAT_21 = (1 << 21);
@@ -104,14 +104,14 @@ constexpr int32_t RADIX_LEN_117649 = 117649;
 constexpr int32_t RADIX_LEN_76800 = 76800;
 constexpr int64_t BIAS_SIZE = 2048;
 constexpr int64_t BIASC_SIZE = 4096;
-constexpr int64_t RADIX_8K = 8192;
 
 /* ======================== Mix-radix FFT shared functions ======================== */
 
 inline int64_t ROUND_UP(int64_t num, int64_t pad)
 {
-    if (pad == 0)
-        return 1;
+    // pad>=1 前置条件（issue #269 删除 pad==0 死分支）：原 `pad==0 返回 1` 语义错误
+    // （ROUND_UP(n,0) 应为 n）；全部调用点的 pad 来自 getTile 的 tM0/tN0/tK0 或
+    // ROUND_16/ROUND_32/TILE_CONST，恒 >=16，分支不可达，删除以免未来误用成陷阱
     return (num + pad - 1) / pad * pad;
 }
 inline int64_t MIN_(int64_t a, int64_t b)
@@ -361,67 +361,69 @@ inline int64_t GetTwiddleMatrixLen(int64_t fftN, const std::vector<int64_t>& rad
     return dftMatrixLen;
 }
 
-inline void GenWMatrixForwardForMultiLen(int64_t stepLen, int64_t* radixListPtr, int64_t fftN, float* host)
+// 末级（s == stepLen-1）W 矩阵三种布局分支（issue #269 合并原 Forward/Inverse
+// 两份约 60 行逐字重复时按 nbnc 拆出）：batchLen>1 且末级 radix 小走紧凑布局、
+// L0 放得下走分块布局、否则走展开布局
+inline void GenWMatrixLastStageForMultiLen(
+    int64_t n1, int64_t n0, int32_t tM0, int32_t tN0, int32_t tK0, int64_t batchLen, float* host, double sinSign)
 {
-    int64_t n0 = 1;
-    for (int64_t s = 0; s < stepLen; s++) {
-        int64_t n1 = radixListPtr[s];
-        if (n1 == 0)
-            continue;
-        int64_t n2 = fftN / n1 / n0;
-        int32_t tM0, tN0, tK0;
-        getTile(n1, (n2 > 1) ? n2 : n0, s, stepLen, tM0, tN0, tK0);
-        int64_t batchLen = L0AB_BUF * 2 / (tK0 * tN0);
-        batchLen += (batchLen == 0);
-        if (s == stepLen - 1 && batchLen > 1 && (n1 <= AUXILSIZE && n0 <= (int64_t)8)) {
-            int64_t lda = TWO_MUL * ROUND_UP(n1, ROUND_16);
-            for (int64_t k = 0; k < n1 * n1; k++) {
-                int64_t i = k / n1, j = k % n1;
-                host[i * lda + j] = cos(-K_2PI / n1 * i * j);
-                host[i * lda + ROUND_UP(n1, ROUND_16) + j] = -sin(-K_2PI / n1 * i * j);
-                host[n1 * lda + i * lda + j] = sin(-K_2PI / n1 * i * j);
-                host[n1 * lda + i * lda + ROUND_UP(n1, ROUND_16) + j] = cos(-K_2PI / n1 * i * j);
-            }
-        } else if (s == stepLen - 1 && L0AB_BUF / (tK0 * tN0) >= 1) {
-            int64_t n1Loop = (2 * n1 + tM0 - 1) / tM0;
-            int64_t lda = TWO_MUL * ROUND_UP(n1, ROUND_16);
-            for (int64_t k = 0; k < n1 * n1; k++) {
-                int64_t i = k / n1, j = k % n1;
-                int64_t n1Idx = i / (tM0 / 2), n1In = i % (tM0 / 2);
-                int64_t n1Act = (n1Idx == n1Loop - 1) ? (2 * n1 - n1Idx * tM0) : tM0;
-                host[n1Idx * tM0 * lda + n1In * lda + j] = cos(-K_2PI / n1 * i * j);
-                host[n1Idx * tM0 * lda + n1In * lda + ROUND_UP(n1, ROUND_16) + j] = -sin(-K_2PI / n1 * i * j);
-                host[n1Idx * tM0 * lda + n1In * lda + (n1Act / 2) * lda + j] = sin(-K_2PI / n1 * i * j);
-                host[n1Idx * tM0 * lda + n1In * lda + (n1Act / 2) * lda + ROUND_UP(n1, ROUND_16) + j] =
-                    cos(-K_2PI / n1 * i * j);
-            }
-        } else if (s == stepLen - 1) {
-            int64_t lda = TWO_MUL * TWO_MUL * ROUND_UP(n1, ROUND_16);
-            for (int64_t k = 0; k < n1 * n1; k++) {
-                int64_t i = k / n1, j = k % n1;
-                host[i * lda + j] = cos(-K_2PI / n1 * i * j);
-                host[i * lda + ROUND_UP(n1, ROUND_16) + j] = -sin(-K_2PI / n1 * i * j);
-                host[i * lda + TWO_MUL * ROUND_UP(n1, ROUND_16) + j] = sin(-K_2PI / n1 * i * j);
-                host[i * lda + TWO_MUL * ROUND_UP(n1, ROUND_16) + ROUND_UP(n1, ROUND_16) + j] =
-                    cos(-K_2PI / n1 * i * j);
-            }
-        } else {
-            int64_t lda = ROUND_UP(TWO_MUL * n1, tM0);
-            for (int64_t k = 0; k < n1 * n1; k++) {
-                int64_t i = k / n1, j = k % n1;
-                host[i * TWO_MUL * lda + j] = cos(-K_2PI / n1 * i * j);
-                host[i * TWO_MUL * lda + n1 + j] = -sin(-K_2PI / n1 * i * j);
-                host[i * TWO_MUL * lda + lda + j] = sin(-K_2PI / n1 * i * j);
-                host[i * TWO_MUL * lda + lda + n1 + j] = cos(-K_2PI / n1 * i * j);
-            }
-            host += ROUND_UP(TWO_MUL * n1, tM0) * ROUND_UP(TWO_MUL * n1, tK0);
-            n0 *= n1;
+    if (batchLen > 1 && (n1 <= AUXILSIZE && n0 <= (int64_t)8)) {
+        int64_t lda = TWO_MUL * ROUND_UP(n1, ROUND_16);
+        for (int64_t k = 0; k < n1 * n1; k++) {
+            int64_t i = k / n1, j = k % n1;
+            host[i * lda + j] = cos(-K_2PI / n1 * i * j);
+            host[i * lda + ROUND_UP(n1, ROUND_16) + j] = sinSign * sin(-K_2PI / n1 * i * j);
+            host[n1 * lda + i * lda + j] = -sinSign * sin(-K_2PI / n1 * i * j);
+            host[n1 * lda + i * lda + ROUND_UP(n1, ROUND_16) + j] = cos(-K_2PI / n1 * i * j);
+        }
+    } else if (L0AB_BUF / (tK0 * tN0) >= 1) {
+        int64_t n1Loop = (2 * n1 + tM0 - 1) / tM0;
+        int64_t lda = TWO_MUL * ROUND_UP(n1, ROUND_16);
+        for (int64_t k = 0; k < n1 * n1; k++) {
+            int64_t i = k / n1, j = k % n1;
+            int64_t n1Idx = i / (tM0 / 2), n1In = i % (tM0 / 2);
+            int64_t n1Act = (n1Idx == n1Loop - 1) ? (2 * n1 - n1Idx * tM0) : tM0;
+            host[n1Idx * tM0 * lda + n1In * lda + j] = cos(-K_2PI / n1 * i * j);
+            host[n1Idx * tM0 * lda + n1In * lda + ROUND_UP(n1, ROUND_16) + j] = sinSign * sin(-K_2PI / n1 * i * j);
+            host[n1Idx * tM0 * lda + n1In * lda + (n1Act / 2) * lda + j] = -sinSign * sin(-K_2PI / n1 * i * j);
+            host[n1Idx * tM0 * lda + n1In * lda + (n1Act / 2) * lda + ROUND_UP(n1, ROUND_16) + j] =
+                cos(-K_2PI / n1 * i * j);
+        }
+    } else {
+        int64_t lda = TWO_MUL * TWO_MUL * ROUND_UP(n1, ROUND_16);
+        for (int64_t k = 0; k < n1 * n1; k++) {
+            int64_t i = k / n1, j = k % n1;
+            host[i * lda + j] = cos(-K_2PI / n1 * i * j);
+            host[i * lda + ROUND_UP(n1, ROUND_16) + j] = sinSign * sin(-K_2PI / n1 * i * j);
+            host[i * lda + TWO_MUL * ROUND_UP(n1, ROUND_16) + j] = -sinSign * sin(-K_2PI / n1 * i * j);
+            host[i * lda + TWO_MUL * ROUND_UP(n1, ROUND_16) + ROUND_UP(n1, ROUND_16) + j] =
+                cos(-K_2PI / n1 * i * j);
         }
     }
 }
 
-inline void GenWMatrixInverseForMultiLen(int64_t stepLen, int64_t* radixListPtr, int64_t fftN, float* host)
+// 非末级 W 矩阵布局：host 指针按块推进、n0 累乘（与末级分支互斥）
+inline void GenWMatrixNonLastStageForMultiLen(
+    int64_t n1, int32_t tM0, int32_t tK0, float*& host, double sinSign, int64_t& n0)
 {
+    int64_t lda = ROUND_UP(TWO_MUL * n1, tM0);
+    for (int64_t k = 0; k < n1 * n1; k++) {
+        int64_t i = k / n1, j = k % n1;
+        host[i * TWO_MUL * lda + j] = cos(-K_2PI / n1 * i * j);
+        host[i * TWO_MUL * lda + n1 + j] = sinSign * sin(-K_2PI / n1 * i * j);
+        host[i * TWO_MUL * lda + lda + j] = -sinSign * sin(-K_2PI / n1 * i * j);
+        host[i * TWO_MUL * lda + lda + n1 + j] = cos(-K_2PI / n1 * i * j);
+    }
+    host += ROUND_UP(TWO_MUL * n1, tM0) * ROUND_UP(TWO_MUL * n1, tK0);
+    n0 *= n1;
+}
+
+// W 矩阵生成单实现（issue #269 合并原 Forward/Inverse 两份逐字重复，仅 4 个
+// 三角函数符号不同）：forward 时 sin 项取 -sin(-K_2PI/n1*i*j)，inverse 时取
+// +sin(-K_2PI/n1*i*j)，虚部交叉项符号相反，以 sinSign 表达
+inline void GenWMatrixForMultiLen(int64_t stepLen, int64_t* radixListPtr, int64_t fftN, float* host, bool forward)
+{
+    const double sinSign = forward ? -1.0 : 1.0;
     int64_t n0 = 1;
     for (int64_t s = 0; s < stepLen; s++) {
         int64_t n1 = radixListPtr[s];
@@ -430,57 +432,25 @@ inline void GenWMatrixInverseForMultiLen(int64_t stepLen, int64_t* radixListPtr,
         int64_t n2 = fftN / n1 / n0;
         int32_t tM0, tN0, tK0;
         getTile(n1, (n2 > 1) ? n2 : n0, s, stepLen, tM0, tN0, tK0);
-        if (tK0 == 0)
-            tK0 = 1;
-        if (tN0 == 0)
-            tN0 = 1;
         int64_t batchLen = L0AB_BUF * 2 / (tK0 * tN0);
         batchLen += (batchLen == 0);
-        if (s == stepLen - 1 && batchLen > 1 && (n1 <= AUXILSIZE && n0 <= (int64_t)8)) {
-            int64_t lda = TWO_MUL * ROUND_UP(n1, ROUND_16);
-            for (int64_t k = 0; k < n1 * n1; k++) {
-                int64_t i = k / n1, j = k % n1;
-                host[i * lda + j] = cos(-K_2PI / n1 * i * j);
-                host[i * lda + ROUND_UP(n1, ROUND_16) + j] = sin(-K_2PI / n1 * i * j);
-                host[n1 * lda + i * lda + j] = -sin(-K_2PI / n1 * i * j);
-                host[n1 * lda + i * lda + ROUND_UP(n1, ROUND_16) + j] = cos(-K_2PI / n1 * i * j);
-            }
-        } else if (s == stepLen - 1 && L0AB_BUF / (tK0 * tN0) >= 1) {
-            int64_t n1Loop = (2 * n1 + tM0 - 1) / tM0;
-            int64_t lda = TWO_MUL * ROUND_UP(n1, ROUND_16);
-            for (int64_t k = 0; k < n1 * n1; k++) {
-                int64_t i = k / n1, j = k % n1;
-                int64_t n1Idx = i / (tM0 / 2), n1In = i % (tM0 / 2);
-                int64_t n1Act = (n1Idx == n1Loop - 1) ? (2 * n1 - n1Idx * tM0) : tM0;
-                host[n1Idx * tM0 * lda + n1In * lda + j] = cos(-K_2PI / n1 * i * j);
-                host[n1Idx * tM0 * lda + n1In * lda + ROUND_UP(n1, ROUND_16) + j] = sin(-K_2PI / n1 * i * j);
-                host[n1Idx * tM0 * lda + n1In * lda + (n1Act / 2) * lda + j] = -sin(-K_2PI / n1 * i * j);
-                host[n1Idx * tM0 * lda + n1In * lda + (n1Act / 2) * lda + ROUND_UP(n1, ROUND_16) + j] =
-                    cos(-K_2PI / n1 * i * j);
-            }
-        } else if (s == stepLen - 1) {
-            int64_t lda = TWO_MUL * TWO_MUL * ROUND_UP(n1, ROUND_16);
-            for (int64_t k = 0; k < n1 * n1; k++) {
-                int64_t i = k / n1, j = k % n1;
-                host[i * lda + j] = cos(-K_2PI / n1 * i * j);
-                host[i * lda + ROUND_UP(n1, ROUND_16) + j] = sin(-K_2PI / n1 * i * j);
-                host[i * lda + TWO_MUL * ROUND_UP(n1, ROUND_16) + j] = -sin(-K_2PI / n1 * i * j);
-                host[i * lda + TWO_MUL * ROUND_UP(n1, ROUND_16) + ROUND_UP(n1, ROUND_16) + j] =
-                    cos(-K_2PI / n1 * i * j);
-            }
+        if (s == stepLen - 1) {
+            GenWMatrixLastStageForMultiLen(n1, n0, tM0, tN0, tK0, batchLen, host, sinSign);
         } else {
-            int64_t lda = ROUND_UP(TWO_MUL * n1, tM0);
-            for (int64_t k = 0; k < n1 * n1; k++) {
-                int64_t i = k / n1, j = k % n1;
-                host[i * TWO_MUL * lda + j] = cos(-K_2PI / n1 * i * j);
-                host[i * TWO_MUL * lda + n1 + j] = sin(-K_2PI / n1 * i * j);
-                host[i * TWO_MUL * lda + lda + j] = -sin(-K_2PI / n1 * i * j);
-                host[i * TWO_MUL * lda + lda + n1 + j] = cos(-K_2PI / n1 * i * j);
-            }
-            host += ROUND_UP(TWO_MUL * n1, tM0) * ROUND_UP(TWO_MUL * n1, tK0);
-            n0 *= n1;
+            GenWMatrixNonLastStageForMultiLen(n1, tM0, tK0, host, sinSign, n0);
         }
     }
+}
+
+// 兼容包装（issue #269）：调用点无需感知方向参数化合并，语义与原两函数逐位等价
+inline void GenWMatrixForwardForMultiLen(int64_t stepLen, int64_t* radixListPtr, int64_t fftN, float* host)
+{
+    GenWMatrixForMultiLen(stepLen, radixListPtr, fftN, host, true);
+}
+
+inline void GenWMatrixInverseForMultiLen(int64_t stepLen, int64_t* radixListPtr, int64_t fftN, float* host)
+{
+    GenWMatrixForMultiLen(stepLen, radixListPtr, fftN, host, false);
 }
 
 inline int64_t GetTwMatrixLen(int64_t fftN, const std::vector<int64_t>& radixVec)
@@ -490,7 +460,10 @@ inline int64_t GetTwMatrixLen(int64_t fftN, const std::vector<int64_t>& radixVec
     if (stepLen == 1)
         return 0;
     int64_t n0 = 1;
-    for (int64_t s = 0; s < stepLen; s++) {
+    // 循环上界与 GenTwMatrix 填充、内核消费对齐（issue #283）：tw 布局仅含前
+    // stepLen-1 级——末级 n2==1 走内核 combination 分支且不读 tw（nullptr），
+    // 原含末级的累加使分配比填充/消费多出末级一块，纯浪费设备内存
+    for (int64_t s = 0; s < stepLen - 1; s++) {
         int64_t n1 = radixVec[s];
         if (n1 == 0)
             continue;
@@ -554,7 +527,9 @@ inline void InitMixRadixParam(
         int64_t bLen = L0AB_BUF * 2 / (tK0 * tN0);
         bLen += (bLen == 0);
         int64_t tmpNow = 32;
-        if (s == 0 || (stepLen >= RADIX_LEN_FOUR_NUM && s < stepLen - RADIX_LEN_EVEN_NUM && s != 0))
+        // s != 0 冗余判断删除（issue #269）：|| 短路后右操作数仅在 s != 0 时求值，
+        // 其中 s != 0 恒真
+        if (s == 0 || (stepLen >= RADIX_LEN_FOUR_NUM && s < stepLen - RADIX_LEN_EVEN_NUM))
             tmpNow = batchPartLen * n0 * TWO_MUL * n1 * N2p * sizeof(float);
         if (stepLen >= RADIX_LEN_THREE_NUM && s == stepLen - RADIX_LEN_EVEN_NUM)
             tmpNow = batchPartLen * n0 * TWO_MUL * n1 * tN0 * sizeof(float);
@@ -604,9 +579,10 @@ inline int32_t InitAiVSplitWay(int64_t fftN, std::vector<int64_t>& radixVec)
         tK0 = 1;
     int64_t bLen = L0AB_BUF * 2 / (tN0 * tK0);
     bLen += (bLen == 0);
-    int32_t aivSplitWay = (bLen > 1 && (n1 <= RADIX_LIST_LEN || (n1 <= AUXILSIZE && n0 <= (int64_t)8))) ?
-                              1 :
-                              ((L0AB_BUF / (tK0 * tN0) >= 1) ? AIVSPLITWAY_TWO : AIVSPLITWAY_THREE);
+    int32_t aivSplitWay =
+        (bLen > 1 && (n1 <= AIV_SPLIT_LAST_RADIX_THRESHOLD || (n1 <= AUXILSIZE && n0 <= (int64_t)8))) ?
+            1 :
+            ((L0AB_BUF / (tK0 * tN0) >= 1) ? AIVSPLITWAY_TWO : AIVSPLITWAY_THREE);
     return aivSplitWay;
 }
 
