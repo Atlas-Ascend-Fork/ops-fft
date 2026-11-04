@@ -509,8 +509,8 @@ install_package() {
   logandprint "[INFO]: Installation completed successfully!"
   logandprint "[INFO]: Install path: ${TARGET_VERSION_DIR}/${OPP_PLATFORM_DIR}"
   logandprint "[INFO]:"
-  logandprint "[INFO]: To use ops-fft, you may need to set environment:"
-  logandprint "[INFO]:   source ${TARGET_VERSION_DIR}/set_env.bash"
+    logandprint "[INFO]: To use ops-fft, ensure the CANN Toolkit environment is configured:"
+    logandprint "[INFO]:   source <CANN toolkit install dir>/set_env.sh (provided by CANN Toolkit, not shipped in this package)"
   logandprint "[INFO]: ============================================"
 }
 

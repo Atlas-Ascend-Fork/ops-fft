@@ -29,7 +29,7 @@
     Build package success: build_out/cann-950-ops-fft_9.0.0_linux-*.run
     ```
 
-    编译成功后，run包存放于项目根目录的build目录下。
+    编译成功后，run包存放于项目根目录的build_out目录下。
 
 2. **安装ops-fft包**
 
@@ -42,8 +42,10 @@
 
 3. **配置环境变量**
 
+    ops-fft 包不附带独立的环境变量脚本，环境配置复用 CANN Toolkit 提供的 `set_env.sh`：
+
     ```bash
-    source ${ASCEND_HOME_PATH}/cann/set_env.bash
+    source ${ASCEND_HOME_PATH}/set_env.sh
     ```
 
 4. **（可选）卸载ops-fft包**
@@ -67,11 +69,18 @@ bash build.sh --run
 bash build.sh --ops=rfft1_d --run
 ```
 
-执行测试后会打印执行结果，以rfft1_d算子为例，结果如下：
+执行测试后会打印执行结果，测试框架为仓内自研宏框架（`tests/test_common.h`），以rfft1_d算子为例，输出如下（节选）：
 
 ```
-all_ops_test .......... Passed * sec
+[RUN] rfft1_d_basic...
+[PASS] rfft1_d_basic
+...
+       全局测试结果
+总测试数=91, 通过=91, 失败=0
+[SUCCESS] All tests passed
 ```
+
+成功判据：末尾出现`[SUCCESS] All tests passed`且进程退出码为0；失败时失败用例以`[FAIL]`行打印并在末尾"失败用例列表"中汇总。测试总数随目标SoC与用例集不同而变化，以上数值仅为示例。
 
 ### 编译选项说明
 

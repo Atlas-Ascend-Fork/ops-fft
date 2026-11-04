@@ -64,9 +64,9 @@ ops-fft算子包版本号（`9.0.0`）与CANN Toolkit版本号相互独立，包
 
 > **注意**：`build.sh`默认目标SoC为`Ascend950`。在910B环境的容器中直接执行`bash build.sh --pkg`得到的是950目标包，无法在910B上运行；请按上表为目标SoC显式传入`--soc`。驱动与固件前提见上文"HDK 24.1.0版本以上"。
 
-### 无环境场景：WebIDE开发（建设中）
+### 无环境场景：CANNLab开发（建设中）
 
-对于无环境的用户，提供WebIDE开发方式，**该方式当前不可用，尚在建设中**；在此期间请参考上文"Docker安装"方式搭建环境，建设进展请关注仓库公告。
+对于无环境的用户，提供CANNLab开发方式，**该方式当前不可用，尚在建设中**；在此期间请参考上文"Docker安装"方式搭建环境，建设进展请关注仓库公告。
 
 ## 二、编译部署
 
@@ -104,9 +104,13 @@ ops-fft安装在`${ASCEND_HOME_PATH}/cann`路径中，`${ASCEND_HOME_PATH}`表�
 
 ### 配置环境变量
 
+ops-fft 包不附带独立的环境变量脚本，环境配置复用 CANN Toolkit 提供的 `set_env.sh`：
+
 ```bash
-source ${ASCEND_HOME_PATH}/cann/set_env.bash
+source <CANN安装目录>/set_env.sh
 ```
+
+> 与上文"编译前准备"中的 `set_env.sh` 为同一脚本（如 `/usr/local/Ascend/ascend-toolkit/latest/set_env.sh`）。
 
 ### 运行测试
 
@@ -114,14 +118,14 @@ source ${ASCEND_HOME_PATH}/cann/set_env.bash
 bash build.sh --run
 ```
 
-测试在NPU上执行（需按上文完成环境变量配置并保证设备可用），编译后自动运行`tests/all_ops_test`测试集并输出gtest结果。最小成功判据：末尾出现`[SUCCESS] All tests passed`且进程退出码为0。
+测试在NPU上执行（需按上文完成环境变量配置并保证设备可用），编译后自动运行`tests/all_ops_test`测试集并输出仓内自研测试框架（`tests/test_common.h`）的结果，格式为`[RUN]/[PASS]/[FAIL]`行与统计汇总。最小成功判据：末尾出现`[SUCCESS] All tests passed`且进程退出码为0。
 
 常用选项：
 
 * `--ops=rfft1_d`：只编译并运行指定算子（逗号分隔多个算子）的测试，适合单算子smoke验证；
 * `--test-timeout=600`：调整测试超时时间（默认300秒）。
 
-失败排查：测试失败时脚本以`[ERROR] NPU test failed (exit code: N)`退出，gtest失败用例的详细信息会直接打印在终端输出中；若提示测试可执行文件不存在，先确认上一步编译成功；若因超时退出（`[ERROR] Test timeout`），可用`--test-timeout`放宽限制或用`--ops`缩小范围后重试。
+失败排查：测试失败时脚本以`[ERROR] NPU test failed (exit code: N)`退出，失败用例的详细信息会直接打印在终端输出中（`[FAIL]`行与末尾"失败用例列表"汇总）；若提示测试可执行文件不存在，先确认上一步编译成功；若因超时退出（`[ERROR] Test timeout`），可用`--test-timeout`放宽限制或用`--ops`缩小范围后重试。用例过滤使用`build.sh --test=过滤器`（逗号分隔，如`--test=fft1_d`），本仓测试框架无 gtest 依赖，不存在`--gtest_filter`；用例编写说明参见[测试编写指南](docs/zh/develop/test_writing_guide.md)。
 
 ## 三、更多帮助
 
