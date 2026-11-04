@@ -12,7 +12,6 @@
 
 import argparse
 import contextlib
-import glob
 import io
 import logging
 import math
@@ -106,8 +105,14 @@ def compare_one(curr_dir, name, atol, rtol, detail_only=False):
 
 
 def cleanup_case(curr_dir, name):
-    for f in glob.glob(os.path.join(curr_dir, f"{name}_*.bin")):
-        os.remove(f)
+    # Registered case names can be prefixes of other cases (for example
+    # dd_32x32_forward and dd_32x32_forward_b8). Delete exact owned assets.
+    for suffix in ("input", "golden", "golden_forward", "output"):
+        path = os.path.join(curr_dir, f"{name}_{suffix}.bin")
+        try:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
 
 
 def ordered_tolerance(value):
@@ -159,6 +164,7 @@ def gen_main(configs, gen_one_fn):
         if cfg is None:
             logger.info(f"Unknown case: {args.case}")
             return 1
+        cleanup_case(os.getcwd(), cfg["name"])
         with contextlib.redirect_stdout(io.StringIO()):
             gen_one_fn(cfg, args.seed)
     else:
