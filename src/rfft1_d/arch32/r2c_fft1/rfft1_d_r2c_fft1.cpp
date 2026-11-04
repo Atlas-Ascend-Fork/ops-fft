@@ -46,13 +46,9 @@ namespace RfftHost = Rfft1DR2CCommonHost;
 constexpr int TILE_LENGTH = RfftHost::TILE_LENGTH;
 
 void GenerateTiling(int n, uint8_t *twiddleBuf, uint8_t *gatherBuf) {
-    if (n == 0) {
-        return;
-    }
     if (n <= 0) {
         return;
     }
-    static const double pi = acos(-1);
     typedef std::complex<float> C;
     {
 
@@ -60,7 +56,9 @@ void GenerateTiling(int n, uint8_t *twiddleBuf, uint8_t *gatherBuf) {
         RfftHost::GenerateDft<true>(buf, n);
     }
     {
-        static constexpr int TILE_LENGTH = 4096;
+        // 局部 TILE_LENGTH 遮蔽删除（issue #273）：直接使用文件级
+        // TILE_LENGTH（RfftHost::TILE_LENGTH），两处当前同值 4096，双定义在
+        // 单侧调参时会静默不同步
         auto buf = reinterpret_cast<uint32_t *>(gatherBuf);
         int m = TILE_LENGTH / n;
         for (int i = 0; i < m; ++i) {
