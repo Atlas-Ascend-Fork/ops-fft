@@ -67,31 +67,27 @@ struct AclrtFreeDeleter {
 static void CalcBluesteinFactors(uint32_t factors[], std::vector<uint32_t> availableFactors, const uint32_t pow2)
 {
     std::vector<uint32_t> factorsTmpBluestein;
-    if (pow2 == LAST_FACTOR * LAST_FACTOR * LAST_FACTOR * COMPLEX_PART) {
-        for (size_t i = 0; i < MAX_FACTORS_LEN; i++) {
-            factors[i] = LAST_FACTOR;
-        }
-        factors[0] = LAST_FACTOR * COMPLEX_PART;
-    } else {
-        uint32_t tmpN = pow2;
-        int curFactorIndex = availableFactors.size() - 1;
+    // pow2==524288 不可达分支删除（issue #272）：入口拒绝 n > 4096（DFT_BORDER_VALUE），
+    // Bluestein 补长 pow2 = 2 * 2^ceil(log2(n)) ≤ 8192，原条件永假（与 :63 已删除的
+    // CalcCooleyTukeyFactors 同属不可达代码清理范畴）
+    uint32_t tmpN = pow2;
+    int curFactorIndex = availableFactors.size() - 1;
 
-        while (curFactorIndex >= 0) {
-            uint32_t curFactor = availableFactors[curFactorIndex];
-            while (tmpN % curFactor == 0) {
-                tmpN /= curFactor;
-                factorsTmpBluestein.emplace_back(curFactor);
-            }
-            curFactorIndex -= 1;
+    while (curFactorIndex >= 0) {
+        uint32_t curFactor = availableFactors[curFactorIndex];
+        while (tmpN % curFactor == 0) {
+            tmpN /= curFactor;
+            factorsTmpBluestein.emplace_back(curFactor);
         }
+        curFactorIndex -= 1;
+    }
 
-        while (factorsTmpBluestein.size() < MAX_FACTORS_LEN) {
-            factorsTmpBluestein.emplace_back(1);
-        }
+    while (factorsTmpBluestein.size() < MAX_FACTORS_LEN) {
+        factorsTmpBluestein.emplace_back(1);
+    }
 
-        for (size_t i = 0; i < MAX_FACTORS_LEN; ++i) {
-            factors[i] = factorsTmpBluestein[i];
-        }
+    for (size_t i = 0; i < MAX_FACTORS_LEN; ++i) {
+        factors[i] = factorsTmpBluestein[i];
     }
 }
 
@@ -156,13 +152,16 @@ static int SetTilingData(Rfft1DTilingData& tiling, uint32_t n, int32_t norm, uin
     std::vector<uint32_t> availableFactors(LAST_FACTOR - 1);
     std::iota(availableFactors.begin(), availableFactors.end(), COMPLEX_PART);
 
-    const bool isBluestein = (n % LAST_FACTOR != 0) || (factors[0] * factors[1] * factors[2] != n);
+    // isBluestein 恒真条件显式化（issue #272）：非 Bluestein（Cooley-Tukey）分解
+    // 已随 CalcCooleyTukeyFactors 删除（issue #99），factors 恒为 {1,1,1}，原第二项
+    // factors 乘积 != n 对全部可达输入恒真——当前所有长度均走 Bluestein 路径。
+    // 注意不能简化为 "n % LAST_FACTOR != 0"：那会使 n 为 64 整数倍的长度跳过
+    // CalcBluesteinFactors，tiling 推导与内核既有行为不一致（行为保持优先）
+    const bool isBluestein = true;
     const uint32_t pow2 = COMPLEX_PART * uint32_t(std::pow(2, std::ceil(std::log2(double(n)))));
-    const uint32_t lengthPad = isBluestein ? pow2 : n;
+    const uint32_t lengthPad = pow2;
 
-    if (isBluestein) {
-        CalcBluesteinFactors(factors, availableFactors, pow2);
-    }
+    CalcBluesteinFactors(factors, availableFactors, pow2);
 
     for (uint8_t i = 1; i < MAX_FACTORS_LEN; ++i) {
         prevRadices[i] = prevRadices[i - 1] * factors[i - 1];
@@ -177,7 +176,7 @@ static int SetTilingData(Rfft1DTilingData& tiling, uint32_t n, int32_t norm, uin
     const uint32_t tailSize =
         COMPLEX_PART * (((n / RFFT_SYMMETRY_DIVISOR) + 1) - (factors[2] / COMPLEX_PART) * (n / factors[2]));
     const uint32_t tmpLenPerBatch = 3 * roundUpBlock(
-                                            COMPLEX_PART * (isBluestein ? lengthPad : n) + factors[2] * tailSize + 1,
+                                            COMPLEX_PART * lengthPad + factors[2] * tailSize + 1,
                                             BYTES_ALIGN * SIZE_PER_BATCH_MULTIPLIER);
 
     tiling.length = n;
