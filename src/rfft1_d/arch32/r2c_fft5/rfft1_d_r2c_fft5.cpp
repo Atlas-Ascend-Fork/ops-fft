@@ -61,8 +61,8 @@ static bool GetFft5Factors(uint32_t n, int &halfN, int &n1, int &n2, int &n3, in
     return n5 > 0;
 }
 
-static void GenerateVectorTwiddle(__uint32_t n, __uint32_t n1, __uint32_t n2, __uint32_t n3,
-                                  __uint32_t n4, __uint32_t n5, int blockNum, uint8_t *twiddleBuf)
+static void GenerateVectorTwiddle(uint32_t n, uint32_t n1, uint32_t n2, uint32_t n3,
+                                  uint32_t n4, uint32_t n5, int blockNum, uint8_t *twiddleBuf)
 {
     int row = n1 * n2;
     int col = n3 * n4 * n5;
@@ -92,8 +92,8 @@ static void GenerateVectorTwiddle(__uint32_t n, __uint32_t n1, __uint32_t n2, __
     }
 }
 
-static void GenerateDftTables(uint8_t *twiddleBuf, __uint32_t n, __uint32_t n1, __uint32_t n2,
-                              __uint32_t n3, __uint32_t n4, __uint32_t n5, int blockNum)
+static void GenerateDftTables(uint8_t *twiddleBuf, uint32_t n, uint32_t n1, uint32_t n2,
+                              uint32_t n3, uint32_t n4, uint32_t n5, int blockNum)
 {
     int row = n1 * n2;
     int col = n3 * n4 * n5;
@@ -125,8 +125,8 @@ static void GenerateDftTables(uint8_t *twiddleBuf, __uint32_t n, __uint32_t n1, 
     genDftWithTwiddle2(buf, n5, n4, n3, 1);
 }
 
-static void GenerateTileRotations(uint8_t *twiddleBuf, __uint32_t n, __uint32_t n1, __uint32_t n2,
-                                  __uint32_t n3, __uint32_t n4, __uint32_t n5, int blockNum)
+static void GenerateTileRotations(uint8_t *twiddleBuf, uint32_t n, uint32_t n1, uint32_t n2,
+                                  uint32_t n3, uint32_t n4, uint32_t n5, int blockNum)
 {
     typedef std::complex<float> C;
     static constexpr uint32_t vectorTileLength = 4096;
@@ -148,7 +148,7 @@ static void GenerateTileRotations(uint8_t *twiddleBuf, __uint32_t n, __uint32_t 
     }
 }
 
-void GenerateTiling(__uint32_t n, __uint32_t n1, __uint32_t n2, __uint32_t n3, __uint32_t n4, __uint32_t n5, int blockNum, uint8_t *twiddleBuf, uint8_t *gatherBuf) {
+void GenerateTiling(uint32_t n, uint32_t n1, uint32_t n2, uint32_t n3, uint32_t n4, uint32_t n5, int blockNum, uint8_t *twiddleBuf, uint8_t *gatherBuf) {
     if (n == 0 || n1 == 0 || n2 == 0 || n3 == 0 || n4 == 0 || n5 == 0 || blockNum <= 0) {
         return;
     }
@@ -181,7 +181,6 @@ extern "C" aclError aclfftRfft1DR2CFft5(float *x, float *y, uint32_t n,
     size_t twiddleSize = col * (1 + coreNum * l2Blocks) * sizeof(float) * 2 + (coreNum * 2) * TILE_LENGTH * sizeof(float) * 2 + (n1 * n1 + n2 * n2 * n1 + n3 * n3 + n4 * n4 * n3 + n5 * n5 * n4 * n3) * sizeof(float) * 3 + static_cast<size_t>(halfN / 2 / std::min<int64_t>(halfN / 2, TILE_LENGTH)) * 2 * sizeof(float);
     size_t workSize = static_cast<size_t>(halfN) * 4 * sizeof(float);
     size_t gatherSize = TILE_LENGTH * 2 * sizeof(uint32_t);
-    size_t eyeSize = 32 * 32 * sizeof(float);
     uint32_t tilingSize = sizeof(Rfft1DR2CFftTilingData);
 
     Rfft1DR2CFftTilingData tilingData;
