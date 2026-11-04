@@ -9,10 +9,12 @@
  */
 
 #include <iostream>
+#include <new>
 
 #include "cann_ops_fft.h"
 #include "fft_handle_impl.h"
 #include "fft_error.h"
+#include "fft_plan_validate.h"
 
 /**
  * @brief 创建空的 FFT Plan
@@ -60,19 +62,10 @@ aclfftResult aclfftPlan1d(aclfftHandle* plan, int nx, aclfftType type, int batch
     }
     // 创建期按 dimType 强制 FFT_1D.md 声明的 fftSize 域约束（issue #190）：
     // 横向 nx ≤ 2^27；纵向 nx ∈ [256, 2^18] 且为 2 的幂。原仅校验 nx > 0，
-    // 非法尺寸 plan 创建成功、错误推迟到执行期才暴露
-    if (dimType == ACLFFT_HORIZONTAL) {
-        if (nx > (1 << 27)) {
-            std::cerr << "[ops-fft] aclfftPlan1d: nx=" << nx << " exceeds 2^27 for horizontal FFT" << std::endl;
-            return ACLFFT_INVALID_SIZE;
-        }
-    } else {
-        const bool powerOfTwo = (nx > 0) && ((nx & (nx - 1)) == 0);
-        if (nx < 256 || nx > (1 << 18) || !powerOfTwo) {
-            std::cerr << "[ops-fft] aclfftPlan1d: nx=" << nx
-                      << " out of [256, 262144] or not a power of 2 for vertical FFT" << std::endl;
-            return ACLFFT_INVALID_SIZE;
-        }
+    // 非法尺寸 plan 创建成功、错误推迟到执行期才暴露。
+    // 域校验收敛为共享实现（issue #270），与 aclfftMakePlan1d 单点维护
+    if (FftPlanValidate1DSize(dimType, nx, "aclfftPlan1d") != ACLFFT_SUCCESS) {
+        return ACLFFT_INVALID_SIZE;
     }
 
     // 创建 Plan
@@ -81,9 +74,8 @@ aclfftResult aclfftPlan1d(aclfftHandle* plan, int nx, aclfftType type, int batch
         return res;
     }
 
-    // 初始化 Plan
-    size_t workSize;
-    res = aclfftMakePlan1d(*plan, nx, type, batch, dimType, &workSize);
+    // 初始化 Plan（workSize 形参允许 nullptr，本接口不消费返回值，#270 删除死变量）
+    res = aclfftMakePlan1d(*plan, nx, type, batch, dimType, nullptr);
     if (res != ACLFFT_SUCCESS) {
         aclfftDestroy(*plan);
         *plan = nullptr;
@@ -118,9 +110,8 @@ aclfftResult aclfftPlan2d(aclfftHandle* plan, int batch, int nx, int ny, aclfftT
         return res;
     }
 
-    // 初始化 Plan
-    size_t workSize;
-    res = aclfftMakePlan2d(*plan, batch, nx, ny, type, &workSize);
+    // 初始化 Plan（workSize 形参允许 nullptr，本接口不消费返回值，#270 删除死变量）
+    res = aclfftMakePlan2d(*plan, batch, nx, ny, type, nullptr);
     // 如果初始化失败，清理 Plan
     if (res != ACLFFT_SUCCESS) {
         aclfftDestroy(*plan);
@@ -147,9 +138,8 @@ aclfftResult aclfftPlan3d(aclfftHandle* plan, int nx, int ny, int nz, aclfftType
         return res;
     }
 
-    // 初始化 Plan
-    size_t workSize;
-    res = aclfftMakePlan3d(*plan, nx, ny, nz, type, &workSize);
+    // 初始化 Plan（workSize 形参允许 nullptr，本接口不消费返回值，#270 删除死变量）
+    res = aclfftMakePlan3d(*plan, nx, ny, nz, type, nullptr);
     // 如果初始化失败，清理 Plan
     if (res != ACLFFT_SUCCESS) {
         aclfftDestroy(*plan);
