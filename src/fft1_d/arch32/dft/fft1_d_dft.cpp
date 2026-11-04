@@ -41,9 +41,12 @@ static std::vector<float> InitRotationMatrix(int64_t nDoing)
     return rotationMatrixHost;
 }
 
-static int SetTilingData(
-    Fft1DDFTTilingData& tiling, uint32_t fftN, int32_t norm, int isInverse, uint32_t coreNum, uint32_t batches)
+static aclError SetTilingData(
+    Fft1DDFTTilingData& tiling, uint32_t fftN, int isInverse, uint32_t batches)
 {
+    // norm/coreNum 死形参删除（issue #276）：函数体仅使用 fftN/isInverse/batches，
+    // norm 恒为 0 由入口校验保证、coreNum 与 tiling 布局无关联；返回类型同步为
+    // aclError 口径（原 int 承载 ACL_SUCCESS）
     const int thresholdK = 32768;
     const int cubeDataCountPerLoopSmall = 128;
     const int cubeDataCountPerLoopLarge = 64;
@@ -149,7 +152,7 @@ extern "C" aclError aclfftFft1DDft(
 
     // set tiling data
     int isInverse = 1 - isForward; // 正向传播则不需要inverse
-    aclError ret = SetTilingData(tilingData, n, norm, isInverse, coreNum, batches);
+    aclError ret = SetTilingData(tilingData, n, isInverse, batches);
     if (ret != ACL_SUCCESS) {
         return ret;
     }

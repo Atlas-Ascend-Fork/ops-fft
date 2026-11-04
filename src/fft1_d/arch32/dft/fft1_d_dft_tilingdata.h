@@ -28,12 +28,9 @@ struct Fft1DDFTTilingData {
     int32_t m0{0};
     int32_t n0{0};
     int32_t k0{0};
-    int32_t loopTime{0};
-    int32_t batchNumPerLoop{0}; // batchNumPerCore * 40
-    int32_t batchNumPerCore{0};
-    int32_t batchTailNum{0};    // batchTailNumPerCore * 40 + batchTailCoreNum
-    int32_t batchTailNumPerCore{0};
-    int32_t batchTailCoreNum{0};
+    // loopTime/batchNumPerLoop/batchNumPerCore/batchTailNum/batchTailNumPerCore/
+    // batchTailCoreNum 六个死字段删除（issue #276）：host 从不写入、kernel 从不读取，
+    // 且注释携带的 "×40" 魔法数陈旧说明与现存布局不符
 };
 
 #endif // FFT1_D_DFT_TILINGDATA_H
