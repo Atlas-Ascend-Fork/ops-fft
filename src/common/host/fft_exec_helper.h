@@ -8,8 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#ifndef FFT_EXEC_C2C_HELPER_H
-#define FFT_EXEC_C2C_HELPER_H
+#ifndef FFT_EXEC_HELPER_H
+#define FFT_EXEC_HELPER_H
 
 #include <cmath>
 #include <vector>
@@ -32,7 +32,7 @@ constexpr int K_N_FFT_32768 = 32768;
 // 初始化状态与类型校验（issue #191）：weak 符号可被直接调用，lib 层校验可被
 // 绕过，未初始化 plan 的 lengths/stride 为 0 值垃圾语义、R2C 入口收到 C2R plan
 // 会按错误类型语义访问缓冲，故此处统一校验 is_initialized 与 type
-// （调用方通过 ACLFFT_EXEC_1D_EXPECT_TYPE 在 rank 校验后指定期望类型）。
+// （调用方通过 ACLFFT_EXEC_EXPECT_TYPE 在 rank 校验后指定期望类型）。
 // 注意：fft1_d C2C 不适用本宏（Ascend910B 的 Stride kernel 支持纵向布局）。
 #define ACLFFT_EXEC_1D_ENTRY_CHECKS(impl, idata, odata, tag) \
     do { \
@@ -48,8 +48,10 @@ constexpr int K_N_FFT_32768 = 32768;
 
 // 类型校验（issue #191）：与 ACLFFT_EXEC_1D_ENTRY_CHECKS 配套使用，直连入口
 // 收到类型不匹配的 plan（如 R2C plan 传给 ExecC2R_1D）时返回错误而非按错误
-// 类型语义访问输入缓冲
-#define ACLFFT_EXEC_1D_EXPECT_TYPE(impl, expectedType, tag) \
+// 类型语义访问输入缓冲。
+// 宏名更名（issue #281）：该宏实为通用的 rank 后类型校验，1D/2D 入口共用，
+// 原 ACLFFT_EXEC_1D_EXPECT_TYPE 的 "1D" 命名对 2D 调用方构成语义误导
+#define ACLFFT_EXEC_EXPECT_TYPE(impl, expectedType, tag) \
     do { \
         if ((impl)->type != (expectedType)) { \
             std::cerr << "[ops-fft] " << tag << ": plan type=" << static_cast<int>((impl)->type) \

@@ -22,7 +22,7 @@ aclfftResult aclfftExecC2C_1D(aclfftHandle plan, aclfftComplex* idata, aclfftCom
     // 校验可被绕过；未初始化 plan 的 lengths/stride 为 0 值垃圾语义，R2C/C2R
     // plan 按 C2C 语义读 2n 个 float 造成最高 2 倍输入缓冲越界读
     ACLFFT_CHECK_PARAM(impl->is_initialized, ACLFFT_INVALID_VALUE);
-    ACLFFT_EXEC_1D_EXPECT_TYPE(impl, aclfftType::ACLFFT_C2C, "C2C arch35");
+    ACLFFT_EXEC_EXPECT_TYPE(impl, aclfftType::ACLFFT_C2C, "C2C arch35");
     // direction 域校验（issue #134）：weak 符号可被直接调用，lib 层校验可被绕过
     ACLFFT_CHECK_PARAM(direction == ACLFFT_FORWARD || direction == ACLFFT_BACKWARD, ACLFFT_INVALID_VALUE);
 

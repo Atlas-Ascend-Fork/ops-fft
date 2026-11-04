@@ -25,7 +25,7 @@ aclfftResult aclfftExecC2C_2D(aclfftHandle plan,
     // 校验可被绕过；未初始化 plan 的 lengths 为 0 值垃圾语义，R2C/C2R plan 按
     // C2C 语义访问缓冲造成越界读
     ACLFFT_CHECK_PARAM(impl->is_initialized, ACLFFT_INVALID_VALUE);
-    ACLFFT_EXEC_1D_EXPECT_TYPE(impl, aclfftType::ACLFFT_C2C, "C2C 2D arch32");
+    ACLFFT_EXEC_EXPECT_TYPE(impl, aclfftType::ACLFFT_C2C, "C2C 2D arch32");
     // direction 域校验（issue #147）：weak 符号可被直接调用，非法值不得静默按逆变换执行
     ACLFFT_CHECK_PARAM(direction == ACLFFT_FORWARD || direction == ACLFFT_BACKWARD, ACLFFT_INVALID_VALUE);
 

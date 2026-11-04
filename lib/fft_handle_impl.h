@@ -47,14 +47,15 @@ struct aclfftHandle_t {
      * @brief 构造函数
      */
     aclfftHandle_t()
+        // 初始化列表顺序与成员声明顺序一致（issue #281，消除 -Wreorder 告警）
         : rank(0),
+          lengths{0},
+          stride{0},
           batch(1),
           type(ACLFFT_C2C),
           normMode(0),
           stream(nullptr),
-          is_initialized(false),
-          lengths{0},
-          stride{0} {}
+          is_initialized(false) {}
 };
 
 #endif // FFT_HANDLE_IMPL_H

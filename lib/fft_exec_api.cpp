@@ -88,17 +88,29 @@ aclfftResult aclfftExecZ2Z(aclfftHandle plan,
                            aclfftDoubleComplex* idata,
                            aclfftDoubleComplex* odata,
                            int direction) {
+    // 双精度执行当前为 NOT_IMPLEMENTED 桩，(void) 消参与同族桩口径一致（issue #281，
+    // 消除 -Wunused-parameter 告警）
+    (void)plan;
+    (void)idata;
+    (void)odata;
+    (void)direction;
     return ACLFFT_NOT_IMPLEMENTED;
 }
 
 aclfftResult aclfftExecD2Z(aclfftHandle plan,
                            aclfftDoubleReal* idata,
                            aclfftDoubleComplex* odata) {
+    (void)plan;
+    (void)idata;
+    (void)odata;
     return ACLFFT_NOT_IMPLEMENTED;
 }
 
 aclfftResult aclfftExecZ2D(aclfftHandle plan,
                            aclfftDoubleComplex* idata,
                            aclfftDoubleReal* odata) {
+    (void)plan;
+    (void)idata;
+    (void)odata;
     return ACLFFT_NOT_IMPLEMENTED;
 }
