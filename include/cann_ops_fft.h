@@ -67,6 +67,15 @@ typedef enum aclfftResult_t
 
 /*! @brief Transform type
  *  @details This type is used to declare the Fourier transform type that will be executed.
+ *
+ *  当前版本各接口实际接受的 type 取值域（与实现校验一致）：
+ *  - 1D（aclfftPlan1d/MakePlan1d/GetSize1d 及对应 Exec）：ACLFFT_C2C、ACLFFT_R2C、
+ *    ACLFFT_C2R；双精度（D2Z/Z2D/Z2Z）在创建期即被拒绝
+ *  - 2D（aclfftPlan2d/MakePlan2d/GetSize2d 及对应 Exec）：仅 ACLFFT_C2C
+ *  - 3D（aclfftPlan3d/MakePlan3d/GetSize3d）：占位实现，当前恒返回
+ *    ACLFFT_NOT_IMPLEMENTED
+ *  传入上述取值域之外的枚举值同样返回 ACLFFT_NOT_SUPPORTED 或
+ *  ACLFFT_NOT_IMPLEMENTED，而非按枚举"合法"静默受理。
  *  */
 typedef enum aclfftType_t
 {
@@ -154,10 +163,13 @@ ACLFFT_API aclfftResult aclfftPlan1d(aclfftHandle* plan,
  *  fastest.
  *
  *  @param[out] plan Pointer to the FFT plan handle.
+ *  @param[in] batch Number of batched transforms to compute.
  *  @param[in] nx Number of elements in the x-direction (slow index).
  *  @param[in] ny Number of elements in the y-direction (fast index).
  *  @param[in] type FFT type.
- *  @param[in] batch Number of batched transforms to compute.
+ *
+ *  @note 参数顺序（issue #266）：签名为 (plan, batch, nx, ny, type)，batch 是
+ *  第 2 个参数，@param 列表与签名一致，调用时请以本声明为准。
  */
 ACLFFT_API aclfftResult aclfftPlan2d(aclfftHandle* plan, int batch, int nx, int ny, aclfftType type);
 
@@ -173,6 +185,9 @@ ACLFFT_API aclfftResult aclfftPlan2d(aclfftHandle* plan, int batch, int nx, int 
  *  @param[in] ny Number of elements in the y-direction.
  *  @param[in] nz Number of elements in the z-direction (fastest index).
  *  @param[in] type FFT type.
+ *
+ *  @note 3D 接口当前为占位实现（issue #266）：恒返回 ACLFFT_NOT_IMPLEMENTED，
+ *  请勿在生产代码中调用，待 3D 实现落地后放开。
  */
 ACLFFT_API aclfftResult
     aclfftPlan3d(aclfftHandle* plan, int nx, int ny, int nz, aclfftType type);
@@ -211,11 +226,14 @@ ACLFFT_API aclfftResult aclfftCreate(aclfftHandle* plan);
  *  fastest.
  *
  *  @param[in] plan Handle of the FFT plan.
+ *  @param[in] batch Number of batched transforms to compute.
  *  @param[in] nx Number of elements in the x-direction (slow index).
  *  @param[in] ny Number of elements in the y-direction (fast index).
  *  @param[in] type FFT type.
- *  @param[in] batch Number of batched transforms to compute.
  *  @param[out] workSize Pointer to work area size (returned value).
+ *
+ *  @note 参数顺序与 aclfftPlan2d 相同（issue #266）：签名为
+ *  (plan, batch, nx, ny, type, workSize)，batch 是第 2 个参数。
  */
 ACLFFT_API aclfftResult
     aclfftMakePlan2d(aclfftHandle plan, int batch, int nx, int ny, aclfftType type, size_t* workSize);
@@ -234,6 +252,9 @@ ACLFFT_API aclfftResult
  *  @param[in] nz Number of elements in the z-direction (fastest index).
  *  @param[in] type FFT type.
  *  @param[out] workSize Pointer to work area size (returned value).
+ *
+ *  @note 3D 接口当前为占位实现（issue #266）：恒返回 ACLFFT_NOT_IMPLEMENTED，
+ *  请勿在生产代码中调用，待 3D 实现落地后放开。
  */
 ACLFFT_API aclfftResult
     aclfftMakePlan3d(aclfftHandle plan, int nx, int ny, int nz, aclfftType type, size_t* workSize);
@@ -243,7 +264,8 @@ ACLFFT_API aclfftResult
  *  @param[in] plan Pointer to the FFT plan.
  *  @param[in] nx Number of elements in the x-direction.
  *  @param[in] type FFT type.
- *  @param[in] batch Number of batched transforms to perform.
+ *  @param[in] batch Deprecated: batch 参数由 plan 携带，本入参值被忽略（与声明行
+ *  内注释同口径，issue #266）。
  *  @param[out] workSize Pointer to work area size (returned value).
  */
 ACLFFT_API aclfftResult aclfftGetSize1d(aclfftHandle plan,
