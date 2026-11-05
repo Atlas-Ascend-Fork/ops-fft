@@ -67,6 +67,14 @@ namespace Rfft1DApiIntegrationTest {
         // 6) isForward 方向契约（issue #240）：R2C 恒为正向仅接受 1，语义非法方向显式拒绝
         if (aclfftRfft1DR2CFft(&dummy, &dummy, 2048, 0, 1, 0, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (aclfftRfft1DDft(&dummy, &dummy, 256, 0, 1, 0, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        //    幂次六直连入口 isForward!=1 拒绝（issue #284，#240 契约统一遗留面：
+        //    原先形参被静默丢弃按正向计算返回成功）
+        if (aclfftRfft1DR2CFft1(&dummy, &dummy, 8, 1, 0, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DR2CFft2(&dummy, &dummy, 16, 1, 0, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DR2CFft31(&dummy, &dummy, 256, 1, 0, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DR2CFft32(&dummy, &dummy, 4096, 1, 0, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DR2CFft4(&dummy, &dummy, 65536, 1, 0, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DR2CFft5(&dummy, &dummy, 1048576, 1, 0, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         // 7) 幂次直连入口门禁（issue #237/#239）：n=1 越界写防护、batches==0、
         //    batch*(n+2) 溢出——原先只在 exec 分发层设防，直连可绕过
         if (aclfftRfft1DR2CFft1(&dummy, &dummy, 1, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;

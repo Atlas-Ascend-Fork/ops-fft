@@ -69,7 +69,7 @@ extern "C" aclError aclfftRfft1DR2CFft2(float *x, float *y, uint32_t n,
                                      uint32_t batches, int isForward, void *stream)
 {
     // n==0/batches==0 与 batch*(n+2) 上界门禁（issue #239，防直连绕过 exec 层）
-    CHECK_ACL(RfftHost::ValidateR2CPowerOfTwoEntry("aclfftRfft1DR2CFft2", n, batches));
+    CHECK_ACL(RfftHost::ValidateR2CPowerOfTwoEntry("aclfftRfft1DR2CFft2", n, batches, isForward));
     uint32_t coreNum = RfftHost::GetCoreNum();
 
     int64_t fftN = static_cast<int64_t>(n);

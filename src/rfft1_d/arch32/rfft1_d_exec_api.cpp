@@ -30,6 +30,13 @@ static aclError DispatchPowerOfTwoR2C(aclfftHandle_t *impl, aclfftReal *idata, a
                   << " (only 0=BACKWARD in this version)" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // isForward 契约校验（issue #284，#240 契约统一的遗留面）：R2C 恒为正向仅接受 1，
+    // 非法值经本分发层透传到六个直连入口会被静默丢弃，此处与入口层双保险
+    if (isForward != 1) {
+        std::cerr << "[ops-fft] R2C: isForward=" << isForward
+                  << " invalid (R2C is always forward; expected 1)" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     if (n <= 0 || batch == 0) {
         std::cerr << "[ops-fft] R2C: n=" << n << " batch=" << batch << " invalid" << std::endl;
         return ACL_ERROR_INVALID_PARAM;

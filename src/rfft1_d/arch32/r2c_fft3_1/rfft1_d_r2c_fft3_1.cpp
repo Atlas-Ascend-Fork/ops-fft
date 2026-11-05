@@ -48,9 +48,11 @@ constexpr int TILE_LENGTH = RfftHost::TILE_LENGTH;
 extern "C" aclError aclfftRfft1DR2CFft31(float *x, float *y, uint32_t n,
                                      uint32_t batches, int isForward, void *stream)
 {
-    // n==0/batches==0 与 batch*(n+2) 上界门禁（issue #239，防直连绕过 exec 层）
-    CHECK_ACL(RfftHost::ValidateR2CPowerOfTwoEntry("aclfftRfft1DR2CFft31", n, batches));
-    return RfftHost::RunFft3<Rfft1DR2CFftTilingData>(x, y, n, batches, isForward, stream,
+    // n==0/batches==0 与 batch*(n+2) 上界门禁（issue #239，防直连绕过 exec 层）；
+    // isForward 契约校验（issue #284）同入口下沉
+    CHECK_ACL(RfftHost::ValidateR2CPowerOfTwoEntry("aclfftRfft1DR2CFft31", n, batches, isForward));
+    // isForward 死形参删除（issue #284）：校验已在 ValidateR2CPowerOfTwoEntry 统一完成
+    return RfftHost::RunFft3<Rfft1DR2CFftTilingData>(x, y, n, batches, stream,
         [](uint32_t coreNum, void *stream, RfftHost::DeviceBuffers &dev) {
             Rfft1DR2CFft31Kernel::fft3_1_r2c<<<coreNum, nullptr, stream>>>(
                 (__gm__ uint8_t *)dev.input.get(), (__gm__ uint8_t *)dev.output.get(),
