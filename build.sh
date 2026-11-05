@@ -514,8 +514,13 @@ run_tests() {
                 for sh_test in "$SCRIPT_DIR/$pt_dir"/test_*.sh; do
                     [ -f "$sh_test" ] || continue
                     log_info "Running bash test: $sh_test"
+                    # set -e 下失败即中止会跳过诊断日志与后续套件（issue #285）：
+                    # 沿用本文件 cmake/cpack 段的 set +e/手动判码/set -e 模式，
+                    # 保证"失败不立即退出、聚合后统一退出"（issue #255）可达
+                    set +e
                     bash "$sh_test"
                     sh_result=$?
+                    set -e
                     if [ $sh_result -ne 0 ]; then
                         log_error "bash test failed: $sh_test (exit code: $sh_result)"
                         npu_failed=1
@@ -525,8 +530,11 @@ run_tests() {
             fi
             if [ -d "$SCRIPT_DIR/$pt_dir" ] && ls "$SCRIPT_DIR/$pt_dir"/test_*.py &> /dev/null; then
                 log_info "Running pytest suite: $pt_dir"
+                # 同上（issue #285）：pytest 失败不得中止后续回归目录
+                set +e
                 (cd "$SCRIPT_DIR" && TORCH_DEVICE_BACKEND_AUTOLOAD=0 python3 -m pytest -q "$pt_dir")
                 pytest_result=$?
+                set -e
                 if [ $pytest_result -ne 0 ]; then
                     log_error "pytest suite failed: $pt_dir (exit code: $pytest_result)"
                     npu_failed=1
