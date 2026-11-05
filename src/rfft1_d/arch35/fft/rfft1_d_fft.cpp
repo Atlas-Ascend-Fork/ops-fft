@@ -81,8 +81,10 @@ static std::vector<float> GenerateTwPostProcess(int64_t fftN)
     return twPost;
 }
 
-static int SetTilingData(
-    Rfft1DFftTilingData& tiling, int64_t fftN, int32_t isInverse, uint32_t coreNum, uint32_t batches)
+// coreNum 死形参删除（issue #287，#277 同族整改的兄弟遗漏点）：函数体从不读取；
+// 返回类型统一 aclError 口径（原 int 成功返回 0 与 ACL 错误码域混杂，成功值显式 ACL_SUCCESS）
+static aclError SetTilingData(
+    Rfft1DFftTilingData& tiling, int64_t fftN, int32_t isInverse, uint32_t batches)
 {
     tiling.batchSize = batches;
     tiling.fftN = fftN;
@@ -131,7 +133,7 @@ static int SetTilingData(
     tiling.workspaceOffsets[3] = 0;
     tiling.workspaceOffsets[4] = 0;
 
-    return 0;
+    return ACL_SUCCESS;
 }
 
 extern "C" aclError aclfftRfft1DFft(
@@ -177,7 +179,7 @@ extern "C" aclError aclfftRfft1DFft(
     int64_t fftN = static_cast<int64_t>(n);
 
     Rfft1DFftTilingData tilingData = {};
-    if (SetTilingData(tilingData, fftN, isInverse, coreNum, batches) != 0) {
+    if (SetTilingData(tilingData, fftN, isInverse, batches) != ACL_SUCCESS) {
         // 质因子不支持：按能力不支持返回参数错误，exec 层翻译为 NOT_IMPLEMENTED（issue #97）
         return ACL_ERROR_INVALID_PARAM;
     }
