@@ -22,7 +22,9 @@
 
 static constexpr int64_t MIX_ALLOWED_RADICES[] = {2, 3, 5, 7, 11, 13, 17, 19};
 
-static int SetMixTilingData(
+// 返回类型统一 aclError 口径（issue #288，#277 同族整改口径）：原 int 成功
+// 返回 0 与 ACL 错误码域混杂，成功值显式 ACL_SUCCESS，调用点同步调整
+static aclError SetMixTilingData(
     FftAllMixTilingData& t, int64_t fftN, int32_t isInverse, uint32_t batches, std::vector<int32_t>& radixList)
 {
     t.batchSize = static_cast<int64_t>(batches);
@@ -64,7 +66,7 @@ static int SetMixTilingData(
         return ACL_ERROR_INVALID_PARAM;
     }
     t.radixListLen = static_cast<int32_t>(radixList.size());
-    return 0;
+    return ACL_SUCCESS;
 }
 
 // original-exact dft layout: per stage 2*r*r floats, [re,im] at (q*r+p)*2
@@ -135,7 +137,6 @@ extern "C" aclError aclfftFft1DC2CMix(
                   << " is not supported (only 0=BACKWARD in this version)" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
-    (void)norm;
     // isForward 域校验（issue #168）：合法取值仅 0(正向)/1(反向)。本入口无校验时
     // isForward=2 经 1-isForward 得 -1，GenerateMixDft/GenerateMixTwiddle 的
     // sign=(isInverse==0)?-1:+1 取到逆变换符号，tiling.isInverse 亦为 -1 下发，
@@ -165,9 +166,13 @@ extern "C" aclError aclfftFft1DC2CMix(
     int32_t isInverse = 1 - isForward;
     int64_t fftN = static_cast<int64_t>(n);
 
-    FftAllMixTilingData tilingData;
+    // 值初始化（issue #289，#117 类残留点）：FftAllMixTilingData 无类内初始化器，
+    // 栈上 tiling 整体 memcpy 上设备；SetMixTilingData 显式覆盖全部字段时未初始化
+    // 字节恰好无暴露，但结构体新增字段漏填时未初始化宿主内存将随之下发，
+    // 与同结构体其余用法（fft1_d_mix.cpp tilingData{} 等）口径一致
+    FftAllMixTilingData tilingData{};
     std::vector<int32_t> radixListHost;
-    if (SetMixTilingData(tilingData, fftN, isInverse, batches, radixListHost) != 0) {
+    if (SetMixTilingData(tilingData, fftN, isInverse, batches, radixListHost) != ACL_SUCCESS) {
         // 质因子不支持：按能力不支持返回参数错误，exec 层翻译为 NOT_IMPLEMENTED（issue #97）
         return ACL_ERROR_INVALID_PARAM;
     }
