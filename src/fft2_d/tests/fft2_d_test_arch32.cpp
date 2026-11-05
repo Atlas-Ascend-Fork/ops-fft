@@ -15,6 +15,7 @@ namespace Fft2DApiIntegrationTest {
     // 前置声明：调用点位于 run_all_tests 内，而定义在其后（static 内部链接，
     // 调用点之前必须有可见声明，否则编译失败）
     static void run_makeplan2d_type_reject_test(OpsFftTest::TestStats& stats);
+    static void run_makeplan2d_size_reject_test(OpsFftTest::TestStats& stats);
     static void run_fft2dd_entry_reject_test(OpsFftTest::TestStats& stats);
 
     void run_all_tests(aclrtStream stream, OpsFftTest::TestStats& stats) {
@@ -41,6 +42,7 @@ namespace Fft2DApiIntegrationTest {
         };
         OpsFftTest::RunBatchTests(stream, stats, "fft2_d", cases, run_c2c_2d_case);
         run_makeplan2d_type_reject_test(stats);
+        run_makeplan2d_size_reject_test(stats);
         run_fft2dd_entry_reject_test(stats);
     }
 
@@ -81,6 +83,45 @@ namespace Fft2DApiIntegrationTest {
         } else {
             TEST_CASE_FAIL_DETAIL(stats, "makeplan2d_type_reject",
                                    "MakePlan2d type gate mismatch (see build log)");
+        }
+    }
+
+    // issue #286: aclfftMakePlan2d 创建期按执行层支持域校验尺寸——2D 执行层仅
+    // {32,64,128}×{32,64,128} 有 DD 实现，非 DD 尺寸（如 100×100）原先创建成功、
+    // 直到 aclfftExecC2C 才报 NOT_SUPPORTED，错误暴露时点后移
+    static void run_makeplan2d_size_reject_test(OpsFftTest::TestStats& stats) {
+        TEST_CASE_BEGIN("makeplan2d_size_reject");
+        bool all_ok = true;
+        const int unsupported_sizes[][2] = {{100, 100}, {32, 100}, {100, 32}, {256, 256}, {64, 48}, {16, 32}};
+        for (const auto& sz : unsupported_sizes) {
+            aclfftHandle plan = nullptr;
+            if (aclfftCreate(&plan) != ACLFFT_SUCCESS) {
+                all_ok = false;
+                continue;
+            }
+            size_t workSize = 0;
+            if (aclfftMakePlan2d(plan, 1, sz[0], sz[1], ACLFFT_C2C, &workSize) != ACLFFT_NOT_SUPPORTED) {
+                all_ok = false;
+            }
+            aclfftDestroy(plan);
+        }
+        // DD 合法组合创建行为不变
+        aclfftHandle plan = nullptr;
+        if (aclfftCreate(&plan) == ACLFFT_SUCCESS) {
+            size_t workSize = 0;
+            if (aclfftMakePlan2d(plan, 1, 32, 128, ACLFFT_C2C, &workSize) != ACLFFT_SUCCESS) {
+                all_ok = false;
+            }
+            aclfftDestroy(plan);
+        } else {
+            all_ok = false;
+        }
+        if (all_ok) {
+            TEST_CASE_PASS_DETAIL(stats, "makeplan2d_size_reject",
+                                   "MakePlan2d rejects non-DD sizes at creation; DD combos unaffected");
+        } else {
+            TEST_CASE_FAIL_DETAIL(stats, "makeplan2d_size_reject",
+                                   "MakePlan2d size gate mismatch (see build log)");
         }
     }
 

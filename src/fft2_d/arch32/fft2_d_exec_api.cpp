@@ -10,8 +10,9 @@
 
 #include "fft2_d.h"
 #include "fft_exec_helper.h"
-
-static bool IsDdSize(int64_t s) { return s == 32 || s == 64 || s == 128; }
+// DD 尺寸域谓词收敛（issue #286）：IsDdSize 原为本文件 static 实现，与 lib 创建期
+// 校验两处口径易漂移，统一引用 fft_plan_validate.h 的单一事实源
+#include "fft_plan_validate.h"
 
 extern "C" {
 aclfftResult aclfftExecC2C_2D(aclfftHandle plan,
@@ -32,7 +33,7 @@ aclfftResult aclfftExecC2C_2D(aclfftHandle plan,
     int64_t fftSizeX = impl->lengths[0];
     int64_t fftSizeY = impl->lengths[1];
 
-    if (!IsDdSize(fftSizeX) || !IsDdSize(fftSizeY)) {
+    if (!FftPlanIsDdSize(fftSizeX) || !FftPlanIsDdSize(fftSizeY)) {
         std::cerr << "[ops-fft] FFT2D DD: unsupported size (" << fftSizeX << "x" << fftSizeY
                   << "), only {32,64,128}x{32,64,128} is supported" << std::endl;
         return ACLFFT_NOT_SUPPORTED;

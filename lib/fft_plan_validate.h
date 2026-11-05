@@ -46,4 +46,29 @@ inline aclfftResult FftPlanValidate1DSize(int dimType, int nx, const char* entry
     return ACLFFT_SUCCESS;
 }
 
+// 2D DD 执行尺寸域谓词（issue #286）：2D 执行层当前仅 {32,64,128}×{32,64,128}
+// 有 DD 实现。原执行层自持 static IsDdSize、创建层无校验，两处口径易漂移；
+// 收敛为单一事实源，lib 创建期与 src 执行层共用
+inline bool FftPlanIsDdSize(int64_t s)
+{
+    return s == 32 || s == 64 || s == 128;
+}
+
+/**
+ * @brief 创建期校验 2D 尺寸域（aclfftMakePlan2d 使用）
+ *
+ * 非 DD 尺寸返回 ACLFFT_NOT_SUPPORTED（尺寸本身合法但无对应执行实现，与
+ * #208 类型门禁及执行层 fft2_d_exec_api.cpp 的错误码一致），日志前缀由
+ * 调用方入口名构成
+ */
+inline aclfftResult FftPlanValidate2DSize(int nx, int ny, const char* entryName)
+{
+    if (!FftPlanIsDdSize(nx) || !FftPlanIsDdSize(ny)) {
+        std::cerr << "[ops-fft] " << entryName << ": size=" << nx << "x" << ny
+                  << " not supported, only {32,64,128}x{32,64,128} is supported" << std::endl;
+        return ACLFFT_NOT_SUPPORTED;
+    }
+    return ACLFFT_SUCCESS;
+}
+
 #endif // FFT_PLAN_VALIDATE_H

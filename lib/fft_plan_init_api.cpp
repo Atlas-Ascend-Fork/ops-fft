@@ -205,6 +205,14 @@ aclfftResult aclfftMakePlan2d(aclfftHandle plan, int batch, int nx, int ny, aclf
         return ACLFFT_NOT_SUPPORTED;
     }
 
+    // 创建期按执行层实际支持域校验尺寸（issue #286，对齐 #190 1D 创建期补域口径）：
+    // 2D 执行层仅 {32,64,128}×{32,64,128} 有 DD 实现，原仅校验 nx/ny > 0，
+    // 非 DD 尺寸 plan 创建成功、直到 aclfftExecC2C 才报 NOT_SUPPORTED，错误
+    // 暴露时点后移；域谓词与执行层收敛于 fft_plan_validate.h 单一事实源
+    if (FftPlanValidate2DSize(nx, ny, "aclfftMakePlan2d") != ACLFFT_SUCCESS) {
+        return ACLFFT_NOT_SUPPORTED;
+    }
+
     impl->rank = 2;
     impl->lengths[0] = nx;
     impl->lengths[1] = ny;
