@@ -34,13 +34,16 @@ if(BUILD_TESTING)
         # 检查测试目录是否存在
         if(EXISTS ${OP_TEST_DIR})
             # 扫描单元测试头文件 (*_test.h)
-            file(GLOB_RECURSE OP_TEST_HEADERS
+            # CONFIGURE_DEPENDS（issue #290，#258 已修口径）：glob 结果还决定
+            # all_tests.cpp 自动生成（configure_file 模板）的 include 列表，
+            # 测试文件增删后不重新 configure 即静默漏编/漏跑，须依赖重配置
+            file(GLOB_RECURSE OP_TEST_HEADERS CONFIGURE_DEPENDS
                 "${OP_TEST_DIR}/*test*.h"
             )
             list(APPEND TEST_HEADERS ${OP_TEST_HEADERS})
 
-            # 扫描单元测试源文件 (*_test.cpp)
-            file(GLOB_RECURSE OP_TEST_SOURCES
+            # 扫描单元测试源文件 (*_test.cpp)，CONFIGURE_DEPENDS 同上（issue #290）
+            file(GLOB_RECURSE OP_TEST_SOURCES CONFIGURE_DEPENDS
                 "${OP_TEST_DIR}/*test*.cpp"
             )
             list(APPEND TEST_SOURCES ${OP_TEST_SOURCES})
