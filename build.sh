@@ -158,11 +158,12 @@ get_soc_version() {
 # 不再自维护第二份映射；未识别的 SoC 返回非零并由调用方报错
 soc_to_npu_arch() {
     local soc_name="$1"
-    local soc_lower=$(echo "$soc_name" | tr '[:upper:]' '[:lower:]')
     local query_result=""
     # cmake -P 的 message() 输出走 stderr（issue #257）：合并后再取末行；
-    # 查询失败/未识别均以 UNSUPPORTED_SOC 哨兵回传，调用方显式报错（不触发 set -e）
-    query_result=$(cmake -DSOC_NAME="${SOC_NAME}" -P "$SCRIPT_DIR/cmake/soc_map.cmake" 2>/dev/null | tail -n 1)
+    # 查询失败/未识别均以 UNSUPPORTED_SOC 哨兵回传，调用方显式报错（不触发 set -e）。
+    # 查询使用形参而非全局 SOC_NAME（issue #291）：形参契约失效时函数一旦被
+    # 复用或以其它值调用，会静默查询错误 SoC 的映射；soc_lower 死变量一并删除
+    query_result=$(cmake -DSOC_NAME="${soc_name}" -P "$SCRIPT_DIR/cmake/soc_map.cmake" 2>/dev/null | tail -n 1)
     if [ -z "$query_result" ] || [ "$query_result" = "UNSUPPORTED_SOC" ]; then
         log_error "Unknown SoC: '${soc_name}'. Recognized SoCs: Ascend950, Ascend910B, Ascend910_93, Ascend910, Ascend310P"
         echo "UNSUPPORTED_SOC"
