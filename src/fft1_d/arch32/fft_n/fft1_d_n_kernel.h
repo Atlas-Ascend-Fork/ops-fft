@@ -30,6 +30,10 @@ constexpr int32_t ND_INPUT = 0;
 constexpr int32_t TILING_NZ_INPUT = 1;
 constexpr int32_t NZ_INPUT = 2;
 
+// workspace 按 AIC 分槽：每 AIC 占 WORKSPACE_LEN 个元素，槽号 = AIC 侧
+// get_block_idx()（0..AIC数-1；C220 上 AIV 侧小写 get_block_idx() 返回同一
+// block 对 id，大写 AscendC::GetBlockIdx() 为 AIV 全局序号 2k+s，须避免混用，
+// issue #302 收敛为单一口径：全部读写点按小写 get_block_idx() 分槽）
 constexpr int32_t WORKSPACE_LEN = 128 * 128 * 20;
 constexpr int32_t BLOCK_LEN_32B = 32 / sizeof(T_INPUT);
 constexpr int32_t L0AB_PINGPONG_BUFFER_LEN = 32 * 1024 / sizeof(T_INPUT);  // 32 KB
@@ -464,7 +468,7 @@ __aicore__ __inline__ void SeparateRIzZLayOut(__gm__ float *__restrict__ gm_inpu
 
     AscendC::GlobalTensor<float> gm_input_tensor;
     AscendC::GlobalTensor<float> gm_output_tensor;
- 
+
     gm_input_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_input));
     gm_output_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_output));
 
@@ -1870,7 +1874,13 @@ __aicore__ __inline__ void complex_mul(__gm__ float *__restrict__ gm_a, __gm__ f
     int32_t tail_num = loop % AscendC::GetBlockNum();
 
     int32_t gm_loop_idx = 0;
-    auto curr_block_idx = (AscendC::GetBlockIdx() - AscendC::GetSubBlockIdx()) / AscendC::GetTaskRation();
+    // AIC/AIV workspace 槽位寻址口径统一（issue #302）：C220 上小写 get_block_idx()
+    // 在 AIC/AIV 侧均返回 block 对 id（0..AIC数-1，见 CANN dav_c220
+    // kernel_operator_sys_var_impl.h 注释），AIC 写入侧（ppmatmul 系列三处 Fixpipe）
+    // 即按该值分槽；原折算式 (GetBlockIdx()-GetSubBlockIdx())/GetTaskRation() 在
+    // AIV 侧数值上等价于该 id，但与 complex_mul_stride/combine_RI 的裸口径形成
+    // 双源，收敛为与写入侧一致的单一口径
+    auto curr_block_idx = get_block_idx();
     if (curr_block_idx < tail_num) {
         gm_loop_idx = curr_block_idx + curr_block_idx * total_loop_per_core;
     } else {
@@ -2099,7 +2109,7 @@ __aicore__ __inline__ void complex_mul_stride(__gm__ float *__restrict__ gm_a, _
     AscendC::GlobalTensor<float> gm_a_tensor;
     AscendC::GlobalTensor<float> gm_b_tensor;
     AscendC::GlobalTensor<float> gm_c_tensor;
- 
+
     gm_a_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_a));
     gm_b_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_b));
     gm_c_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_c));
@@ -2367,7 +2377,7 @@ __aicore__ __inline__ void combine_RI(__gm__ float *__restrict__ gm_input, __gm_
     AscendC::GlobalTensor<float> gm_input_tensor;
     AscendC::GlobalTensor<float> gm_output_tensor;
     AscendC::GlobalTensor<uint32_t> gm_index_tensor;
- 
+
     gm_input_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_input));
     gm_output_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_output));
     gm_index_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t *>(gm_index));
@@ -2548,9 +2558,6 @@ __aicore__ __inline__ void combine_RI(__gm__ float *__restrict__ gm_input, __gm_
     PIPE_BARRIER(ALL);
 }
 
-constexpr int32_t test_step = 5;
-constexpr int32_t step_test = false;
-
 extern "C" __global__ __aicore__ void fft_n(__gm__ uint8_t *__restrict__ ffts_addr, __gm__ float *__restrict__ gm_input,
                                             __gm__ float *__restrict__ gm_w_matrix,
                                             __gm__ float *__restrict__ gm_t_matrix,
@@ -2580,7 +2587,9 @@ extern "C" __global__ __aicore__ void fft_n(__gm__ uint8_t *__restrict__ ffts_ad
 
     int32_t N1 = tiling_para[4];
     if (N1 == 0) {
-        N1 = 0;
+        // N1==0 防护修正（issue #300）：原为自赋值空操作（复制粘贴笔误），异常
+        // tiling 到达时后续 N = inputN / N1 除零；与同函数 VEC 分支 N1=1 口径一致
+        N1 = 1;
     }
     int32_t N2 = tiling_para[5];
     int32_t N3 = tiling_para[6];
@@ -2619,10 +2628,6 @@ extern "C" __global__ __aicore__ void fft_n(__gm__ uint8_t *__restrict__ ffts_ad
 
         for (int32_t iter_i = 0; iter_i < iterCount; iter_i++) {
             gmStepIn = isOutputHbm[iter_i] ? gm_output : gm_input;
-
-            if (iter_i == test_step + 1) {
-                return;
-            }
 
             if (iter_i == iterCount - 1) {
                 int32_t pre_radix = tiling_para[4 + iter_i - 1];
@@ -2747,10 +2752,6 @@ extern "C" __global__ __aicore__ void fft_n(__gm__ uint8_t *__restrict__ ffts_ad
 
         for (int32_t iter_i = 0; iter_i < iterCount; iter_i++) {
             gmStepOut = isOutputHbm[iter_i] ? gm_output : gm_input;
-
-            if (iter_i == test_step + 1) {
-                return;
-            }
 
             if (iter_i == iterCount - 1) {
                 int32_t pre_radix = tiling_para[4 + iter_i - 1];
