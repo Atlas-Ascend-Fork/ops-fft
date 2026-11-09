@@ -112,14 +112,31 @@ extern std::vector<std::string> g_failed_cases;
         } \
     } while(0)
 
-// 精确数组比较宏（无容差，高效 - 使用 std::equal）
+// 精确数组比较宏（无容差）
+// 防护口径对齐 TEST_ASSERT_ARRAY_NEAR（issue #326，同 #247 修复模式）：先校验两容器
+// size 一致（不一致直接判失败并打印两侧 size），再以 min(length, size) 钳制比较长度，
+// length 为调用方传入值，与实际 size() 脱节时不再越界读
 #define TEST_ASSERT_ARRAY_EQ(local_stats, actual, expected, length, error_msg) \
     do { \
-        bool all_match = std::equal((expected), (expected) + (length), (actual)); \
-        if (!all_match) { \
-            auto iter = std::mismatch((expected), (expected) + (length), (actual)); \
-            size_t mismatch_idx = std::distance((expected), iter.first); \
-            std::cerr << "  [ERROR] " << (error_msg) << " at index " << (mismatch_idx) << std::endl; \
+        bool all_match = true; \
+        size_t first_mismatch = 0; \
+        if ((actual).size() != (expected).size()) { \
+            all_match = false; \
+            std::cerr << "  [ERROR] " << (error_msg) << ": actual.size() (" << (actual).size() \
+                      << ") != expected.size() (" << (expected).size() << ")" << std::endl; \
+        } else { \
+            for (size_t _i = 0; _i < std::min(static_cast<size_t>(length), (actual).size()); ++_i) { \
+                if ((actual)[_i] != (expected)[_i]) { \
+                    all_match = false; \
+                    first_mismatch = _i; \
+                    break; \
+                } \
+            } \
+            if (!all_match) { \
+                std::cerr << "  [ERROR] " << (error_msg) << " at index " << first_mismatch \
+                          << ": actual=" << (actual)[first_mismatch] \
+                          << ", expected=" << (expected)[first_mismatch] << std::endl; \
+            } \
         } \
         TEST_ASSERT((local_stats), all_match, error_msg); \
     } while(0)
