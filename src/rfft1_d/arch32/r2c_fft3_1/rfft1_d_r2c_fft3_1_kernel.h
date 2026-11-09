@@ -90,13 +90,19 @@ __aicore__ inline void UnpackFft3_1Output(
     Rfft1DR2CCommonKernel::UnpackScheduledPair(op, i, startIdx, calcNum, blockIdx, batch, blockN,
         warmupIter, blockNum, pairCubeIdx, workGlobal, o, N, halfBatchCeil, yGlobal, halfN,
         startIdxVec, calcNumVec);
-    if (batch / 2 - i >= blockN || i / blockN < warmupIter + 2) {
-        op.SetValueBatch(workGlobal[(startIdxVec - i + o) * N + halfN], yGlobal[startIdxVec * (halfN + 1) * 2 + N], calcNumVec, N, N + 2);
-        op.SetValueBatch(workGlobal[(startIdxVec - i + o) * N + N * halfBatchCeil + halfN], yGlobal[startIdxVec * (halfN + 1) * 2 + (halfN + 1) * 2 * halfBatchCeil + N], calcNumVec, N, N + 2);
-    } else {
-        auto workGlobalTmp = workGlobal[o * N + (blockN / blockNum * pairCubeIdx) * N];
-        op.SetValueBatch(workGlobalTmp[(startIdxVec - i - startIdx) * N + halfN], yGlobal[startIdxVec * (halfN + 1) * 2 + N], calcNumVec, N, N + 2);
-        op.SetValueBatch(workGlobalTmp[(startIdxVec - i - startIdx) * N + N * halfBatchCeil + halfN], yGlobal[startIdxVec * (halfN + 1) * 2 + (halfN + 1) * 2 * halfBatchCeil + N], calcNumVec, N, N + 2);
+    // calcNumVec 判零守卫（issue #307）：与兄弟实现 fft2/fft3_2 口径对齐
+    // （r2c_fft2_kernel.h 的 if (calcNumVec > 0) / r2c_fft3_2_kernel.h 的
+    // if (calcNum > 0)），calcNumVec 为 0 时不再执行 batch=0 的
+    // AllocTensor/DataCopyPad 搬运序列
+    if (calcNumVec > 0) {
+        if (batch / 2 - i >= blockN || i / blockN < warmupIter + 2) {
+            op.SetValueBatch(workGlobal[(startIdxVec - i + o) * N + halfN], yGlobal[startIdxVec * (halfN + 1) * 2 + N], calcNumVec, N, N + 2);
+            op.SetValueBatch(workGlobal[(startIdxVec - i + o) * N + N * halfBatchCeil + halfN], yGlobal[startIdxVec * (halfN + 1) * 2 + (halfN + 1) * 2 * halfBatchCeil + N], calcNumVec, N, N + 2);
+        } else {
+            auto workGlobalTmp = workGlobal[o * N + (blockN / blockNum * pairCubeIdx) * N];
+            op.SetValueBatch(workGlobalTmp[(startIdxVec - i - startIdx) * N + halfN], yGlobal[startIdxVec * (halfN + 1) * 2 + N], calcNumVec, N, N + 2);
+            op.SetValueBatch(workGlobalTmp[(startIdxVec - i - startIdx) * N + N * halfBatchCeil + halfN], yGlobal[startIdxVec * (halfN + 1) * 2 + (halfN + 1) * 2 * halfBatchCeil + N], calcNumVec, N, N + 2);
+        }
     }
     if (batch &1 &&calcN < blockN &&blockIdx == blockNum * 2 - 1) {
         UnpackFft3_1Tail(batch, i, blockN, warmupIter, op, workGlobal, calcN, o, N, workGlobal3, yGlobal, halfN,
