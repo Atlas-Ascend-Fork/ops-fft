@@ -151,8 +151,10 @@ aclfftResult aclfftExecC2C(aclfftHandle     plan,
 
 - 仅支持 FP32。复数以 `aclfftComplex{float x, y}` 实虚交错存储。
 - aclfftPlan2d
-  - nx、ny 仅支持 {32, 64, 128} 共 9 种组合（DD 核为固定矩阵乘实现，与质因数分解无关，
-    其余尺寸在 aclfftExecC2C_2D 执行时返回 ACLFFT_NOT_SUPPORTED，issue #95）。
+  - nx、ny 仅支持 {32, 64, 128} 共 9 种组合（DD 核为固定矩阵乘实现，与质因数分解无关），
+    其余尺寸在 aclfftMakePlan2d/aclfftPlan2d 创建期即返回 ACLFFT_NOT_SUPPORTED
+    （issue #286 将校验自执行时点前移，原执行期报错口径见 issue #95；执行入口
+    保留同域防御性二次检查）。
   - batch在存储允许范围内应无额外约束。
   - 输入的元素不支持inf、-inf和nan，如果输入中包含这些值， 那么结果为未定义。
 
