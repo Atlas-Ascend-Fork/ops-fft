@@ -121,7 +121,10 @@ inline aclError AllocMixFftDevBuffers(MixFftDevBuffers &dev, size_t inputSize, s
     dev.radix.reset(ptr);
     CHECK_ACL(aclrtMalloc(&ptr, totalWs, ACL_MEM_MALLOC_HUGE_FIRST));
     dev.ws.reset(ptr);
-    CHECK_ACL(aclrtMalloc(&ptr, sizeof(OpsFft::FftAllMixTilingData), ACL_MEM_MALLOC_HUGE_FIRST));
+    // tiling 缓冲按 32B 对齐分配（issue #299）：设备侧 InitTilingData 非 220 分支
+    // 按 32B 块粒度向上取整搬运，分配与块数成对绑定，避免越过结构体末尾越界读；
+    // memcpy 仍按结构体实际大小上行
+    CHECK_ACL(aclrtMalloc(&ptr, (sizeof(OpsFft::FftAllMixTilingData) + 31) / 32 * 32, ACL_MEM_MALLOC_HUGE_FIRST));
     dev.til.reset(ptr);
     CHECK_ACL(aclrtMalloc(&ptr, inIdxAllocSize, ACL_MEM_MALLOC_HUGE_FIRST));
     dev.inIdx.reset(ptr);
@@ -186,6 +189,14 @@ inline aclError CopyMixFftHostToDevice(MixFftDevBuffers &dev, const float* x, si
         CHECK_ACL(aclrtMemcpy(
             dev.outIdx.get(), outputIndex.size() * sizeof(uint32_t), outputIndex.data(),
             outputIndex.size() * sizeof(uint32_t), ACL_MEMCPY_HOST_TO_DEVICE));
+    else {
+        // outputIndex 空表兜底（issue #309）：设备侧 R2C/C2R/C2R_odd 路径无条件
+        // 读取 output_index 做 vgather 索引，空表跳过 memcpy 时消费未初始化显存；
+        // 对称 inputIndex 的零值占位口径（issue #85/#88），写 4 字节零值占位
+        // 保证读到确定内容（分配侧按 max(sizeof(float), ...) 保底 4 字节）
+        uint32_t z = 0;
+        CHECK_ACL(aclrtMemcpy(dev.outIdx.get(), sizeof(z), &z, sizeof(z), ACL_MEMCPY_HOST_TO_DEVICE));
+    }
     return ACL_SUCCESS;
 }
 

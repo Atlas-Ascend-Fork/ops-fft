@@ -234,17 +234,21 @@ extern "C" aclError aclfftIrfft1DC2RFft(float* x, float* y, uint32_t n, int32_t 
     size_t inputSize = static_cast<size_t>(n / 2 + 1) * batches * sizeof(float) * 2;
     size_t outputSize = static_cast<size_t>(n) * batches * sizeof(float);
     FftMixHostCommon::MixFftDevBuffers dev;
-    // 索引/表缓冲分配尺寸按 C2R 原口径：inIdx/outIdx 按表实际大小，A/B 空表带
-    // sizeof(float) 兜底（issue #88）
+    // 索引/表缓冲分配尺寸口径统一（issue #309）：inIdx/outIdx 与 A/B 表一致按
+    // max(sizeof(float), 表大小) 兜底（当前 GenInputIndex/GenOutputIndex 恒非空，
+    // 兜底不可达，作为与 R2C 调用方一致的防御口径；空表时 4 字节零值占位可写）
     CHECK_ACL(FftMixHostCommon::AllocMixFftDevBuffers(
         dev, inputSize, outputSize, dftHost.size(), twHost.size(), radixListHost.size(),
-        inputIndex.size() * sizeof(uint32_t),
+        std::max(sizeof(float), inputIndex.size() * sizeof(uint32_t)),
         std::max(sizeof(float), aTable.size() * sizeof(float)),
         std::max(sizeof(float), bTable.size() * sizeof(float)),
-        outputIndex.size() * sizeof(uint32_t), totalWs));
+        std::max(sizeof(float), outputIndex.size() * sizeof(uint32_t)), totalWs));
+    // inIdxZeroFallback 统一为 true（issue #309 评估结论）：C2R 设备侧与 R2C 同样
+    // 无条件消费索引表，输入索引空表时同样落入未初始化读；当前调用方索引表恒
+    // 非空故实际路径零变化，取值与 R2C 对齐消除同族差异
     CHECK_ACL(FftMixHostCommon::CopyMixFftHostToDevice(dev, x, inputSize, dftHost, twHost, radixListHost,
                                                        inputIndex, aTable, bTable, outputIndex, tilingData,
-                                                       false));
+                                                       true));
 
     CHECK_ACL(LaunchC2RFftKernel(fftN, radixVec, parity, needCoreNum, stream, dev));
 

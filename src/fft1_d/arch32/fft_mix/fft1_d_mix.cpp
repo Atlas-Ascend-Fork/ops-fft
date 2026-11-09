@@ -137,7 +137,10 @@ static aclError AllocFft1DMixDevBuffers(Fft1DMixDevBuffers &dev, const float *x,
     dev.radix.reset(ptr);
     CHECK_ACL(aclrtMalloc(&ptr, totalWs, ACL_MEM_MALLOC_HUGE_FIRST));
     dev.ws.reset(ptr);
-    CHECK_ACL(aclrtMalloc(&ptr, sizeof(OpsFft::FftAllMixTilingData), ACL_MEM_MALLOC_HUGE_FIRST));
+    // tiling 缓冲按 32B 对齐分配（issue #299）：设备侧 InitTilingData 非 220 分支
+    // 按 32B 块粒度向上取整搬运，分配与块数成对绑定（与 fft_mix_host_common.h
+    // AllocMixFftDevBuffers 同口径），memcpy 仍按结构体实际大小上行
+    CHECK_ACL(aclrtMalloc(&ptr, (sizeof(OpsFft::FftAllMixTilingData) + 31) / 32 * 32, ACL_MEM_MALLOC_HUGE_FIRST));
     dev.til.reset(ptr);
     CHECK_ACL(aclrtMemcpy(dev.in.get(), inputSize, x, inputSize, ACL_MEMCPY_HOST_TO_DEVICE));
     CHECK_ACL(aclrtMemcpy(dev.dft.get(), dftLen * sizeof(float), dftHost.data(), dftLen * sizeof(float),

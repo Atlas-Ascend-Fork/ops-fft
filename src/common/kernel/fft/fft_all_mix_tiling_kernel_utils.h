@@ -38,7 +38,11 @@ inline __aicore__ void InitTilingData(const __gm__ uint8_t *p_tilingdata, OpsFft
         (*(const __gm__ int64_t *)(p_tilingdata + workspace_offsets_offset + sizeof(int64_t) * 4));
 #else
     __ubuf__ uint8_t *tilingdata_in_ub = (__ubuf__ uint8_t *)get_imm(0);
-    int32_t tilingBlockNum = sizeof(OpsFft::FftAllMixTilingData) / 32 + 1;
+    // 搬运块数按 32B 块粒度向上取整（issue #299）：原 sizeof/32+1 在结构体大小
+    // 恰为 32 倍数时固定多搬一块、否则越界读；与 host 侧 tiling 缓冲按
+    // ROUND_UP(sizeof, 32) 分配成对修改（fft_mix_host_common.h /
+    // fft1_d_mix.cpp），块数与分配始终覆盖同一字节范围
+    int32_t tilingBlockNum = (sizeof(OpsFft::FftAllMixTilingData) + 31) / 32;
     copy_gm_to_ubuf(((__ubuf__ uint8_t *)tilingdata_in_ub), p_tilingdata, 0, 1, tilingBlockNum, 0, 0);
     AscendC::PipeBarrier<PIPE_ALL>();
     tilingdata->batchSize = (*(const __gm__ int64_t *)((__ubuf__ uint8_t *)tilingdata_in_ub + batch_size_offset));
