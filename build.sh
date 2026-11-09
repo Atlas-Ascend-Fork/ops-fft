@@ -163,9 +163,11 @@ soc_to_npu_arch() {
     # 查询失败/未识别均以 UNSUPPORTED_SOC 哨兵回传，调用方显式报错（不触发 set -e）。
     # 查询使用形参而非全局 SOC_NAME（issue #291）：形参契约失效时函数一旦被
     # 复用或以其它值调用，会静默查询错误 SoC 的映射；soc_lower 死变量一并删除
+    # issue #304：stdout 只回传哨兵值，报错由唯一调用方单次输出——原 log_error
+    # 的裸 echo 经命令替换与 UNSUPPORTED_SOC 一同被捕获，多行垃圾值进入
+    # -DASCEND_NPU_ARCH，报错延迟到 cmake 阶段且信息混乱
     query_result=$(cmake -DSOC_NAME="${soc_name}" -P "$SCRIPT_DIR/cmake/soc_map.cmake" 2>/dev/null | tail -n 1)
     if [ -z "$query_result" ] || [ "$query_result" = "UNSUPPORTED_SOC" ]; then
-        log_error "Unknown SoC: '${soc_name}'. Recognized SoCs: Ascend950, Ascend910B, Ascend910_93, Ascend910, Ascend310P"
         echo "UNSUPPORTED_SOC"
         return 0
     fi
@@ -399,6 +401,13 @@ build_project() {
     SOC_NAME_LOWER=$(echo "${SOC_NAME}" | tr '[:upper:]' '[:lower:]')
     cmake_args+=(-DSOC_VERSION="${SOC_NAME_LOWER}")
     NPU_ARCH=$(soc_to_npu_arch "$SOC_NAME")
+    # 哨兵值显式失败（issue #304）：Ascend310B 等被 get_soc_version 识别但
+    # soc_map 无映射的 SoC，此前多行垃圾值随 NPU_ARCH 进入 cmake 参数、报错
+    # 延迟到 cmake 阶段且信息混乱；现在参数准备阶段即单次清晰失败
+    if [ "$NPU_ARCH" = "UNSUPPORTED_SOC" ]; then
+        log_error "SoC '${SOC_NAME}' has no NPU arch mapping and is not supported for building (see cmake/soc_map.cmake)"
+        exit 1
+    fi
     cmake_args+=(-DASCEND_NPU_ARCH="${NPU_ARCH}")
     cmake_args+=(-DASCEND_SOC="${SOC_NAME}")
     cmake_args+=(-DASCEND_HOME_PATH="${ASCEND_HOME_PATH}")
