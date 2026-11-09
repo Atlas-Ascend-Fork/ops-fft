@@ -8,11 +8,11 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
 
-set_package(ops_fft VERSION "9.0.0")
-
-# 版本号单一来源镜像（issue #259：根 CMakeLists 的 project(VERSION) 引用此变量，
-# 发版仅需修改本文件一处）
+# 版本号单一来源（issue #327，完成 #259 收敛的剩余部分）：包版本与 project 版本
+# 共用同一字面量，发版仅需修改 OPS_FFT_PROJECT_VERSION 一处；set_package 为
+# CMake function，调用点展开变量，引用写法与字面量写法等价
 set(OPS_FFT_PROJECT_VERSION "9.0.0")
+set_package(ops_fft VERSION "${OPS_FFT_PROJECT_VERSION}")
 
 # 编译依赖
 set_build_dependencies(runtime ">=8.5")
