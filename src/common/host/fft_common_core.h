@@ -24,6 +24,8 @@
 #include "kernel_tiling/kernel_tiling.h"
 #include "lib/matrix/matmul/matmul.h"
 #include "lib/matmul_intf.h"
+// W 矩阵分块参数单一实现（issue #318）：与设备侧 get_tile 共用
+#include "fft_tile_common.h"
 
 constexpr uint32_t DFT_SIZE_MULTIPLIER = 2;
 static const double INIT_VALUE = 0.;
@@ -122,46 +124,11 @@ inline int64_t MIN_(int64_t a, int64_t b)
 inline void getTile(
     int64_t N1, int64_t N2, int64_t stepIndex, int64_t stepLen, int32_t& tileM0, int32_t& tileN0, int32_t& tileK0)
 {
-    constexpr int32_t N1_MAX45 = 45, N1_MAX64 = 64, N2_MAX8 = 8;
-    constexpr int32_t TILE_CONST = 128, CALC_TWO = 2, STEP_LEN_THREE = 3;
-    if (N1 <= N1_MAX45 || (N1 <= N1_MAX64 && N2 <= N2_MAX8)) {
-        // N1=0 防护（issue #122）：上游 FindTwoRadix/分解校验已保证 N1>=1，
-        // 此分支当前不可达；改 throw 为 clamp 防御——异常穿越 extern "C" 会
-        // std::terminate 进程，与全仓错误码约定不符
-        if (N1 < 1)
-            N1 = 1;
-        tileM0 = ROUND_UP(CALC_TWO * N1, ROUND_16);
-        tileK0 = tileM0;
-        if (stepIndex == stepLen - 1)
-            tileK0 = CALC_TWO * ROUND_UP(N1, ROUND_16);
-        tileN0 = L0AB_BUF * CALC_TWO / tileK0 / ROUND_16 * ROUND_16;
-        tileN0 = MIN_(tileN0, ROUND_UP(N2, ROUND_16));
-    } else {
-        tileM0 = TILE_CONST;
-        tileN0 = TILE_CONST;
-        tileK0 = TILE_CONST;
-        if (stepIndex == stepLen - 1) {
-            if (tileK0 > CALC_TWO * ROUND_UP(N1, ROUND_16) / CALC_TWO && tileK0 < CALC_TWO * ROUND_UP(N1, ROUND_16))
-                tileK0 = MIN_(tileK0, ROUND_UP(CALC_TWO * ROUND_UP(N1, ROUND_16) / CALC_TWO, ROUND_16));
-            tileK0 = MIN_(tileK0, CALC_TWO * ROUND_UP(N1, ROUND_16));
-            if (tileK0 > N1_MAX64)
-                tileK0 = ROUND_UP(tileK0, TILE_CONST);
-        } else {
-            if (tileK0 > CALC_TWO * N1 / CALC_TWO && tileK0 < CALC_TWO * N1)
-                tileK0 = MIN_(tileK0, ROUND_UP(CALC_TWO * N1 / CALC_TWO, ROUND_16));
-            tileK0 = MIN_(tileK0, ROUND_UP(CALC_TWO * N1, ROUND_16));
-        }
-        if (tileM0 > CALC_TWO * N1 / CALC_TWO && tileM0 < CALC_TWO * N1)
-            tileM0 = MIN_(tileM0, ROUND_UP(CALC_TWO * N1 / CALC_TWO, ROUND_16));
-        tileM0 = MIN_(tileM0, ROUND_UP(CALC_TWO * N1, ROUND_16));
-        tileN0 = MIN_(tileN0, ROUND_UP(N2, ROUND_16));
-    }
-    if (((stepLen <= STEP_LEN_THREE || stepIndex != stepLen - CALC_TWO)) && tileN0 > N1_MAX64) {
-        if (tileK0 * ROUND_UP(tileN0, TILE_CONST) <= L0AB_BUF * CALC_TWO)
-            tileN0 = ROUND_UP(tileN0, TILE_CONST);
-        else
-            tileN0 = tileN0 / TILE_CONST * TILE_CONST;
-    }
+    // 收敛为单一实现（issue #318）：原 host 版与设备侧 get_tile
+    // （kernel/fft/kernel_utils.h）逐行同构但已漂移（防护/常量两侧不对称），
+    // 统一走 fft_tile_common.h 的 FftGetTileParams，W 矩阵布局计算与 kernel
+    // 消费口径由同一实现保证
+    FftGetTileParams(N1, N2, stepIndex, stepLen, tileM0, tileN0, tileK0);
 }
 
 inline std::vector<int64_t> FindTwoRadix(std::vector<int64_t>& factors, int64_t n)
@@ -181,7 +148,18 @@ inline std::vector<int64_t> FindTwoRadix(std::vector<int64_t>& factors, int64_t 
     float minRatio = std::max((float)(n / (double)(n1 * n1)), (float)((double)(n1 * n1) / n));
     int64_t minN1 = n1;
     int64_t fLen = (int64_t)factors.size();
-    for (int64_t i = 0; i < (1 << fLen); i++) {
+    // 全子集枚举上界防护（issue #313）：循环上界改 64 位字面量移位（1 << fLen 在
+    // fLen>=31 时为有符号移位 UB）；当前调用方 InitMixRadixShort 受
+    // fftN < N_FFT_C2C_MAX(=32768) 门限保护（fLen<=14），一旦门限放宽或函数被
+    // 复用于大 n，2^fLen*fLen 的枚举量将使主机侧卡死，超过阈值直接走保守分解
+    // （首因子单拆，与未找到更优子集时的返回一致）
+    constexpr int64_t FIND_TWO_RADIX_MAX_FACTORS = 20;
+    if (fLen > FIND_TWO_RADIX_MAX_FACTORS) {
+        std::vector<int64_t> rl = {minN1, n / minN1};
+        std::sort(rl.begin(), rl.end());
+        return rl;
+    }
+    for (int64_t i = 0; i < (1LL << fLen); i++) {
         n1 = 1;
         for (int64_t j = 0; j < fLen; j++)
             if ((uint64_t)i & (1LL << j))

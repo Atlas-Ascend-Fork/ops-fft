@@ -17,13 +17,14 @@
 #include "iterator.h"
 #include "mma.h"
 #include "utils.h"
+// W 矩阵分块参数单一实现（issue #318）：与 host 侧 getTile 共用
+#include "fft_tile_common.h"
 
 constexpr int32_t L0AB_PINGPONG_BUFFER_LEN = 32 * 1024 / sizeof(float);  // 32KB
 constexpr int32_t L0C_PINGPONG_BUFFER_LEN = 64 * 1024 / sizeof(float);   // 64KB
 constexpr int16_t BLOCK_SIZE = 16;
 constexpr int16_t BLOCK_SIZE_LOG2 = 4;
 constexpr int16_t C0_SIZE = 32 / sizeof(float);
-constexpr int16_t R0_SIZE = 16;
 constexpr int16_t CUBE_MATRIX_SIZE = BLOCK_SIZE * C0_SIZE;              // 16 * 8
 constexpr int32_t L1_PINGPONG_BUFFER_LEN = 256 * 1024 / sizeof(float);  // 256KB
 constexpr int64_t UINT16_STRIDE_LIMIT = 65536;
@@ -33,14 +34,11 @@ constexpr int32_t ASCENDFFT_INVERSE = 1;   // Inverse FFT
 constexpr int32_t COPY_CALC_3 = 3;
 constexpr int32_t COPY_CALC_5 = 5;
 constexpr int32_t COPY_CALC_7 = 7;
-constexpr int32_t N1_SIZE_45 = 45;
-constexpr int32_t N1_SIZE_64 = 64;
-constexpr int32_t N2_SIZE_8 = 8;
-constexpr int32_t TILE_128 = 128;
-constexpr int32_t CALC_TWO = 2;
-constexpr int32_t CALC_THREE = 3;
 constexpr int32_t POW_MOV_2 = 2;
 constexpr int32_t POW_MOV_8 = 8;
+// get_tile 专用常量（R0_SIZE/N1_SIZE_45/N1_SIZE_64/N2_SIZE_8/TILE_128/CALC_TWO/
+// CALC_THREE）已随实现并入 tiling/fft_tile_common.h 的 FFT_TILE_* 命名
+// （issue #318 常量统一）
 
 __aicore__ __inline__ void __attribute__((always_inline)) isSeq357(int64_t N, bool &result)
 {
@@ -124,43 +122,11 @@ __aicore__ __inline__ void __attribute__((always_inline))
 get_tile(int32_t N1, int64_t N2, int32_t step_index, int32_t step_len, int32_t &tile_M0, int32_t &tile_N0,
          int32_t &tile_K0)
 {
-    if (N1 <= N1_SIZE_45 || (N1 <= N1_SIZE_64 && N2 <= N2_SIZE_8)) {
-        tile_M0 = ROUND(CALC_TWO * N1, R0_SIZE);
-        tile_K0 = tile_M0;
-        if (step_index == step_len - 1)
-            tile_K0 = CALC_TWO * ROUND(N1, R0_SIZE);
-        if (tile_K0 == 0) {
-            tile_K0 = R0_SIZE;
-        }
-        tile_N0 = L0AB_PINGPONG_BUFFER_LEN * CALC_TWO / tile_K0 / R0_SIZE * R0_SIZE;
-        tile_N0 = MIN(tile_N0, ROUND(N2, R0_SIZE));
-    } else {
-        tile_M0 = TILE_128;
-        tile_N0 = TILE_128;
-        tile_K0 = TILE_128;
-        if (step_index == step_len - 1) {
-            if (tile_K0 > CALC_TWO * ROUND(N1, R0_SIZE) / CALC_TWO && tile_K0 < CALC_TWO * ROUND(N1, R0_SIZE))
-                tile_K0 = MIN(tile_K0, ROUND(CALC_TWO * ROUND(N1, R0_SIZE) / CALC_TWO, R0_SIZE));
-            tile_K0 = MIN(tile_K0, CALC_TWO * ROUND(N1, R0_SIZE));
-            if (tile_K0 > N1_SIZE_64)
-                tile_K0 = ROUND(tile_K0, TILE_128);
-        } else {
-            if (tile_K0 > CALC_TWO * N1 / CALC_TWO && tile_K0 < CALC_TWO * N1)
-                tile_K0 = MIN(tile_K0, ROUND(CALC_TWO * N1 / CALC_TWO, R0_SIZE));
-            tile_K0 = MIN(tile_K0, ROUND(CALC_TWO * N1, R0_SIZE));
-        }
-        if (tile_M0 > CALC_TWO * N1 / CALC_TWO && tile_M0 < CALC_TWO * N1)
-            tile_M0 = MIN(tile_M0, ROUND(CALC_TWO * N1 / CALC_TWO, R0_SIZE));
-        tile_M0 = MIN(tile_M0, ROUND(CALC_TWO * N1, R0_SIZE));
-        tile_N0 = MIN(tile_N0, ROUND(N2, R0_SIZE));
-    }
-    if (((step_len <= CALC_THREE || step_index != step_len - CALC_TWO)) && tile_N0 > N1_SIZE_64) {
-        if (tile_K0 * ROUND(tile_N0, TILE_128) <= L0AB_PINGPONG_BUFFER_LEN * CALC_TWO) {
-            tile_N0 = ROUND(tile_N0, TILE_128);
-        } else {
-            tile_N0 = tile_N0 / TILE_128 * TILE_128;
-        }
-    }
+    // 收敛为单一实现（issue #318）：原设备版与 host 侧 getTile
+    // （common/host/fft_common_core.h）逐行同构但已漂移（防护/常量两侧不对称），
+    // 统一走 tiling/fft_tile_common.h 的 FftGetTileParams，本函数保留原签名与
+    // aicore 属性作为 kernel 侧入口
+    FftGetTileParams(N1, N2, step_index, step_len, tile_M0, tile_N0, tile_K0);
 }
 
 __aicore__ __inline__ void __attribute__((always_inline))
@@ -206,7 +172,7 @@ __aicore__ __inline__ void copy_gm2ubuf(AscendC::LocalTensor<float> dst, AscendC
         int32_t loop = (stride_SIZE_loop > 0 ? stride_SIZE : stride_SIZE_remain);
 
         for (int32_t i = 0; i < loop; i++) {
-            AscendC::DataCopyPad(dst[i * dstStride], src[i * srcStride], 
+            AscendC::DataCopyPad(dst[i * dstStride], src[i * srcStride],
                 AscendC::DataCopyExtParams(stride_SIZE_loop + (i < stride_SIZE_remain), m_actual * sizeof(float),
                 (srcStride * stride_SIZE - m_actual) * sizeof(float), (dstStride * stride_SIZE - m_round) / C0_SIZE, 0),
                 AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));
@@ -216,7 +182,7 @@ __aicore__ __inline__ void copy_gm2ubuf(AscendC::LocalTensor<float> dst, AscendC
         auto src_inc = src;
         auto m_byte = m_actual * sizeof(float);
         for (int32_t i = 0; i < n_actual; i++) {
-            AscendC::DataCopyPad(dst_inc, src_inc, 
+            AscendC::DataCopyPad(dst_inc, src_inc,
                 AscendC::DataCopyExtParams(1, m_byte, 0, 0, 0),
                 AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));
             dst_inc = dst_inc[dstStride];
@@ -239,7 +205,7 @@ __aicore__ __inline__ void copy_ubuf2gm(AscendC::GlobalTensor<float> dst, Ascend
 {
     int32_t m_round = ROUND(m_actual, C0_SIZE);
     if (m_round == srcStride && m_round == dstStride) {
-        AscendC::DataCopyPad(dst, src, 
+        AscendC::DataCopyPad(dst, src,
                 AscendC::DataCopyExtParams(1, n_actual * m_round * sizeof(float), 0, 0, 0));
         return;
     }
@@ -252,7 +218,7 @@ __aicore__ __inline__ void copy_ubuf2gm(AscendC::GlobalTensor<float> dst, Ascend
     }
 
     if (dstStride % C0_SIZE == 0 && dstStride < UINT32_STRIDE_LIMIT / sizeof(float)) {
-        AscendC::DataCopyPad(dst, src, 
+        AscendC::DataCopyPad(dst, src,
                 AscendC::DataCopyExtParams(n_actual, m_actual * sizeof(float),
                 (srcStride - m_round) / C0_SIZE,  (dstStride - m_actual) * sizeof(float), 0));
     } else if (dstStride * stride_SIZE < UINT32_STRIDE_LIMIT / sizeof(float)) {
@@ -260,7 +226,7 @@ __aicore__ __inline__ void copy_ubuf2gm(AscendC::GlobalTensor<float> dst, Ascend
         int32_t stride_SIZE_remain = n_actual % stride_SIZE;
 
         for (int32_t i = 0; i < (stride_SIZE_loop > 0 ? stride_SIZE : stride_SIZE_remain); i++) {
-            AscendC::DataCopyPad(dst[i * dstStride], src[i * srcStride], 
+            AscendC::DataCopyPad(dst[i * dstStride], src[i * srcStride],
                 AscendC::DataCopyExtParams(stride_SIZE_loop + (i < stride_SIZE_remain), m_actual * sizeof(float),
                 (srcStride * stride_SIZE - m_round) / C0_SIZE,  (dstStride * stride_SIZE - m_actual) * sizeof(float), 0));
         }
@@ -269,7 +235,7 @@ __aicore__ __inline__ void copy_ubuf2gm(AscendC::GlobalTensor<float> dst, Ascend
         auto src_inc = src;
         auto m_byte = m_actual * sizeof(float);
         for (int32_t i = 0; i < n_actual; i++) {
-            AscendC::DataCopyPad(dst_inc, src_inc, 
+            AscendC::DataCopyPad(dst_inc, src_inc,
                 AscendC::DataCopyExtParams(1, m_byte, 0, 0, 0));
             dst_inc = dst_inc[dstStride];
             src_inc = src_inc[srcStride];
