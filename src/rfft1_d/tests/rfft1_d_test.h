@@ -12,11 +12,16 @@
 
 #include "test_common.h"
 #include "cann_ops_fft.h"
+// 直连入口声明（issue #295/#298 直连覆盖用例）：rfft1_d.h 经 src/ 根 include 路径可见
+#include "rfft1_d/rfft1_d.h"
 
 struct R2CTestCase {
     std::string name;
     uint32_t n;
     uint32_t batch;
+    // 0 = plan+exec 分发（默认）；1 = 直连 aclfftRfft1DR2CFft32（issue #295 覆盖
+    // calcNum>=2 的配对行 Nyquist 实部，档位取 exec 分发域之外的 2 幂 n）
+    int direct_entry = 0;
 };
 
 inline bool run_r2c_case(aclrtStream stream, const R2CTestCase& tc) {
@@ -33,11 +38,17 @@ inline bool run_r2c_case(aclrtStream stream, const R2CTestCase& tc) {
     uint32_t output_size = (tc.n / 2 + 1) * tc.batch;
     std::vector<aclfftComplex> output(output_size);
 
-    aclfftHandle plan;
-    if (aclfftPlan1d(&plan, tc.n, ACLFFT_R2C, tc.batch, ACLFFT_HORIZONTAL) != ACLFFT_SUCCESS) return false;
-    auto res = aclfftExecR2C(plan, input_flat.data(), output.data());
-    aclfftDestroy(plan);
-    if (res != ACLFFT_SUCCESS) return false;
+    if (tc.direct_entry == 1) {
+        if (aclfftRfft1DR2CFft32(input_flat.data(), reinterpret_cast<float*>(output.data()), tc.n, tc.batch, 1,
+                                 stream) != ACL_SUCCESS)
+            return false;
+    } else {
+        aclfftHandle plan;
+        if (aclfftPlan1d(&plan, tc.n, ACLFFT_R2C, tc.batch, ACLFFT_HORIZONTAL) != ACLFFT_SUCCESS) return false;
+        auto res = aclfftExecR2C(plan, input_flat.data(), output.data());
+        aclfftDestroy(plan);
+        if (res != ACLFFT_SUCCESS) return false;
+    }
 
     std::vector<float> output_flat(output_size * 2);
     for (uint32_t i = 0; i < output_size; i++) {

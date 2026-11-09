@@ -35,6 +35,48 @@ namespace Rfft1DApiIntegrationTest {
         }
     }
 
+    // issue #293: fft2/fft3_1/fft3_2/fft4 路径输出行宽 N+2 个 float，第 +N+1 槽位为
+    // Nyquist 虚部（实输入下恒 0），原先无写入者、host 缓冲也未清零，输出含未初始
+    // 化内存。修复后启动前 memset 清零；本用例在各路径 2 幂档位内直连执行并断言
+    // 该槽位确定性为 0（若清零被移除，设备脏内存场景下将出现非零值）
+    static void run_nyquist_imag_zero_test(aclrtStream stream, OpsFftTest::TestStats& stats) {
+        TEST_CASE_BEGIN("r2c_nyquist_imag_zero");
+        struct PathCase {
+            const char* name;
+            uint32_t n;
+            aclError (*entry)(float*, float*, uint32_t, uint32_t, int, void*);
+        };
+        const PathCase pcs[] = {
+            {"fft2", 256, aclfftRfft1DR2CFft2},
+            {"fft3_1", 32768, aclfftRfft1DR2CFft31},
+            {"fft3_2", 131072, aclfftRfft1DR2CFft32},
+            {"fft4", 4194304, aclfftRfft1DR2CFft4},
+        };
+        bool all_ok = true;
+        for (const auto& pc : pcs) {
+            std::vector<float> in(pc.n, 1.0f);
+            // 每行 N+2 个 float（(N/2+1) 个复数），batch=1
+            std::vector<float> out(pc.n + 2, 7.0f);
+            aclError err = pc.entry(in.data(), out.data(), pc.n, 1, 1, stream);
+            if (err != ACL_SUCCESS) {
+                std::cout << "[RUN] nyquist " << pc.name << ": entry returned " << err << std::endl;
+                all_ok = false;
+                continue;
+            }
+            if (out[pc.n + 1] != 0.0f) {
+                std::cout << "[RUN] nyquist " << pc.name << ": y[N+1]=" << out[pc.n + 1] << " (expect 0)" << std::endl;
+                all_ok = false;
+            }
+        }
+        if (all_ok) {
+            TEST_CASE_PASS_DETAIL(stats, "r2c_nyquist_imag_zero",
+                                  "Nyquist imag slot y[N+1] is zero on fft2/fft3_1/fft3_2/fft4 paths");
+        } else {
+            TEST_CASE_FAIL_DETAIL(stats, "r2c_nyquist_imag_zero",
+                                  "Nyquist imag slot not zero (see build log)");
+        }
+    }
+
     // issue #227: 对照 fft1_d 的 entry_reject_regression（fft1_d_test_arch32.cpp:121），
     // rfft1_d 此前仅有精度用例、无任何入口拒绝断言——入口校验被重构删除时 UT 仍全绿
     // （fft1_d 的 isForward 校验曾有 #147 先例）。逐一断言既有校验链的错误码
@@ -81,6 +123,20 @@ namespace Rfft1DApiIntegrationTest {
         if (aclfftRfft1DR2CFft1(&dummy, &dummy, 2, 0, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (aclfftRfft1DR2CFft31(&dummy, &dummy, 65536, 40000, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (aclfftRfft1DR2CFft5(&dummy, &dummy, 67108864, 0, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        // 8) 非 2 幂 n 拒绝（issue #292）：幂次六直连入口为 2 幂档位实现，非 2 幂 n
+        //    因子分解失真曾静默算错（覆盖 3、5、6、7、10、12 取值）
+        if (aclfftRfft1DR2CFft1(&dummy, &dummy, 3, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DR2CFft2(&dummy, &dummy, 5, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DR2CFft31(&dummy, &dummy, 6, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DR2CFft32(&dummy, &dummy, 7, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DR2CFft4(&dummy, &dummy, 10, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DR2CFft5(&dummy, &dummy, 12, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        // 9) fft2 直连档位域拒绝（issue #294）：域为 (128, 16384]——n>16384 时内核
+        //    blockN=2621440/N 截断为 0、除零与跨核互等死锁；n<=128 时 master 内核
+        //    直连实测挂死（存量缺陷），入口与 exec 分发域同口径整体拒绝
+        if (aclfftRfft1DR2CFft2(&dummy, &dummy, 4194304, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DR2CFft2(&dummy, &dummy, 16, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DR2CFft2(&dummy, &dummy, 128, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (all_ok) {
             TEST_CASE_PASS_DETAIL(stats, "entry_reject_regression",
                                   "all rfft1_d reject paths return the documented error codes");
@@ -133,11 +189,17 @@ namespace Rfft1DApiIntegrationTest {
             {"r2c_fft4_4",  33554432,    8},
 
             {"r2c_fft5_1",  67108864,    4},
-            {"r2c_fft5_2",  134217728,    2},
+            {"r2c_fft5_2",  134217728,   2},
+
+            // issue #295: fft3_2 直连覆盖——exec 分发域外 2 幂 n（16384 走 fft2 档）
+            // 单核 calcNum>=2 的组合，第二段 SetValueBatch 原先写死 1 行，
+            // 配对行 Nyquist 实部缺失；直连+golden 对拍验证
+            {"r2c_fft3_2_direct_b200",  16384,  200, 1},
         };
         OpsFftTest::RunBatchTests(stream, stats, "rfft1_d", cases, run_r2c_case);
         run_entry_reject_regression_test(stats);
         run_twlen_zero_direct_exec_test(stream, stats);
+        run_nyquist_imag_zero_test(stream, stats);
     }
 }
 

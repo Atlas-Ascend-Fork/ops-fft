@@ -61,6 +61,9 @@ configs = {
 
     "r2c_fft5_1": {"atol": 1e-1, "rtol": 1e-2},
     "r2c_fft5_2": {"atol": 1e-0, "rtol": 1e-2},
+
+    # issue #295 direct-entry coverage case (small n: tight tolerance)
+    "r2c_fft3_2_direct_b200": {"atol": 1e-3, "rtol": 1e-3},
 }
 
 curr_dir = os.path.dirname(os.path.realpath(__file__))

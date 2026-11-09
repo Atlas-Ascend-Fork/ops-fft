@@ -276,6 +276,9 @@ inline bool GetFft3Factors(uint32_t n, int &n1, int &n2, int &n3)
     n2 = RootCeil(fftN / n1, 2);
     if (n2 == 0 || n2 <= 0) return false;
     n3 = fftN / n1 / n2;
+    // 因子乘积回等校验（issue #292）：非 2 幂 n 的 RootCeil 上取整分解不再整除
+    // （如 n=7 得 2*2*1=4 != 7），失真分解仍返回 true，内核按错误结构静默算错
+    if (static_cast<int64_t>(n1) * n2 * n3 != fftN) return false;
     return n3 > 0;
 }
 
@@ -323,6 +326,13 @@ inline aclError ValidateR2CPowerOfTwoEntry(const char *entryName, int64_t n, uin
         std::cerr << "[ops-fft] " << entryName << ": n=" << n << " batches=" << batches << " invalid" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // n 为 2 的幂校验（issue #292）：六个幂次直连入口为 2 幂档位实现（exec 分发层
+    // DispatchPowerOfTwoR2C 仅对 2 幂 n 路由至此），非 2 幂 n 直连时因子分解
+    // RootCeil 上取整不再整除，内核按错误分解结构静默算错且返回成功
+    if ((n & (n - 1)) != 0) {
+        std::cerr << "[ops-fft] " << entryName << ": n=" << n << " is not a power of two" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     if (static_cast<uint64_t>(batches) * (static_cast<uint64_t>(n) + 2) > (1ULL << 31)) {
         std::cerr << "[ops-fft] " << entryName << ": batch*(n+2)="
                   << static_cast<uint64_t>(batches) * (static_cast<uint64_t>(n) + 2)
@@ -359,6 +369,12 @@ inline aclError RunFft3(float *x, float *y, uint32_t n,
     DeviceBuffers dev;
     BufferSizes sizes{inputSize, outputSize, workSize, twiddleSize, gatherSize, tilingSize, 0};
     CHECK_ACL(dev.Prepare(sizes, x, host.twiddle.get(), host.gather.get(), &tilingData));
+
+    // 输出缓冲清零（issue #293，覆盖 fft3_1/fft3_2 两路径）：UnPack2 每行只覆盖
+    // 前 N 个 float，Nyquist 实部由 SetValueBatch 补写 +N 槽位，+N+1 槽位
+    // （Nyquist 虚部，实输入恒 0）无人写入，输出含未初始化内存；对齐 fft1 路径
+    // issue #215 的清零口径
+    CHECK_ACL(aclrtMemset(dev.output.get(), outputSize, 0, outputSize));
 
     CHECK_ACL(ExecuteFft3(dev, y, outputSize, stream, coreNum, launch));
 

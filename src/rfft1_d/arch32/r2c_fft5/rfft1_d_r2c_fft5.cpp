@@ -58,6 +58,8 @@ static bool GetFft5Factors(uint32_t n, int &halfN, int &n1, int &n2, int &n3, in
     n4 = RfftHost::RootCeil(halfN / n1 / n2 / n3, 2);
     if (n4 == 0 || n4 <= 0) return false;
     n5 = halfN / n1 / n2 / n3 / n4;
+    // 因子乘积回等校验（issue #292）：非 2 幂 n 的分解乘积不等于 halfN，显式拒绝
+    if (static_cast<int64_t>(n1) * n2 * n3 * n4 * n5 != halfN) return false;
     return n5 > 0;
 }
 

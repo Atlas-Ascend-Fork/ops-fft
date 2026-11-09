@@ -67,6 +67,10 @@ configs = [
 
     {"name": "r2c_fft5_1", "n": 67108864, "batch": 4},
     {"name": "r2c_fft5_2", "n": 134217728, "batch": 2},
+
+    # issue #295: fft3_2 direct-entry coverage (n below exec dispatch bound so
+    # the case is only reachable via the direct entry, calcNum >= 2 per core)
+    {"name": "r2c_fft3_2_direct_b200", "n": 16384, "batch": 200},
 ]
 
 

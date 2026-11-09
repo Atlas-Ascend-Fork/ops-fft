@@ -57,6 +57,8 @@ static bool GetFft4Factors(uint32_t n, int &n1, int &n2, int &n3, int &n4)
     n3 = RfftHost::RootCeil(fftN / n1 / n2, 2);
     if (n3 == 0 || n3 <= 0) return false;
     n4 = fftN / n1 / n2 / n3;
+    // 因子乘积回等校验（issue #292）：非 2 幂 n 的分解乘积不等于 n，显式拒绝
+    if (static_cast<int64_t>(n1) * n2 * n3 * n4 != fftN) return false;
     return n4 > 0;
 }
 
@@ -174,6 +176,11 @@ extern "C" aclError aclfftRfft1DR2CFft4(float *x, float *y, uint32_t n,
     RfftHost::DeviceBuffers dev;
     RfftHost::BufferSizes sizes{inputSize, outputSize, workSize, twiddleSize, gatherSize, tilingSize, eyeSize};
     CHECK_ACL(dev.Prepare(sizes, x, host.twiddle.get(), host.gather.get(), &tilingData, host.eye.get()));
+
+    // 输出缓冲清零（issue #293）：UnPack2 每行只覆盖前 N 个 float，Nyquist 实部由
+    // SetValueBatch 补写 +N 槽位，+N+1 槽位（Nyquist 虚部，实输入恒 0）无人写入，
+    // 输出含未初始化内存；对齐 fft1 路径 issue #215 的清零口径
+    CHECK_ACL(aclrtMemset(dev.output.get(), outputSize, 0, outputSize));
 
     CHECK_ACL(ExecuteFft4(dev, coreNum, stream, y, outputSize));
 

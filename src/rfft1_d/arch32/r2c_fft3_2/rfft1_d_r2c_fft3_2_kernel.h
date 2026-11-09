@@ -73,7 +73,10 @@ __aicore__ inline void UnpackFft3_2Output(
     int calcNum = averageNum + (blockIdx < remainderNum);
     if (calcNum > 0) {
         op.SetValueBatch(workGlobal[(startIdx + o) * N + halfN], yGlobal[(i + startIdx) * (halfN + 1) * 2 + N], calcNum, N, N + 2);
-        op.SetValueBatch(workGlobal[(startIdx + o) * N + N * halfBatchCeil + halfN], yGlobal[(i + startIdx) * (halfN + 1) * 2 + (halfN + 1) * 2 * halfBatchCeil + N], 1, N, N + 2);
+        // 第二段行数与第一段对齐（issue #295）：原先写死 1，calcNum>=2 时
+        // startIdx+1 至 startIdx+calcNum-1 的配对行 Nyquist 实部缺失写入；
+        // 兄弟实现 fft2/fft3_1 两段均传 calcNumVec
+        op.SetValueBatch(workGlobal[(startIdx + o) * N + N * halfBatchCeil + halfN], yGlobal[(i + startIdx) * (halfN + 1) * 2 + (halfN + 1) * 2 * halfBatchCeil + N], calcNum, N, N + 2);
     }
     if (batch &1 &&calcN < blockN) {
         int j = batch / 2;

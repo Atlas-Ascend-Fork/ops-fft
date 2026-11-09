@@ -65,24 +65,49 @@ void GenerateTiling(int n, int n1, int n2, int blockNum, uint8_t *twiddleBuf, ui
     RfftHost::GenerateGather(gatherBuf, calcN);
 }
 
+// 因子分解与乘积回等校验（超大函数拆分，对齐 r2c_fft4 GetFft4Factors 先例）：
+// RootCeil 初因子、n2 推导与因子乘积回等（issue #292：非 2 幂 n 的分解乘积
+// 不等于 n，如 n=6 得 4*1=4 != 6，按失真结构静默算错，显式拒绝）
+static bool GetFft2Factors(uint32_t n, int &n1, int &n2)
+{
+    int64_t fftN = static_cast<int64_t>(n);
+    n1 = RfftHost::RootCeil(fftN, 2);
+    if (n1 <= 0) {
+        return false;
+    }
+    n2 = fftN / n1;
+    if (n2 <= 0) {
+        return false;
+    }
+    if (static_cast<int64_t>(n1) * n2 != fftN) {
+        std::cerr << "[ops-fft] aclfftRfft1DR2CFft2: n=" << n << " factors " << n1 << "*" << n2
+                  << " do not reproduce n" << std::endl;
+        return false;
+    }
+    return true;
+}
+
 extern "C" aclError aclfftRfft1DR2CFft2(float *x, float *y, uint32_t n,
                                      uint32_t batches, int isForward, void *stream)
 {
     // n==0/batches==0 与 batch*(n+2) 上界门禁（issue #239，防直连绕过 exec 层）
     CHECK_ACL(RfftHost::ValidateR2CPowerOfTwoEntry("aclfftRfft1DR2CFft2", n, batches, isForward));
+    // fft2 档位域校验（issue #294）：与 exec 分发层一致（DispatchPowerOfTwoR2C 将
+    // (128, 16384] 路由到 fft2，n<=128 走 fft1）。n 超上界时内核 blockN = 2621440/N
+    // 截断为 0，i/blockN 除零且 vec/cube 跨核互等死锁；n<=128 直连实测内核挂死
+    // （master 即存在，blockN 大于 batch/2 的 warmup 组合）。入口按分发域整体
+    // 门禁提前拒绝，内核侧另有 blockN==0 防护双保险
+    if (n <= 128 || n > 16384) {
+        std::cerr << "[ops-fft] aclfftRfft1DR2CFft2: n=" << n
+                  << " is not supported (fft2 path supports 128 < n <= 16384)" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     uint32_t coreNum = RfftHost::GetCoreNum();
 
     int64_t fftN = static_cast<int64_t>(n);
-
-    int n1 = RfftHost::RootCeil(fftN, 2);
-    if (n1 == 0) {
-        return ACL_ERROR_INVALID_PARAM;
-    }
-    if (n1 <= 0) {
-        return ACL_ERROR_INVALID_PARAM;
-    }
-    int n2 = fftN / n1;
-    if (n2 <= 0) {
+    int n1 = 0;
+    int n2 = 0;
+    if (!GetFft2Factors(n, n1, n2)) {
         return ACL_ERROR_INVALID_PARAM;
     }
 
@@ -106,6 +131,11 @@ extern "C" aclError aclfftRfft1DR2CFft2(float *x, float *y, uint32_t n,
     RfftHost::DeviceBuffers dev;
     RfftHost::BufferSizes sizes{inputSize, outputSize, workSize, twiddleSize, gatherSize, tilingSize, 0};
     CHECK_ACL(dev.Prepare(sizes, x, host.twiddle.get(), host.gather.get(), &tilingData));
+
+    // 输出缓冲清零（issue #293）：UnPack2 每行只覆盖前 N 个 float，Nyquist 实部由
+    // SetValueBatch 补写 +N 槽位，+N+1 槽位（Nyquist 虚部，实输入恒 0）无人写入，
+    // 输出含未初始化内存；对齐 fft1 路径 issue #215 的清零口径
+    CHECK_ACL(aclrtMemset(dev.output.get(), outputSize, 0, outputSize));
 
     Rfft1DR2CFft2Kernel::fft2_r2c<<<coreNum, nullptr, stream>>>(
         (__gm__ uint8_t *)dev.input.get(),

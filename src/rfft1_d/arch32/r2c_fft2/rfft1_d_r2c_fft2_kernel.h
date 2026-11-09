@@ -430,6 +430,13 @@ extern "C" __global__ __aicore__ void fft2_r2c(
     } else {
         blockN = 2621440 / N;
     }
+    // blockN==0 防护（issue #294）：n > 2621440 时 2621440/N 截断为 0，后续
+    // i/blockN 除零，且 vec 侧 CrossCoreWaitFlag(0x0) 与 cube 侧 CrossCoreWaitFlag(0x1)
+    // 形成跨核互等死锁；与 rfft1_d_r2c_schedule_common.h RunFft3Kernel 的
+    // blockN==0 口径对齐，全部核启动即返回不进入同步
+    if (blockN == 0) {
+        return;
+    }
 
     int blockNum = GetBlockNum();
     int blockIdx = GetBlockIdx();

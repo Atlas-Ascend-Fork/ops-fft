@@ -90,21 +90,30 @@ public:
         outQueueDst.FreeTensor(dstLocal);
     }
     __aicore__ inline void SetValueBatch(GlobalTensor<T> srcGlobal, GlobalTensor<T> dstGlobal, int batch, int srcStride, int dstStride) {
-        LocalTensor<T> dstLocal = outQueueDst.AllocTensor<T>();
-        for (int i = 0; i < batch; ++i) {
-            dstLocal.SetValue(i * elementsPerBlock, srcGlobal.GetValue(i * srcStride));
+        // UB 缓冲深度为 2*TILE_LENGTH 个元素，每 batch 项占用 elementsPerBlock 槽位
+        // （DataCopyPad 块粒度），单次最多容纳 2*TILE_LENGTH/elementsPerBlock 项
+        // （float 下 1024）。大 batch 小 n 组合单核 calcNumVec 可超过该上限（如
+        // n=16、batch>=163840 时约 1700），原先 i*elementsPerBlock 无上限直写越出
+        // UB 缓冲；超限时分片搬运，每片独立 Alloc/DataCopyPad（issue #298）
+        const int maxItems = 2 * TILE_LENGTH / elementsPerBlock;
+        for (int base = 0; base < batch; base += maxItems) {
+            const int cnt = batch - base < maxItems ? batch - base : maxItems;
+            LocalTensor<T> dstLocal = outQueueDst.AllocTensor<T>();
+            for (int i = 0; i < cnt; ++i) {
+                dstLocal.SetValue(i * elementsPerBlock, srcGlobal.GetValue((base + i) * srcStride));
+            }
+            outQueueDst.EnQue(dstLocal);
+            dstLocal = outQueueDst.DeQue<T>();
+            DataCopyExtParams CopyOutParams {
+                static_cast<uint16_t>(cnt),
+                static_cast<uint32_t>(sizeof(T)),
+                0,
+                static_cast<uint32_t>((dstStride - 1) * sizeof(T)),
+                0
+            };
+            DataCopyPad(dstGlobal[base * dstStride], dstLocal, CopyOutParams);
+            outQueueDst.FreeTensor(dstLocal);
         }
-        outQueueDst.EnQue(dstLocal);
-        dstLocal = outQueueDst.DeQue<T>();
-        DataCopyExtParams CopyOutParams {
-            static_cast<uint16_t>(batch),
-            static_cast<uint32_t>(sizeof(T)),
-            0,
-            static_cast<uint32_t>((dstStride - 1) * sizeof(T)),
-            0
-        };
-        DataCopyPad(dstGlobal, dstLocal, CopyOutParams);
-        outQueueDst.FreeTensor(dstLocal);
     }
     __aicore__ inline void LoadGather(GlobalTensor<uint32_t> gatherGlobal) {
         gatherLocal = inQueueSrc.AllocTensor<uint32_t>();
