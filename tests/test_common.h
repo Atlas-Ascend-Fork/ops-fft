@@ -26,6 +26,8 @@
 #include <array>
 #include <map>
 #include <sstream>
+// pclose 退出码判定（issue #316）：WIFEXITED/WEXITSTATUS
+#include <sys/wait.h>
 #include "acl/acl.h"
 
 namespace OpsFftTest {
@@ -320,22 +322,43 @@ inline void CleanupAllData(const std::string& data_dir) {
 }
 
 // Batch compare all cases (one Python call), returns map of name -> (passed, detail)
+// plus the compare script's exit status (issue #316)
 struct CompareResult {
     bool passed;
     std::string detail;
 };
 
-inline std::map<std::string, CompareResult> BatchCompareAllData(const std::string& data_dir) {
-    std::map<std::string, CompareResult> results;
+struct BatchCompareOutcome {
+    std::map<std::string, CompareResult> cases;
+    // compare_data.py 退出码（test_helper 约定：任一用例失败为 1，脚本异常中断
+    // 为非 0 且通常无完整输出）；0 = 正常结束
+    int scriptExit = 0;
+};
+
+inline BatchCompareOutcome BatchCompareAllData(const std::string& data_dir) {
+    BatchCompareOutcome outcome;
+    auto& results = outcome.cases;
     std::string cmd = "cd " + data_dir + " && PYTHONPATH=" + data_dir + "/../../common/host TORCH_DEVICE_BACKEND_AUTOLOAD=0 python3 -u compare_data.py";
     std::string output;
     std::array<char, 4096> buffer;
     FILE* pipe = popen(cmd.c_str(), "r");
-    if (!pipe) return results;
+    if (!pipe) return outcome;
     while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
         output += buffer.data();
     }
-    pclose(pipe);
+    // pclose 退出码检查（issue #316）：原先返回值丢弃，脚本级失败（import 失败、
+    // 路径错误等异常中断）被静默吞掉，失败根因被“解析到的失败用例数”掩盖；
+    // 区分用例级失败（退出 1 但有可解析结果）与脚本级失败（非 0 且无结果）
+    int script_status = pclose(pipe);
+    if (WIFEXITED(script_status)) {
+        outcome.scriptExit = WEXITSTATUS(script_status);
+    } else {
+        outcome.scriptExit = -1;
+    }
+    if (outcome.scriptExit != 0) {
+        std::cerr << "[compare] compare_data.py exited with status " << outcome.scriptExit
+                  << " (script-level failure; missing entries below may be caused by it)" << std::endl;
+    }
 
     std::istringstream iss(output);
     std::string line;
@@ -366,7 +389,7 @@ inline std::map<std::string, CompareResult> BatchCompareAllData(const std::strin
             results[name] = {passed, detail};
         }
     }
-    return results;
+    return outcome;
 }
 
 // Generic batch test runner: gen all → run all → compare all → report → cleanup
@@ -386,7 +409,8 @@ inline void RunBatchTests(aclrtStream stream, TestStats& stats,
         npu_success[tc.name] = run_func(stream, tc);
     }
 
-    auto compare_results = BatchCompareAllData(data_dir);
+    auto compare = BatchCompareAllData(data_dir);
+    const auto& compare_results = compare.cases;
 
     for (const auto& tc : cases) {
         std::cout << "[RUN] " << tc.name << std::endl;
@@ -396,7 +420,14 @@ inline void RunBatchTests(aclrtStream stream, TestStats& stats,
         }
         auto it = compare_results.find(tc.name);
         if (it == compare_results.end()) {
-            TEST_CASE_FAIL_DETAIL(stats, tc.name, "No compare result found");
+            // 缺失条目附带脚本级失败信息（issue #316）：区分脚本异常中断
+            // （scriptExit != 0）与用例名不匹配
+            if (compare.scriptExit != 0) {
+                TEST_CASE_FAIL_DETAIL(stats, tc.name,
+                    "No compare result (script exited " + std::to_string(compare.scriptExit) + ")");
+            } else {
+                TEST_CASE_FAIL_DETAIL(stats, tc.name, "No compare result found");
+            }
             continue;
         }
         if (it->second.passed) {
