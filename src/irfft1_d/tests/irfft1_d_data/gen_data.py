@@ -35,6 +35,11 @@ configs = [
     {"name": "c2r_fft_n8192", "n": 8192, "batch": 4},
     {"name": "c2r_fft_n8192_nyquist", "n": 8192, "batch": 1, "nyquist_only": True},
     {"name": "c2r_fft_n2048_b100", "n": 2048, "batch": 100},
+    # issue #322: even-n radix-mix C2R random-spectrum regression;
+    # n=12288 covers N = k*BIASC (k=3), n=8190's last chunk is a full
+    # BIASC covering the Nyquist pair
+    {"name": "c2r_fft_n12288", "n": 12288, "batch": 1},
+    {"name": "c2r_fft_n8190", "n": 8190, "batch": 1},
     {"name": "c2r_fft_odd_n1025", "n": 1025, "batch": 4},
 ]
 

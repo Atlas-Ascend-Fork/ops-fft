@@ -79,6 +79,11 @@ namespace Irfft1DApiIntegrationTest {
             {"c2r_fft_n8192",  8192,  4},
             {"c2r_fft_n8192_nyquist", 8192, 1},
             {"c2r_fft_n2048_b100",  2048, 100},
+            // 偶数 n C2R_even 随机谱回归（issue #322）：n=12288 覆盖 N 为 BIASC
+            // 整数倍档位（N=k*BIASC，k=3），n=8190 的末块为整块 BIASC 且覆盖
+            // Nyquist 复数对，紧容差可捕获虚部偏移错位
+            {"c2r_fft_n12288", 12288, 1},
+            {"c2r_fft_n8190",  8190,  1},
             {"c2r_fft_odd_n1025",  1025,  4},
         };
         OpsFftTest::RunBatchTests(stream, stats, "irfft1_d", cases, run_c2r_case);

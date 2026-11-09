@@ -23,7 +23,6 @@ constexpr int32_t BLOCK_SIZE_8 = 8;
 #define BIASC                4096
 #define BIAS                 2048
 
-
 __aicore__ __inline__ void R2C_odd(
     __gm__ float * __restrict__ gm_input,
     __gm__ uint32_t * __restrict__ gm_input_index,
@@ -124,7 +123,6 @@ __aicore__ __inline__ void R2C_odd(
         AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(EVENT_ID1);
 }
 
-
 __aicore__ __inline__ void C2R_even(
     __gm__ float * __restrict__ gm_input,
     __gm__ uint32_t * __restrict__ gm_input_index,
@@ -207,7 +205,6 @@ __aicore__ __inline__ void C2R_even(
 
         AscendC::LocalTensor<uint32_t> reverse_index_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, uint32_t>(20 * 8192);
 
-
         int64_t out_imag_real_offset = (batch_id_end - batch_id_begin) * N / 2;
 
         AscendC::PipeBarrier<PIPE_MTE2>();
@@ -240,12 +237,12 @@ __aicore__ __inline__ void C2R_even(
 
             AscendC::DataCopyPad(MatrixA_Real_ub_tensor, a_gm_tensor[offset_loopc / 2], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));      // 搬对应的N-2个数进来
             AscendC::PipeBarrier<PIPE_MTE2>();
-            AscendC::DataCopyPad(MatrixA_Imag_ub_tensor, a_gm_tensor[offset_loopc / 2 + N / 2], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));       // 搬对应的N-2个数进来
+            AscendC::DataCopyPad(MatrixA_Imag_ub_tensor, a_gm_tensor[offset_loopc / 2 + N / 2 + 1], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));       // 搬对应的N-2个数进来, 虚部表起始偏移含 Nyquist 端点占位（issue #322，对齐 host tableStride 布局）
             AscendC::PipeBarrier<PIPE_MTE2>();
 
             AscendC::DataCopyPad(MatrixB_Real_ub_tensor, b_gm_tensor[offset_loopc / 2], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));
             AscendC::PipeBarrier<PIPE_MTE2>();      // 搬对应的N-2个数进来
-            AscendC::DataCopyPad(MatrixB_Imag_ub_tensor, b_gm_tensor[offset_loopc / 2 + N / 2], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));      // 搬对应的N-2个数进来
+            AscendC::DataCopyPad(MatrixB_Imag_ub_tensor, b_gm_tensor[offset_loopc / 2 + N / 2 + 1], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));      // 搬对应的N-2个数进来, 同 A 表（issue #322）
             AscendC::PipeBarrier<PIPE_MTE2>();
 
             for(uint64_t loopN = batch_id_begin; loopN < batch_id_end; loopN+=1) {  // Batch方向的循环
@@ -448,7 +445,6 @@ __aicore__ __inline__ void C2R_even(
         AscendC::WaitFlag<AscendC::HardEvent::MTE3_V>(EVENT_ID0);
         AscendC::WaitFlag<AscendC::HardEvent::MTE3_V>(EVENT_ID1);
 }
-
 
 __aicore__ __inline__ void R2C_even(
     __gm__ float * __restrict__ gm_input,
@@ -704,7 +700,6 @@ __aicore__ __inline__ void R2C_even(
         AscendC::WaitFlag<AscendC::HardEvent::MTE3_V>(EVENT_ID1);
 }
 
-
 __aicore__ __inline__ void R2C_even_tail_calc(
     __gm__ float * __restrict__ gm_c2c_output,
     __gm__ float * __restrict__ gm_output,
@@ -775,7 +770,6 @@ __aicore__ __inline__ void R2C_even_tail_calc(
     AscendC::DataCacheCleanAndInvalid<float, AscendC::CacheLine::ENTIRE_DATA_CACHE>(output_gm_tensor);
     AscendC::PipeBarrier<PIPE_ALL>();
 }
-
 
 #define MIX_CORE
 #include "r2c_c2r_common.h"

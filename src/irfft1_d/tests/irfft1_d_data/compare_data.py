@@ -29,6 +29,10 @@ configs = {
     "c2r_fft_n8192": {"atol": 5e-2, "rtol": 1e-2},
     "c2r_fft_n8192_nyquist": {"atol": 5e-2, "rtol": 1e-2},
     "c2r_fft_n2048_b100": {"atol": 5e-2, "rtol": 1e-2},
+    # issue #322: even-n radix-mix C2R random-spectrum regression with
+    # tightened tolerance (pre-fix imag offset error exceeds rtol 5e-4)
+    "c2r_fft_n12288": {"atol": 1e-3, "rtol": 5e-4},
+    "c2r_fft_n8190": {"atol": 1e-3, "rtol": 5e-4},
     "c2r_fft_odd_n1025": {"atol": 5e-2, "rtol": 1e-2},
 }
 
