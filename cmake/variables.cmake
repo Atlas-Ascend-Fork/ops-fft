@@ -33,7 +33,13 @@ set(OPS_FFT_LIB_INSTALL_DIR           ops_fft/lib64)
 set(VERSION_INFO_INSTALL_DIR        ops_fft)
 
 # 输出路径
-set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/build_out)
+# CMAKE_INSTALL_PREFIX 尊重用户传参（issue #315）：原无条件覆盖使
+# -DCMAKE_INSTALL_PREFIX=... 被静默丢弃、产物恒落源码树 build_out。CMake 对
+# 该变量恒有预定义（未传参时初始化为 /usr/local，NOT DEFINED 恒假），故按
+# “等于内置默认值即视为未传参”判定；显式传 /usr/local 的场景按默认口径处理
+if(NOT DEFINED CMAKE_INSTALL_PREFIX OR CMAKE_INSTALL_PREFIX STREQUAL "/usr/local")
+    set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/build_out)
+endif()
 
 # 打包相关路径
 set(SCRIPT_PACKAGE_DIR ${CMAKE_SOURCE_DIR}/scripts/package)
