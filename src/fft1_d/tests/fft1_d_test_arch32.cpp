@@ -154,6 +154,15 @@ namespace Fft1DApiIntegrationTest {
         // 9) n*stride 乘积上界拒绝（issue #234）：n=2^16、stride=2^15，乘积 2^31 > 2^30，
         // kernel 侧 int32 GM 偏移会回绕，入口须显式拒绝而非静默下发
         if (aclfftFft1DStride(&dummy, &dummy, 65536, 0, 32768, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        // 10) fft_b 三级分解档位拒绝（issue #296）：n>=32768 的 3 元素 radixVec
+        //     放行后内核仅计算第一级且跨核同步计数失衡，直连须显式拒绝
+        if (aclfftFft1DB(&dummy, &dummy, 32768, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftFft1DB(&dummy, &dummy, 262144, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        // 11) stride 非 32B 对齐拒绝（issue #297）：非 4 元素倍数使行基址脱离
+        //     32B 对齐，内核搬运块数整除截断后静默算错
+        if (aclfftFft1DStride(&dummy, &dummy, 256, 0, 1, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftFft1DStride(&dummy, &dummy, 256, 0, 2, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftFft1DStride(&dummy, &dummy, 256, 0, 3, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (all_ok) {
             TEST_CASE_PASS_DETAIL(stats, "entry_reject_regression",
                                    "all reject paths return the documented error codes");

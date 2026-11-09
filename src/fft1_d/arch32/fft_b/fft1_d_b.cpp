@@ -15,10 +15,12 @@
 #include "fft1_d_b_kernel.h"
 
 /* ========================================================================== */
-/* fft_b: radix-2 batched FFT (n = 256~262144, batch >= 1) implementation     */
+/* fft_b: radix-2 batched FFT (n = 256~16384, batch >= 1) implementation      */
 /* ========================================================================== */
 // batch 下界更正（issue #278）：原 "batch >= 2" 与实现不符，入口仅拒绝 batches==0，
 // batch=1 合法（needCoreNum=1 单核执行）
+// n 上界收敛（issue #296）：内核仅实现两级分解（iterCount<=2），三级档位
+// 32768~262144 不再放行
 
 constexpr int32_t SCRATCH_SIZES_B = sizeof(float) * 655360;
 
@@ -33,10 +35,11 @@ static bool InitRadixB(uint32_t n, std::vector<uint32_t> &radixVec)
         case 4096:   radixVec = {64, 64}; break;
         case 8192:   radixVec = {64, 64}; break;
         case 16384:  radixVec = {64, 64}; break;
-        case 32768:  radixVec = {32, 32, 32}; break;
-        case 65536:  radixVec = {32, 32, 64}; break;
-        case 131072: radixVec = {32, 64, 64}; break;
-        case 262144: radixVec = {64, 64, 64}; break;
+        // 三级分解档位（32768~262144）不再放行（issue #296）：内核 AIC 主循环仅实现
+        // it==0 与 (it==1 且 iter_count==2) 两个计算分支，iterCount=3 时第 2/3 级
+        // 不做计算且跨核同步计数失衡（AIC 每组 WaitFlagDev 3 次、VEC 仅 2 次），
+        // 直连时静默错果或疑似挂死；长期补齐三级实现后再放开（内核注释
+        // "仅保留 iter_count == 2" 与本口径一致）
         default:
             // 不再 throw：异常会穿透 extern "C" 边界导致 C 调用方进程终止（issue #72）
             return false;
@@ -210,7 +213,7 @@ extern "C" aclError aclfftFft1DB(float *x, float *y, uint32_t n, int32_t norm,
     std::vector<uint32_t> radixVec;
     if (!InitRadixB(n, radixVec)) {
         std::cerr << "[ops-fft] aclfftFft1DB: n=" << n
-                  << " not supported (must be power of 2 in [2^8, 2^18])" << std::endl;
+                  << " not supported (must be power of 2 in [2^8, 2^14])" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
 

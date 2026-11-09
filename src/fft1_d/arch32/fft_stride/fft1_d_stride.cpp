@@ -83,6 +83,16 @@ aclError aclfftFft1DStride(
         std::cerr << "[ops-fft] aclfftFft1DStride: stride=0 is not supported" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
+    // stride 32B 对齐校验（issue #297）：内核搬运辅助函数按每行间隔 32B block 对齐
+    // 假定计算搬运块数（fft1_d_stride_kernel.h LoadDataFromGmToUbDev 对
+    // srcDValue/BLOCK_SIZE 整除截断），非 4 元素倍数的 stride 使第 r 行基址
+    // r*stride*2 个 float 脱离 32B 对齐，DataCopy 步进量化后静默算错或 MTE 行为
+    // 未定义；入口显式拒绝，对齐 stride 的正常路径零改动
+    if (stride % 4 != 0) {
+        std::cerr << "[ops-fft] aclfftFft1DStride: stride=" << stride
+                  << " is not 32B-aligned (must be a multiple of 4 elements)" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
     // n*stride 乘积上界守卫（issue #234）：VERTICAL 布局按 n×stride 单矩阵组织，
     // kernel 侧 GM 元素偏移约为 n*stride*2 个 float，历史按 int32 计算，
     // n*stride > 2^30 时偏移回绕致越界读写；超界组合显式拒绝（!107 随 #234 合入），
