@@ -36,15 +36,26 @@ aclfftResult aclfftExecC2C_2D(aclfftHandle plan,
     if (!FftPlanIsDdSize(fftSizeX) || !FftPlanIsDdSize(fftSizeY)) {
         std::cerr << "[ops-fft] FFT2D DD: unsupported size (" << fftSizeX << "x" << fftSizeY
                   << "), only {32,64,128}x{32,64,128} is supported" << std::endl;
-        return ACLFFT_NOT_SUPPORTED;
+        // 尺寸域不支持与 1D 同口径返回 NOT_IMPLEMENTED（issue #314）：1D 纵向尺寸域
+        // 不支持时返回 ACLFFT_NOT_IMPLEMENTED（fft1_d_exec_api.cpp），本处原返回
+        // NOT_SUPPORTED 造成同族接口错误码分裂；该分支为 #286 创建期校验前移后的
+        // 防御性二次检查
+        return ACLFFT_NOT_IMPLEMENTED;
     }
 
     int isForward = direction == ACLFFT_FORWARD ? 1 : 0;
     aclError err = aclfftFft2DDd(reinterpret_cast<float*>(idata),
-                                 reinterpret_cast<float*>(odata),
-                                 fftSizeX, fftSizeY,
-                                 impl->batch, isForward, impl->stream);
+                                  reinterpret_cast<float*>(odata),
+                                  fftSizeX, fftSizeY,
+                                  impl->batch, isForward, impl->stream);
 
-    return (err == ACL_SUCCESS) ? ACLFFT_SUCCESS : ACLFFT_EXEC_FAILED;
+    // 错误翻译与 1D 收敛（issue #314，对齐 #97 口径）：内层 ACL_ERROR_INVALID_PARAM
+    // 翻译为文档承诺的 ACLFFT_NOT_IMPLEMENTED，其余运行期失败为 EXEC_FAILED；
+    // 原先全部折叠为 EXEC_FAILED
+    if (err == ACL_SUCCESS)
+        return ACLFFT_SUCCESS;
+    if (err == ACL_ERROR_INVALID_PARAM)
+        return ACLFFT_NOT_IMPLEMENTED;
+    return ACLFFT_EXEC_FAILED;
 }
 } // extern "C"
