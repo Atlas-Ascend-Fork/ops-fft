@@ -21,7 +21,10 @@ repos:
     hooks:
       - id: fft-comparison-host-tests
         name: FFT comparison Host tests
-        entry: python -m pytest -q tests/host tests/python
+        # python3 口径（issue #321）：多数 Linux 发行版默认无 python 别名
+        # （Ubuntu 自 20.04 起不默认提供），`python -m pytest` 直接 command not
+        # found；仓内其余脚本（build.sh/install_deps.sh）均用 python3
+        entry: python3 -m pytest -q tests/host tests/python
         language: python
         additional_dependencies:
           - numpy
