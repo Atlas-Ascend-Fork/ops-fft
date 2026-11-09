@@ -26,6 +26,9 @@ ops-fft 是 [CANN](https://hiascend.com/software/cann) （Compute Architecture f
 | --- | --- | --- |
 | [CANN 9.0.0-beta.2](https://www.hiascend.com/developer/download/community/result?module=cann&cann=9.0.0-beta.2) | `2026/03/30` | master |
 
+上表为已验证配套版本；构建依赖的最低 CANN 版本为 8.5.0（`version.cmake` 中
+`>=8.5`，配套口径见 `CHANGELOG.md` 版本配套表），两者语义不同、互不冲突。
+
 请根据实际 CPU 架构，从上述链接目录中自行选择对应的 `.run` 安装包。
 
 toolkit 安装包文件名格式如下：
