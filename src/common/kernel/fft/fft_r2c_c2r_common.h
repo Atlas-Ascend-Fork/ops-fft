@@ -11,8 +11,10 @@
 #ifndef OPSFFT_COMMON_KERNEL_FFT_FFT_R2C_C2R_COMMON_H
 #define OPSFFT_COMMON_KERNEL_FFT_FFT_R2C_C2R_COMMON_H
 
-#define ASCENDFFT_FORWARD -1  // Forward FFT
-#define ASCENDFFT_INVERSE 1   // Inverse FFT
+// ASCENDFFT_FORWARD/INVERSE 的 #define 宏定义删除（issue #303）：与
+// kernel_utils.h/fft_common_kernel.h 的同名 constexpr 并存时，宏头先于 constexpr
+// 头包含会将声明展开为非法代码（反序包含编译失败）；本头文件子树内无任何
+// ASCENDFFT_* 使用点，统一复用 kernel_utils.h 的 constexpr 单一定义
 
 // UB大小192KB, 分成24块
 constexpr int64_t UB_VEC_SIZE = 8192; // 每块8KB
@@ -63,11 +65,11 @@ __aicore__ __inline__ void R2C_odd(
         uint64_t lenBurstC = (num + 7) / 8;
         uint64_t lenBurstOutIndex = (BIASC + 7) / 8;
         // 每次vector乘加需要的次数
-        uint8_t repeat = (num / 2 + 63) / 64; //  此处会导致越界UB操作  // 320
+        uint8_t repeat = (num / 2 + 63) / 64; // repeat 上限 32（num 受 BIASC=4096 封顶），无越界（issue #317 更正陈旧警示）
         // 每次vector reduce需要的次数
         uint8_t repeat_reduce = (num + 63) / 64;
         // 每次vgather output需要的次数
-        uint8_t repeat_out = (num + 63) / 64;       
+        uint8_t repeat_out = (num + 63) / 64;
         // 每次把实数和虚部一起取出来
         uint64_t loopN_times = batch_size;
         // 每次取得数的个数
@@ -102,7 +104,7 @@ __aicore__ __inline__ void R2C_odd(
 
                 auto event_id = ping ? EVENT_ID0 : EVENT_ID1;
                 auto buf0_ub_tensor = ping ? UB_INPUT1_ub_tensor : UB_INPUT2_ub_tensor;   // 输入、大于512倒序、A矩阵、B矩阵、搬出
-                
+
                 int64_t offset = loopN * N * 2;
                 int64_t offset_out = loopN * copy_len;
 
@@ -169,7 +171,7 @@ __aicore__ __inline__ void C2R_even(
         uint64_t lenBurstIndex = (index_size + 7) / 8;
         uint64_t lenBurstOutIndex = (BIASC + 7) / 8;
         // 每次vector乘加需要的次数
-        uint8_t repeat = (num / 2 + 63) / 64; // TODO 此处会导致越界UB操作  // 512
+        uint8_t repeat = (num / 2 + 63) / 64; // repeat 上限 32（num 受 BIASC=4096 封顶），无越界（issue #317 更正陈旧警示）
         // 每次vector reduce需要的次数
         uint8_t repeat_reduce = (num + 63) / 64;
         // 每次vgather output需要的次数
@@ -217,7 +219,7 @@ __aicore__ __inline__ void C2R_even(
         AscendC::SetFlag<AscendC::HardEvent::MTE3_V>(EVENT_ID1);
 
         for(uint64_t loop = 0; loop < repeat_times; loop++) {       // 序列方向的循环
-            
+
             int64_t offset_loopc = loop * BIASC;      // 已经处理过的长度
             int actual_n = N + 2;
             int reverse_offset = 0;
@@ -225,17 +227,17 @@ __aicore__ __inline__ void C2R_even(
             if (repeat_times != 1) {                        // 若N-2长度大于4096则循环
                 actual_n = (loop + 1) * BIASC <= (N + 2) ? BIASC : ((N + 2) - loop * BIASC);
             }
-            
+
             if (repeat_times != 1 && actual_n != BIASC) {   // 需要读到对应的reverse数组
                 reverse_offset = index_size;
             }
 
             if (N == 4096) {
-                actual_n = N;           // 4096长度需要特殊处理 
+                actual_n = N;           // 4096长度需要特殊处理
             }
             AscendC::DataCopy(reverse_index_ub_tensor, input_index_gm_tensor[reverse_offset], AscendC::DataCopyParams(1, lenBurstIndex, 0, 0));   // 搬入2048个数
             AscendC::PipeBarrier<PIPE_MTE2>();
-            
+
             AscendC::DataCopyPad(MatrixA_Real_ub_tensor, a_gm_tensor[offset_loopc / 2], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));      // 搬对应的N-2个数进来
             AscendC::PipeBarrier<PIPE_MTE2>();
             AscendC::DataCopyPad(MatrixA_Imag_ub_tensor, a_gm_tensor[offset_loopc / 2 + N / 2], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));       // 搬对应的N-2个数进来
@@ -404,7 +406,7 @@ __aicore__ __inline__ void C2R_even(
                 AscendC::Sub(buf1_ub_tensor, temp2_ub_tensor, buf1_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FR * AR - FI * AI
                 AscendC::Add(buf2_ub_tensor, temp1_ub_tensor, buf2_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FR * AI + FI * AR
                 AscendC::PipeBarrier<PIPE_V>();
- 
+
                 // B的计算
                 // 系数B实/虚分离
                 // **********B矩阵相关的计算***************
@@ -420,7 +422,7 @@ __aicore__ __inline__ void C2R_even(
                 AscendC::Sub(buf4_ub_tensor, temp1_ub_tensor, buf4_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FervR * BR - FrevI * BI
                 AscendC::Add(buf5_ub_tensor, temp2_ub_tensor, buf5_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FrevR * BI + FervI * BR
                 AscendC::PipeBarrier<PIPE_V>();
- 
+
                 // **********虚实结合***************
                 // A和B结果组合
                 AscendC::Add(buf1_ub_tensor, buf1_ub_tensor, buf4_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FR * AR - FI * AI
@@ -490,7 +492,7 @@ __aicore__ __inline__ void R2C_even(
         uint64_t lenBurstIndex = (index_size + 7) / 8;
         uint64_t lenBurstOutIndex = (BIASC + 7) / 8;
         // 每次vector乘加需要的次数
-        uint8_t repeat = (num / 2 + 63) / 64; //  此处会导致越界UB操作
+        uint8_t repeat = (num / 2 + 63) / 64; // repeat 上限 32（num 受 BIASC=4096 封顶），无越界（issue #317 更正陈旧警示）
         // 每次vector reduce需要的次数
         uint8_t repeat_reduce = (num + 63) / 64;
         // 每次vgather output需要的次数
@@ -547,11 +549,11 @@ __aicore__ __inline__ void R2C_even(
             if (repeat_times != 1) {                        // 若N-2长度大于4096则循环
                 actual_n = (loop + 1) * BIASC <= (N - 2) ? BIASC : ((N - 2) - loop * BIASC);
             }
-            
+
             if (repeat_times != 1 && actual_n != BIASC) {   // 需要读到对应的reverse数组
                 reverse_offset = index_size;
             }
-            
+
             AscendC::DataCopy(reverse_index_ub_tensor, input_index_gm_tensor[reverse_offset], AscendC::DataCopyParams(1, lenBurstIndex, 0, 0));   // 搬入2048个数
             AscendC::PipeBarrier<PIPE_MTE2>();
 
@@ -658,7 +660,7 @@ __aicore__ __inline__ void R2C_even(
                 AscendC::Sub(buf1_ub_tensor, temp2_ub_tensor, buf1_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FR * AR - FI * AI
                 AscendC::Add(buf2_ub_tensor, temp1_ub_tensor, buf2_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FR * AI + FI * AR
                 AscendC::PipeBarrier<PIPE_V>();
- 
+
                 // B的计算
                 // 系数B实/虚分离
                 //  **********B矩阵相关的计算***************
@@ -675,7 +677,7 @@ __aicore__ __inline__ void R2C_even(
                 AscendC::Sub(buf4_ub_tensor, temp1_ub_tensor, buf4_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FervR * BR - FrevI * BI
                 AscendC::Add(buf5_ub_tensor, temp2_ub_tensor, buf5_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FrevR * BI + FervI * BR
                 AscendC::PipeBarrier<PIPE_V>();
- 
+
                 //  **********虚实结合***************
                 // A和B结果组合
                 AscendC::Add(buf1_ub_tensor, buf1_ub_tensor, buf4_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FR * AR - FI * AI
@@ -740,8 +742,8 @@ __aicore__ __inline__ void R2C_even_tail_calc(
     }
 
     if (aiv_id == 0) {
-        float temp_R0 = c2c_output_gm_tensor.GetValue(0); 
-        float temp_I0 = c2c_output_gm_tensor.GetValue(out_imag_real_offset); 
+        float temp_R0 = c2c_output_gm_tensor.GetValue(0);
+        float temp_I0 = c2c_output_gm_tensor.GetValue(out_imag_real_offset);
         output_gm_tensor.SetValue(0, temp_R0 + temp_I0);
         output_gm_tensor.SetValue(0 + 1, 0.0);
         output_gm_tensor.SetValue(0 + N, temp_R0 - temp_I0);

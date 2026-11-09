@@ -21,8 +21,9 @@ namespace FFT1DStrideKernel {
 #define __aicore__ [aicore]
 #endif
 
-#define ASCENDFFT_FORWARD -1  // Forward FFT
-#define ASCENDFFT_INVERSE 1   // Inverse FFT
+// ASCENDFFT_FORWARD/INVERSE 的 #define 宏定义删除（issue #303）：本文件包含的
+// kernel/fft_common_kernel.h 已提供同名 constexpr，宏展开与其冲突且文件内无
+// ASCENDFFT_* 使用点，统一复用 constexpr 单一定义
 
 const int64_t BLOCK_SIZE = 32 / sizeof(float);
 const int64_t BLOCK_PER_REPEAT = 8;
@@ -188,8 +189,12 @@ __aicore__ __inline__ void SeparateRI(__gm__ float *__restrict__ gm_dst, __gm__ 
     auto real_buf2 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(real_buf2_tensor.GetPhyAddr()));
     auto imag_buf2 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(imag_buf2_tensor.GetPhyAddr()));
 
+    // AIV 分发核数口径与 fft_n 对齐（issue #310）：MIX_AIC_1_2 下 AIV 侧
+    // AscendC::GetBlockIdx() 为全局序号（0..2N-1），裸 GetBlockNum() 只返回 AIC
+    // 数 N，混用会使 aiv_id >= N 的 AIV 在步进分发下重复处理同一下标、取模分发
+    // 下永久空转；aiv_num 须乘 GetTaskRation()（AIV 侧为 2）得到 AIV 总数
     const int16_t aiv_id = AscendC::GetBlockIdx();
-    const int16_t aiv_num = AscendC::GetBlockNum();
+    const int16_t aiv_num = AscendC::GetBlockNum() * AscendC::GetTaskRation();
 
     const int32_t max_datacount_perloop = 48 * 1024 / (COMPLEX_DOUBLE * sizeof(float));
 
@@ -255,8 +260,10 @@ __aicore__ __inline__ void TransposeWithStrideAndCombineRI(__gm__ float *__restr
                                                            __gm__ float *__restrict__ gm_src, int32_t P, int32_t Q,
                                                            int32_t dValue, int32_t dstDValue)
 {
+    // AIV 分发核数口径与 SeparateRI/fft_n 对齐（issue #310，取模分发同因：
+    // aiv_id 为全局序号时取模基数须为 AIV 总数）
     const int16_t aiv_id = AscendC::GetBlockIdx();
-    const int16_t aiv_num = AscendC::GetBlockNum();
+    const int16_t aiv_num = AscendC::GetBlockNum() * AscendC::GetTaskRation();
 
     AscendC::GlobalTensor<float> gm_src_tensor;
     AscendC::GlobalTensor<float> gm_dst_tensor;
