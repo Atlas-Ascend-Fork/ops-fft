@@ -137,9 +137,12 @@ namespace Fft2DApiIntegrationTest {
         if (aclfftFft2DDd(&dummy, &dummy, 64, 64, 1, 2, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         // 3) batches==0 拒绝（issue #193，对齐 1D #188 口径）
         if (aclfftFft2DDd(&dummy, &dummy, 64, 64, 0, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        // 4) batches 超 INT32_MAX 拒绝（issue #324，对齐 irfft1_d_dft #163 口径）：
+        //    校验链先于任何 malloc，dummy 指针不会被解引用，直传安全
+        if (aclfftFft2DDd(&dummy, &dummy, 64, 64, 0x80000000u, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (all_ok) {
             TEST_CASE_PASS_DETAIL(stats, "fft2dd_entry_reject",
-                                   "aclfftFft2DDd rejects null/isForward=2/batches=0 with ACL_ERROR_INVALID_PARAM");
+                                   "aclfftFft2DDd rejects null/isForward=2/batches=0/batches>INT32_MAX with ACL_ERROR_INVALID_PARAM");
         } else {
             TEST_CASE_FAIL_DETAIL(stats, "fft2dd_entry_reject",
                                    "some aclfftFft2DDd reject path missing or wrong error code (see build log)");

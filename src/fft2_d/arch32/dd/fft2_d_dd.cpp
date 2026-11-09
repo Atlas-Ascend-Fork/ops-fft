@@ -9,6 +9,7 @@
  */
 
 #include "../../fft2_d.h"
+#include <limits>
 #include "fft_common_core.h"
 #include "fft2_d_dd_tilingdata.h"
 #include "fft2_d_dd_kernel.h"
@@ -78,6 +79,14 @@ extern "C" aclError aclfftFft2DDd(float *x, float *y, uint32_t fftX, uint32_t ff
     // aclrtMalloc 与空内核启动，返回"成功"但输出缓冲未写入
     if (batches == 0) {
         std::cerr << "[ops-fft] aclfftFft2DDd: batches=0 is not supported" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    // batches 上界拒绝（issue #324，对齐 irfft1_d_dft.cpp #163 口径）：uint32_t 形参
+    // batches 直接赋给 int32_t tilingData.batchSize（fft2_d_dd_tilingdata.h），>INT32_MAX
+    // 时截断为负值随 tiling 上设备，内核按负 batch 空转、D2H 回拷未初始化输出后仍返回成功；
+    // 与同族 1D 直调入口的防护口径保持一致
+    if (batches > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
+        std::cerr << "[ops-fft] aclfftFft2DDd: batches=" << batches << " exceeds INT32_MAX" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
     auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();
