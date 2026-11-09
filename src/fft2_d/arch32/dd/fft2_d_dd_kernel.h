@@ -140,7 +140,7 @@ __aicore__ __inline__ void SeparateRIMultiBatch(
         auto event_id = flag ? EVENT_ID0 : EVENT_ID1;
 
         AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(event_id);
-        
+
         //load data from gm to ub
         LoadDataFromGmToUb(complex_buf_ub_tensor, src_gm_tensor[loop_idx * row_count_per_loop * y_len * COMPLEX_DOUBLE], row_count_current * y_len  * COMPLEX_DOUBLE);
 
@@ -234,8 +234,8 @@ __aicore__ __inline__ void SeparateRITWO(
         SeparateRI(dst_gm_tensor, src_gm_tensor, first_vec_count, real_offset, imag_offset);
     }else {
         SeparateRI(dst_gm_tensor[first_vec_count], src_gm_tensor[first_vec_count * 2], second_vec_count, real_offset, imag_offset);
-    }    
-    
+    }
+
 }
 __aicore__ __inline__ void SeparateRITWOMultiBatch(
     AscendC::GlobalTensor<float> dst_gm_tensor, AscendC::GlobalTensor<float> src_gm_tensor, uint32_t x_len, uint32_t y_len, uint32_t current_batch_nums) {
@@ -253,7 +253,7 @@ __aicore__ __inline__ void SeparateRITWOMultiBatch(
         dst_current_gm_tensor = dst_gm_tensor[i * y_len];
         src_current_gm_tensor = src_gm_tensor[i * x_len * y_len * COMPLEX_DOUBLE];
         SeparateRIMultiBatch(dst_current_gm_tensor, src_current_gm_tensor, x_len, y_len, current_batch_nums, flag);
-        flag = 1 - flag; 
+        flag = 1 - flag;
     }
     AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(EVENT_ID0);
     AscendC::WaitFlag<AscendC::HardEvent::MTE3_MTE2>(EVENT_ID1);
@@ -375,7 +375,7 @@ __aicore__ __attribute__((always_inline)) inline void load_matrix_zZ(
 __aicore__ __inline__ void LoadPMatrix(
     AscendC::GlobalTensor<float> p_gm_tensor,
     int32_t x_len, int32_t y_len)
-{   
+{
     int32_t M = x_len * COMPLEX_DOUBLE;
     int32_t K = x_len * COMPLEX_DOUBLE;
 
@@ -383,7 +383,7 @@ __aicore__ __inline__ void LoadPMatrix(
     int32_t M0 = 128;
     int32_t K0 = 128;
 
-    if (x_len == 32) 
+    if (x_len == 32)
     {
          M0 = 64;
          K0 = 64;
@@ -404,15 +404,14 @@ __aicore__ __inline__ void LoadPMatrix(
 
         int64_t offset_a, offset_l1a;
         int32_t m_actual = (m_idx == (m_loop - 1)) ? (M - m_idx * M0) : M0;
-        int32_t m_round = (m_actual + 15) / 16 * 16;
 
         for (int32_t k_idx = 0; k_idx < k_loop; k_idx++) {
 
-            offset_a = batch_idx * M * K + m_idx * M0 * K + k_idx * K0;            
+            offset_a = batch_idx * M * K + m_idx * M0 * K + k_idx * K0;
             offset_l1a = (m_idx * k_loop + k_idx) * M0 * K0;
             int32_t k_actual = (k_idx == (k_loop - 1)) ? (K - k_idx * K0) : K0;
 
-            // *** load matrix A to L1              
+            // *** load matrix A to L1
             load_matrix_zZ(p_l1_tensor[offset_l1a], p_gm_tensor[offset_a], M0, K0, m_actual, k_actual, K);
         }
     }
@@ -421,7 +420,7 @@ __aicore__ __inline__ void LoadPMatrix(
 __aicore__ __inline__ void LoadQMatrix(
     AscendC::GlobalTensor<float> q_gm_tensor,
     int32_t x_len, int32_t y_len)
-{   
+{
     int32_t K = y_len * COMPLEX_DOUBLE;
     int32_t N = y_len * COMPLEX_DOUBLE;
 
@@ -429,7 +428,7 @@ __aicore__ __inline__ void LoadQMatrix(
     int32_t N0 = 128;
 
     if (y_len == 32) {
-        
+
          K0 = 64;
          N0 = 64;
     }
@@ -440,12 +439,11 @@ __aicore__ __inline__ void LoadQMatrix(
 
     int32_t k_loop = (K + K0 - 1) / K0; //2
     int32_t n_loop = (N + N0 - 1) / N0; //2
-    
+
     for (int32_t n_idx = 0; n_idx <  n_loop; n_idx++) {
 
         int64_t offset_b, offset_l1b;
         int32_t n_actual = (n_idx == (n_loop - 1)) ? (N - n_idx * N0) : N0;
-        int32_t n_round = (n_actual + 15) / 16 * 16;
 
         for (int32_t k_idx = 0; k_idx < k_loop; k_idx++) {
 
@@ -454,7 +452,7 @@ __aicore__ __inline__ void LoadQMatrix(
             offset_l1b = (n_idx * k_loop + k_idx) * K0 * N0;
             int32_t k_actual = (k_idx == (k_loop - 1)) ? (K - k_idx * K0) : K0;
 
-            // *** load matrix A to L1              
+            // *** load matrix A to L1
             load_matrix_zZ(q_l1_tensor[offset_l1b], q_gm_tensor[offset_b], K0, N0, k_actual, n_actual, N);
         }
     }
@@ -465,7 +463,7 @@ __aicore__ __inline__ void Matmul(
     AscendC::GlobalTensor<float> a_gm_tensor,
     AscendC::GlobalTensor<float> b_gm_tensor,
     int32_t M, int32_t K, int32_t N, int32_t active_SpRI_flag)
-{   
+{
     AscendC::SetLoadDataPaddingValue<float>(0.0);
     AscendC::SetAtomicNone();
     uint64_t config = 0x1;
@@ -499,7 +497,7 @@ __aicore__ __inline__ void Matmul(
 
     AscendC::SetFlag<AscendC::HardEvent::FIX_M>(EVENT_ID0);
     AscendC::SetFlag<AscendC::HardEvent::FIX_M>(EVENT_ID1);
-    
+
     int32_t ping_flag_fix = 1;
 
     for (int32_t loop_idx = 0; loop_idx < loop; loop_idx++) {
@@ -594,7 +592,7 @@ __aicore__ __inline__ void Matmul(
 
             // 发信号启动下一轮虚实分离
             if (loop_idx == (loop - 1) && k_idx == (k_loop - 1) && active_SpRI_flag == 1) {
-                uint64_t flag_id, config;
+                uint64_t flag_id;
                 flag_id = SYNC_SINGLE_CV_FLAG_ID;
                 AscendC::CrossCoreSetFlag<SYNC_SINGLE_CV_MODE_CODE, PIPE_FIX>(flag_id);
             }
@@ -638,7 +636,7 @@ __aicore__ __inline__ void Matmul(
                                     0,                             // indexID
                                     k0_round / BLOCK_SIZE,         // repeat
                                     M0 / BLOCK_SIZE,               // srcStride
-                                    1,                             // dstGap 
+                                    1,                             // dstGap
                                     0,                             // dstFracStride
                                     inc                           // addrmode
                                 )
@@ -698,7 +696,7 @@ __aicore__ __inline__ void Matmul(
                                 0,                             // indexID
                                 k0_round / BLOCK_SIZE,         // repeat
                                 N0 / BLOCK_SIZE,               // srcStride
-                                2 * n_round / BLOCK_SIZE - 1,  // dstGap 
+                                2 * n_round / BLOCK_SIZE - 1,  // dstGap
                                 n_round / BLOCK_SIZE - 1,      // dstFracStride
                                 inc                           // addrmode
                             )
@@ -757,7 +755,7 @@ __aicore__ __inline__ void Matmul(
         AscendC::SetFlag<AscendC::HardEvent::M_FIX>(EVENT_ID0);
         AscendC::WaitFlag<AscendC::HardEvent::M_FIX>(EVENT_ID0);
 
-        // copy from L0C to gm 
+        // copy from L0C to gm
         // 修改代码，将矩阵乘结果的dst stride修改为K，之前是N。修改为K的原因是因为右矩阵是一个方阵，
         // 完整的DFT的结果就是BatchSize * K(这个K表示的是矩阵乘的K参数，这个K参数等于输入参数n。).
         auto intriParams = AscendC::FixpipeParamsV220(n_actual, // nSize
@@ -788,7 +786,7 @@ __aicore__ __inline__ void MatmulFirst(
     AscendC::GlobalTensor<float> b_gm_tensor,
     int32_t M, int32_t K, int32_t N,
     int32_t x_len, int32_t y_len)
-{   
+{
     AscendC::SetLoadDataPaddingValue<float>(0.0);
     AscendC::SetAtomicNone();
     uint64_t config = 0x1;
@@ -796,12 +794,6 @@ __aicore__ __inline__ void MatmulFirst(
 
     int32_t P_Matrix_size = x_len *  COMPLEX_DOUBLE  * x_len *  COMPLEX_DOUBLE  * sizeof(T_INPUT);
     int32_t Q_Matrix_size = y_len *  COMPLEX_DOUBLE  * y_len *  COMPLEX_DOUBLE  * sizeof(T_INPUT);
-
-    auto l1_base_a = reinterpret_cast<__cbuf__ T_INPUT *>((uintptr_t)0); //P矩阵地址
-    auto l1_base_b = reinterpret_cast<__cbuf__ T_INPUT *>((uintptr_t)(0 + P_Matrix_size + Q_Matrix_size));//第一轮Matmul 右矩阵地址
-    auto l0a_base = reinterpret_cast<__ca__ T_INPUT *>((uintptr_t)0);
-    auto l0b_base = reinterpret_cast<__cb__ T_INPUT *>((uintptr_t)0);
-    auto l0c_base = reinterpret_cast<__cc__ float *>((uintptr_t)0);
 
     AsdopsBuffer<ArchType::ASCEND_V220> buf;
     auto a_base_l1_tensor = buf.GetBuffer<BufferType::ASCEND_CB, float>((uintptr_t)0);
@@ -817,7 +809,7 @@ __aicore__ __inline__ void MatmulFirst(
     int32_t N0 = 128;
     int32_t K0 = 128;
 
-    if (x_len == 32) 
+    if (x_len == 32)
     {
          M0 = 64;
          K0 = 64;
@@ -838,7 +830,7 @@ __aicore__ __inline__ void MatmulFirst(
 
     AscendC::SetFlag<AscendC::HardEvent::FIX_M>(EVENT_ID0);
     AscendC::SetFlag<AscendC::HardEvent::FIX_M>(EVENT_ID1);
-    
+
     int32_t ping_flag_fix = 1;
 
     for (int32_t loop_idx = 0; loop_idx < loop; loop_idx++) {
@@ -904,10 +896,10 @@ __aicore__ __inline__ void MatmulFirst(
             }
 
             AscendC::SetFlag<AscendC::HardEvent::MTE2_MTE1>(event_id + 2);
-            
+
             if (loop_idx == (loop - 1) && k_idx == (k_loop - 1))  {
                  // 发信号启动下一轮虚实分离
-                uint64_t flag_id, config;
+                uint64_t flag_id;
                 flag_id = SYNC_SINGLE_CV_FLAG_ID;
                 AscendC::CrossCoreSetFlag<SYNC_SINGLE_CV_MODE_CODE, PIPE_FIX>(flag_id);
             }
@@ -950,7 +942,7 @@ __aicore__ __inline__ void MatmulFirst(
                                     0,                             // indexID
                                     k0_round / BLOCK_SIZE,         // repeat
                                     M0 / BLOCK_SIZE,               // srcStride
-                                    1,                             // dstGap 
+                                    1,                             // dstGap
                                     0,                             // dstFracStride
                                     inc                           // addrmode
                                 )
@@ -1010,7 +1002,7 @@ __aicore__ __inline__ void MatmulFirst(
                                 0,                             // indexID
                                 k0_round / BLOCK_SIZE,         // repeat
                                 N0 / BLOCK_SIZE,               // srcStride
-                                2 * n_round / BLOCK_SIZE - 1,  // dstGap 
+                                2 * n_round / BLOCK_SIZE - 1,  // dstGap
                                 n_round / BLOCK_SIZE - 1,      // dstFracStride
                                 inc                           // addrmode
                             )
@@ -1069,7 +1061,7 @@ __aicore__ __inline__ void MatmulFirst(
         AscendC::SetFlag<AscendC::HardEvent::M_FIX>(EVENT_ID0);
         AscendC::WaitFlag<AscendC::HardEvent::M_FIX>(EVENT_ID0);
 
-        // copy from L0C to gm 
+        // copy from L0C to gm
         // 修改代码，将矩阵乘结果的dst stride修改为K，之前是N。修改为K的原因是因为右矩阵是一个方阵，
         // 完整的DFT的结果就是BatchSize * K(这个K表示的是矩阵乘的K参数，这个K参数等于输入参数n。).
         auto intriParams = AscendC::FixpipeParamsV220(n_actual, // nSize
@@ -1101,7 +1093,7 @@ __aicore__ __inline__ void MatmulSecond(
     // __gm__ float * __restrict__ gm_b,
     int32_t M, int32_t K, int32_t N,
     int32_t x_len, int32_t y_len)
-{   
+{
     AscendC::SetLoadDataPaddingValue<float>(0.0);
     AscendC::SetAtomicNone();
     uint64_t config = 0x1;
@@ -1109,12 +1101,6 @@ __aicore__ __inline__ void MatmulSecond(
 
     int32_t P_Matrix_size = x_len * COMPLEX_DOUBLE * x_len * COMPLEX_DOUBLE * sizeof(T_INPUT);
     int32_t Q_Matrix_size = y_len * COMPLEX_DOUBLE * y_len * COMPLEX_DOUBLE * sizeof(T_INPUT);
-
-    auto l1_base_a = reinterpret_cast<__cbuf__ T_INPUT *>((uintptr_t)(0 + P_Matrix_size + Q_Matrix_size));
-    auto l1_base_b = reinterpret_cast<__cbuf__ T_INPUT *>((uintptr_t)(0 + P_Matrix_size));   
-    auto l0a_base = reinterpret_cast<__ca__ T_INPUT *>((uintptr_t)0);
-    auto l0b_base = reinterpret_cast<__cb__ T_INPUT *>((uintptr_t)0);
-    auto l0c_base = reinterpret_cast<__cc__ float *>((uintptr_t)0);
 
     AsdopsBuffer<ArchType::ASCEND_V220> buf;
     auto a_base_l1_tensor = buf.GetBuffer<BufferType::ASCEND_CB, float>((uintptr_t)(0 + P_Matrix_size + Q_Matrix_size));
@@ -1135,7 +1121,7 @@ __aicore__ __inline__ void MatmulSecond(
         M0 = 256;
         N0 = 64;
         K0 = 64;
-        
+
     }
 
     int32_t m_loop = (M + M0 - 1) / M0;
@@ -1152,7 +1138,7 @@ __aicore__ __inline__ void MatmulSecond(
 
     AscendC::SetFlag<AscendC::HardEvent::FIX_M>(EVENT_ID0);
     AscendC::SetFlag<AscendC::HardEvent::FIX_M>(EVENT_ID1);
-    
+
     int32_t ping_flag_fix = 1;
 
     for (int32_t loop_idx = 0; loop_idx < loop; loop_idx++) {
@@ -1203,7 +1189,6 @@ __aicore__ __inline__ void MatmulSecond(
             int64_t l1_pingpong_buffer_len_real = ((512 * 1024)-(P_Matrix_size + Q_Matrix_size)) / 2 / sizeof(T_INPUT);
             auto a_l1_tensor = ping_flag ? a_base_l1_tensor : a_base_l1_tensor[l1_pingpong_buffer_len_real];
             auto event_id = ping_flag ? EVENT_ID0 : EVENT_ID1;
-            
 
             // *** load matrix A to L1
             AscendC::WaitFlag<AscendC::HardEvent::MTE1_MTE2>(event_id);
@@ -1280,7 +1265,7 @@ __aicore__ __inline__ void MatmulSecond(
                                     0,                             // indexID
                                     k0_round / BLOCK_SIZE,         // repeat
                                     M0 / BLOCK_SIZE,               // srcStride
-                                    1,                             // dstGap 
+                                    1,                             // dstGap
                                     0,                             // dstFracStride
                                     inc                           // addrmode
                                 )
@@ -1340,7 +1325,7 @@ __aicore__ __inline__ void MatmulSecond(
                                 0,                             // indexID
                                 k0_round / BLOCK_SIZE,         // repeat
                                 N0 / BLOCK_SIZE,               // srcStride
-                                2 * n_round / BLOCK_SIZE - 1,  // dstGap 
+                                2 * n_round / BLOCK_SIZE - 1,  // dstGap
                                 n_round / BLOCK_SIZE - 1,      // dstFracStride
                                 inc                           // addrmode
                             )
@@ -1399,7 +1384,7 @@ __aicore__ __inline__ void MatmulSecond(
         AscendC::SetFlag<AscendC::HardEvent::M_FIX>(EVENT_ID0);
         AscendC::WaitFlag<AscendC::HardEvent::M_FIX>(EVENT_ID0);
 
-        // copy from L0C to gm 
+        // copy from L0C to gm
         // 修改代码，将矩阵乘结果的dst stride修改为K，之前是N。修改为K的原因是因为右矩阵是一个方阵，
         // 完整的DFT的结果就是BatchSize * K(这个K表示的是矩阵乘的K参数，这个K参数等于输入参数n。).
         auto intriParams = AscendC::FixpipeParamsV220(n_actual, // nSize
@@ -1429,7 +1414,7 @@ __aicore__ __inline__ void MatmulWithSpecialTransfer(
     AscendC::GlobalTensor<float> b_gm_tensor,
      int32_t M, int32_t K, int32_t N,
      int32_t x_len, int32_t y_len, int32_t current_batch_nums)
-{   
+{
     AscendC::SetLoadDataPaddingValue<float>(0.0);
     AscendC::SetAtomicNone();
     uint64_t config = 0x1;
@@ -1437,12 +1422,6 @@ __aicore__ __inline__ void MatmulWithSpecialTransfer(
 
     int32_t P_Matrix_size = x_len * COMPLEX_DOUBLE * x_len * COMPLEX_DOUBLE * sizeof(T_INPUT);
     int32_t Q_Matrix_size = y_len * COMPLEX_DOUBLE* y_len * COMPLEX_DOUBLE * sizeof(T_INPUT);
-
-    auto l1_base_a = reinterpret_cast<__cbuf__ T_INPUT *>((uintptr_t)0); 
-    auto l1_base_b = reinterpret_cast<__cbuf__ T_INPUT *>((uintptr_t)(0 + P_Matrix_size + Q_Matrix_size));  // 128 KB
-    auto l0a_base = reinterpret_cast<__ca__ T_INPUT *>((uintptr_t)0);
-    auto l0b_base = reinterpret_cast<__cb__ T_INPUT *>((uintptr_t)0);
-    auto l0c_base = reinterpret_cast<__cc__ float *>((uintptr_t)0);
 
     AsdopsBuffer<ArchType::ASCEND_V220> buf;
     auto a_base_l1_tensor = buf.GetBuffer<BufferType::ASCEND_CB, float>((uintptr_t)0);
@@ -1458,7 +1437,7 @@ __aicore__ __inline__ void MatmulWithSpecialTransfer(
     int32_t N0 = 128;
     int32_t K0 = 128;
 
-    if (x_len == 32) 
+    if (x_len == 32)
     {
          M0 = 64;
          K0 = 64;
@@ -1479,7 +1458,7 @@ __aicore__ __inline__ void MatmulWithSpecialTransfer(
 
     AscendC::SetFlag<AscendC::HardEvent::FIX_M>(EVENT_ID0);
     AscendC::SetFlag<AscendC::HardEvent::FIX_M>(EVENT_ID1);
-    
+
     int32_t ping_flag_fix = 1;
 
     for (int32_t loop_idx = 0; loop_idx < loop; loop_idx++) {
@@ -1548,7 +1527,7 @@ __aicore__ __inline__ void MatmulWithSpecialTransfer(
 
             if (loop_idx == (loop - 1) && k_idx == (k_loop - 1))  {
                  // 发信号启动下一轮虚实分离
-                uint64_t flag_id, config;
+                uint64_t flag_id;
                 flag_id = SYNC_SINGLE_CV_FLAG_ID;
                 AscendC::CrossCoreSetFlag<SYNC_SINGLE_CV_MODE_CODE, PIPE_FIX>(flag_id);
             }
@@ -1591,7 +1570,7 @@ __aicore__ __inline__ void MatmulWithSpecialTransfer(
                                     0,                             // indexID
                                     k0_round / BLOCK_SIZE,         // repeat
                                     M0 / BLOCK_SIZE,               // srcStride
-                                    1,                             // dstGap 
+                                    1,                             // dstGap
                                     0,                             // dstFracStride
                                     inc                           // addrmode
                                 )
@@ -1651,7 +1630,7 @@ __aicore__ __inline__ void MatmulWithSpecialTransfer(
                                 0,                             // indexID
                                 k0_round / BLOCK_SIZE,         // repeat
                                 N0 / BLOCK_SIZE,               // srcStride
-                                2 * n_round / BLOCK_SIZE - 1,  // dstGap 
+                                2 * n_round / BLOCK_SIZE - 1,  // dstGap
                                 n_round / BLOCK_SIZE - 1,      // dstFracStride
                                 inc                           // addrmode
                             )
@@ -1710,7 +1689,7 @@ __aicore__ __inline__ void MatmulWithSpecialTransfer(
         AscendC::SetFlag<AscendC::HardEvent::M_FIX>(EVENT_ID0);
         AscendC::WaitFlag<AscendC::HardEvent::M_FIX>(EVENT_ID0);
 
-        // copy from L0C to gm 
+        // copy from L0C to gm
         //实现特殊搬运，多batch搬运完可直接乘矩阵Q
         if (x_len == 128 && y_len == 32){
             int64_t offset_c_new = m_idx  * x_len * y_len;
@@ -1738,7 +1717,7 @@ __aicore__ __inline__ void MatmulWithSpecialTransfer(
                 AscendC::Fixpipe<float, float, AscendC::CFG_ROW_MAJOR>(c_gm_tensor[offset_c + i * x_len * 2 * y_len], l0c_tensor[i * x_len * 2 * y_len], intriParams);
             }
         }
-        
+
         AscendC::SetFlag<AscendC::HardEvent::FIX_M>(event_id_fix);
         ping_flag_fix = 1 - ping_flag_fix;
     }
@@ -1759,7 +1738,7 @@ extern "C" __global__ __aicore__ void dd(
     __gm__ float *__restrict__ gm_Q_matrix,
     __gm__ float *__restrict__ gm_output,
     __gm__ float *__restrict__ gm_workspace,
-    __gm__ uint8_t *__restrict__ tiling_para_gm) 
+    __gm__ uint8_t *__restrict__ tiling_para_gm)
 {
     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_MIX_AIC_1_2);
 #ifdef __DAV_C220_VEC__
@@ -1853,7 +1832,7 @@ extern "C" __global__ __aicore__ void dd(
 
                 // 发信号启动矩阵乘迭代
             flag_id = SYNC_SINGLE_VC_FLAG_ID;
-            AscendC::CrossCoreSetFlag<SYNC_SINGLE_CV_MODE_CODE, PIPE_MTE3>(flag_id); 
+            AscendC::CrossCoreSetFlag<SYNC_SINGLE_CV_MODE_CODE, PIPE_MTE3>(flag_id);
 
             flag_id = SYNC_SINGLE_CV_FLAG_ID;
             AscendC::CrossCoreWaitFlag(flag_id); // 等待上一轮计算结束
@@ -1909,7 +1888,7 @@ extern "C" __global__ __aicore__ void dd(
     const int32_t big_loop_count = CeilADivB(loop_count, l2_cache_loop_num);
     const int32_t big_loop_remain = loop_count % l2_cache_loop_num;
 
-    uint64_t flag_id, config;
+    uint64_t flag_id;
 
     __gm__ float *__restrict__ gm_input_current;
     __gm__ float *__restrict__ gm_workspace_current;
@@ -1947,9 +1926,8 @@ extern "C" __global__ __aicore__ void dd(
                 AscendC::CrossCoreWaitFlag(flag_id); // 等待虚实分离计算结束
 
                 active_SpRI_flag = 1;
-                Matmul(workspace_current_gm_tensor, P_matrix_gm_tensor, output_current_gm_tensor, dft_xlength * COMPLEX_DOUBLE, dft_xlength * COMPLEX_DOUBLE, dft_ylength, active_SpRI_flag); 
-            
-                
+                Matmul(workspace_current_gm_tensor, P_matrix_gm_tensor, output_current_gm_tensor, dft_xlength * COMPLEX_DOUBLE, dft_xlength * COMPLEX_DOUBLE, dft_ylength, active_SpRI_flag);
+
             } else {
                 LoadPMatrix(P_matrix_gm_tensor, dft_xlength, dft_ylength);
                 LoadQMatrix(Q_matrix_gm_tensor, dft_xlength, dft_ylength);
@@ -1960,7 +1938,7 @@ extern "C" __global__ __aicore__ void dd(
                 if (current_batch_nums == 1) {
                     MatmulFirst(workspace_current_gm_tensor, output_current_gm_tensor, dft_xlength * COMPLEX_DOUBLE, dft_xlength * COMPLEX_DOUBLE, dft_ylength, dft_xlength, dft_ylength);
                 } else {
-                    MatmulWithSpecialTransfer(workspace_current_gm_tensor, output_current_gm_tensor, 
+                    MatmulWithSpecialTransfer(workspace_current_gm_tensor, output_current_gm_tensor,
                     dft_xlength * COMPLEX_DOUBLE, dft_xlength * COMPLEX_DOUBLE, dft_ylength * current_batch_nums, dft_xlength, dft_ylength, current_batch_nums);
                 }
             }
@@ -1987,10 +1965,10 @@ extern "C" __global__ __aicore__ void dd(
                 active_SpRI_flag = 0;
                 Matmul(output_current_gm_tensor, workspace_current_gm_tensor, Q_matrix_gm_tensor, dft_xlength * current_batch_nums, dft_ylength * COMPLEX_DOUBLE, dft_ylength * COMPLEX_DOUBLE, active_SpRI_flag);
             }else {
-                MatmulSecond(output_current_gm_tensor, workspace_current_gm_tensor, 
+                MatmulSecond(output_current_gm_tensor, workspace_current_gm_tensor,
             dft_xlength * current_batch_nums, dft_ylength * COMPLEX_DOUBLE, dft_ylength * COMPLEX_DOUBLE, dft_xlength, dft_ylength);
             }
-            
+
         }
     }else {
          //先执行后几轮大循环
@@ -2020,9 +1998,8 @@ extern "C" __global__ __aicore__ void dd(
                 AscendC::CrossCoreWaitFlag(flag_id); // 等待虚实分离计算结束
 
                 active_SpRI_flag = 1;
-                Matmul(workspace_current_gm_tensor, P_matrix_gm_tensor, output_current_gm_tensor, dft_xlength * COMPLEX_DOUBLE, dft_xlength * COMPLEX_DOUBLE, dft_ylength, active_SpRI_flag); 
-            
-                
+                Matmul(workspace_current_gm_tensor, P_matrix_gm_tensor, output_current_gm_tensor, dft_xlength * COMPLEX_DOUBLE, dft_xlength * COMPLEX_DOUBLE, dft_ylength, active_SpRI_flag);
+
             } else {
                 LoadPMatrix(P_matrix_gm_tensor, dft_xlength, dft_ylength);
                 LoadQMatrix(Q_matrix_gm_tensor, dft_xlength, dft_ylength);
@@ -2033,7 +2010,7 @@ extern "C" __global__ __aicore__ void dd(
                 if (current_batch_nums == 1) {
                     MatmulFirst(workspace_current_gm_tensor, output_current_gm_tensor, dft_xlength * COMPLEX_DOUBLE, dft_xlength * COMPLEX_DOUBLE, dft_ylength, dft_xlength, dft_ylength);
                 } else {
-                    MatmulWithSpecialTransfer(workspace_current_gm_tensor, output_current_gm_tensor, 
+                    MatmulWithSpecialTransfer(workspace_current_gm_tensor, output_current_gm_tensor,
                     dft_xlength * COMPLEX_DOUBLE, dft_xlength * COMPLEX_DOUBLE, dft_ylength * current_batch_nums, dft_xlength, dft_ylength, current_batch_nums);
                 }
             }
@@ -2059,12 +2036,12 @@ extern "C" __global__ __aicore__ void dd(
                 active_SpRI_flag = 0;
                 Matmul(output_current_gm_tensor, workspace_current_gm_tensor, Q_matrix_gm_tensor, dft_xlength * current_batch_nums, dft_ylength * COMPLEX_DOUBLE, dft_ylength * COMPLEX_DOUBLE, active_SpRI_flag);
             }else {
-                MatmulSecond(output_current_gm_tensor, workspace_current_gm_tensor, 
+                MatmulSecond(output_current_gm_tensor, workspace_current_gm_tensor,
             dft_xlength * current_batch_nums, dft_ylength * COMPLEX_DOUBLE, dft_ylength * COMPLEX_DOUBLE, dft_xlength, dft_ylength);
             }
-            
+
         }
-        } 
+        }
         //再执行第一轮大循环
          for (int32_t loop_idx = 0; loop_idx < l2_cache_loop_num; loop_idx  ++){
             if (loop_idx % AscendC::GetBlockNum() != AscendC::GetBlockIdx()) {
@@ -2085,9 +2062,8 @@ extern "C" __global__ __aicore__ void dd(
                 AscendC::CrossCoreWaitFlag(flag_id); // 等待虚实分离计算结束
 
                 active_SpRI_flag = 1;
-                Matmul(workspace_current_gm_tensor, P_matrix_gm_tensor, output_current_gm_tensor, dft_xlength * COMPLEX_DOUBLE, dft_xlength * COMPLEX_DOUBLE, dft_ylength, active_SpRI_flag); 
-            
-                
+                Matmul(workspace_current_gm_tensor, P_matrix_gm_tensor, output_current_gm_tensor, dft_xlength * COMPLEX_DOUBLE, dft_xlength * COMPLEX_DOUBLE, dft_ylength, active_SpRI_flag);
+
             } else {
                 LoadPMatrix(P_matrix_gm_tensor, dft_xlength, dft_ylength);
                 LoadQMatrix(Q_matrix_gm_tensor, dft_xlength, dft_ylength);
@@ -2098,7 +2074,7 @@ extern "C" __global__ __aicore__ void dd(
                 if (current_batch_nums == 1) {
                     MatmulFirst(workspace_current_gm_tensor, output_current_gm_tensor, dft_xlength * COMPLEX_DOUBLE, dft_xlength * COMPLEX_DOUBLE, dft_ylength, dft_xlength, dft_ylength);
                 } else {
-                    MatmulWithSpecialTransfer(workspace_current_gm_tensor, output_current_gm_tensor, 
+                    MatmulWithSpecialTransfer(workspace_current_gm_tensor, output_current_gm_tensor,
                     dft_xlength * COMPLEX_DOUBLE, dft_xlength * COMPLEX_DOUBLE, dft_ylength * current_batch_nums, dft_xlength, dft_ylength, current_batch_nums);
                 }
             }
@@ -2125,13 +2101,13 @@ extern "C" __global__ __aicore__ void dd(
                 active_SpRI_flag = 0;
                 Matmul(output_current_gm_tensor, workspace_current_gm_tensor, Q_matrix_gm_tensor, dft_xlength * current_batch_nums, dft_ylength * COMPLEX_DOUBLE, dft_ylength * COMPLEX_DOUBLE, active_SpRI_flag);
             }else {
-                MatmulSecond(output_current_gm_tensor, workspace_current_gm_tensor, 
+                MatmulSecond(output_current_gm_tensor, workspace_current_gm_tensor,
             dft_xlength * current_batch_nums, dft_ylength * COMPLEX_DOUBLE, dft_ylength * COMPLEX_DOUBLE, dft_xlength, dft_ylength);
             }
-            
-        }  
+
+        }
     }
-    
+
 }
 #endif
 }
