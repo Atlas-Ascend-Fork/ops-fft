@@ -85,7 +85,7 @@ toolkit 安装包文件名格式如下：
 
 ```bash
 # 标准安装（需要 root 权限）
-sudo ./cann-950-ops-fft_9.0.0_linux-*.run --full
+sudo ./build_out/cann-950-ops-fft_9.0.0_linux-*.run --full
 
 # 查看安装包信息
 ./cann-950-ops-fft_9.0.0_linux-*.run --help
