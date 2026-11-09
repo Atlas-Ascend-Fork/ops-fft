@@ -17,7 +17,6 @@
 
 #include "fft_r2c_c2r_common.h"
 
-
 __aicore__ __inline__ void common_fft_r2c_mix_cube_by_batch(
     __gm__ uint8_t * __restrict__ ffts_addr,
     __gm__ float * __restrict__ gm_input,
@@ -57,7 +56,6 @@ __aicore__ __inline__ void common_fft_r2c_mix_cube_by_batch(
     workspace_output_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(reinterpret_cast<__gm__ uint8_t *>(gm_workspace) + tiling_data.workspaceOffsets[1]));
     workspace_sync_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(reinterpret_cast<__gm__ uint8_t *>(gm_workspace) + tiling_data.workspaceOffsets[2]));
     auxil_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(reinterpret_cast<__gm__ uint8_t *>(gm_workspace) + tiling_data.workspaceOffsets[4]));
-
 
     int64_t n_fft_actual = odd == 1 ? tiling_data.fftN : tiling_data.fftN * 2;
     // 让每次处理的数据小于 2 ^ 21 次方
@@ -109,98 +107,6 @@ __aicore__ __inline__ void common_fft_r2c_mix_cube_by_batch(
 
 }
 
-
-template<int32_t aiv_split_way>
-__aicore__ __inline__ void common_fft_r2c_mix_vector(
-    __gm__ uint8_t * __restrict__ ffts_addr,
-    __gm__ float * __restrict__ gm_input,
-    __gm__ uint32_t * __restrict__ gm_input_index,
-    __gm__ float * __restrict__ gm_a,
-    __gm__ float * __restrict__ gm_b,
-    __gm__ uint32_t * __restrict__ gm_output_index,
-    __gm__ float * __restrict__ gm_dft_matrix_array,
-    __gm__ float * __restrict__ gm_tw_matrix_array,
-    __gm__ int32_t * __restrict__ gm_radix_list,
-    __gm__ float * __restrict__ gm_output,
-    __gm__ float * __restrict__ gm_workspace,
-    __gm__ uint8_t * __restrict__ gm_tiling_para,
-    int32_t odd
-)
-{
-    Init4Vector(ffts_addr);
-
-    OpsFft::FftAllMixTilingData tiling_data;
-    InitTilingData(gm_tiling_para, &tiling_data);
-
-    AscendC::GlobalTensor<float> input_gm_tensor;
-    AscendC::GlobalTensor<float> dft_matrix_array_gm_tensor;
-    AscendC::GlobalTensor<float> tw_matrix_array_gm_tensor;
-    AscendC::GlobalTensor<int32_t> radix_list_gm_tensor;
-    AscendC::GlobalTensor<float> output_gm_tensor;
-    AscendC::GlobalTensor<uint32_t> input_index_gm_tensor;
-    AscendC::GlobalTensor<uint32_t> output_index_gm_tensor;
-    AscendC::GlobalTensor<float> a_gm_tensor;
-    AscendC::GlobalTensor<float> b_gm_tensor;
-
-    input_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_input));
-    dft_matrix_array_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_dft_matrix_array));
-    tw_matrix_array_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_tw_matrix_array));
-    radix_list_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(gm_radix_list));
-    output_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_output));
-    input_index_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t *>(gm_input_index));
-    output_index_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t *>(gm_output_index));
-    a_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_a));
-    b_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_b));
-
-
-    AscendC::GlobalTensor<float> workspace_input_gm_tensor;
-    AscendC::GlobalTensor<float> workspace_output_gm_tensor;
-    AscendC::GlobalTensor<float> workspace_sync_gm_tensor;
-    AscendC::GlobalTensor<float> c2c_output_gm_tensor;
-    AscendC::GlobalTensor<float> auxil_gm_tensor;
-
-    workspace_input_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(reinterpret_cast<__gm__ uint8_t *>(gm_workspace) + tiling_data.workspaceOffsets[0]));
-    workspace_output_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(reinterpret_cast<__gm__ uint8_t *>(gm_workspace) + tiling_data.workspaceOffsets[1]));
-    workspace_sync_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(reinterpret_cast<__gm__ uint8_t *>(gm_workspace) + tiling_data.workspaceOffsets[2]));
-    c2c_output_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(reinterpret_cast<__gm__ uint8_t *>(gm_workspace) + tiling_data.workspaceOffsets[3]));
-    auxil_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(reinterpret_cast<__gm__ uint8_t *>(gm_workspace) + tiling_data.workspaceOffsets[4]));
-
-    stock_fft_mix_aiv<false, aiv_split_way>(
-        input_gm_tensor.GetPhyAddr(0),
-        dft_matrix_array_gm_tensor.GetPhyAddr(0),
-        tw_matrix_array_gm_tensor.GetPhyAddr(0),
-        workspace_input_gm_tensor.GetPhyAddr(0),
-        workspace_output_gm_tensor.GetPhyAddr(0),
-        workspace_sync_gm_tensor.GetPhyAddr(0),
-        radix_list_gm_tensor.GetPhyAddr(0),
-        c2c_output_gm_tensor.GetPhyAddr(0),
-        auxil_gm_tensor.GetPhyAddr(0),
-        tiling_data.batchSize,
-        tiling_data.fftN,
-        tiling_data.radixListLen,
-        tiling_data.isInverse,
-        0,
-        odd
-    );
-        
-    AscendC::CrossCoreSetFlag<0, PIPE_MTE3>(1);
-    AscendC::CrossCoreWaitFlag(1);
-
-    if (odd == 1) {
-        AscendC::PipeBarrier<PIPE_ALL>();
-        R2C_odd(c2c_output_gm_tensor.GetPhyAddr(0), input_index_gm_tensor.GetPhyAddr(0), a_gm_tensor.GetPhyAddr(0), b_gm_tensor.GetPhyAddr(0), output_index_gm_tensor.GetPhyAddr(0), output_gm_tensor.GetPhyAddr(0), tiling_data.fftN, tiling_data.batchSize, 0, tiling_data.batchSize);
-    } else {
-        AscendC::PipeBarrier<PIPE_ALL>();
-        R2C(c2c_output_gm_tensor.GetPhyAddr(0), input_index_gm_tensor.GetPhyAddr(0), a_gm_tensor.GetPhyAddr(0), b_gm_tensor.GetPhyAddr(0), output_index_gm_tensor.GetPhyAddr(0), output_gm_tensor.GetPhyAddr(0), tiling_data.fftN * 2, tiling_data.batchSize, 0, tiling_data.batchSize);
-
-        AscendC::CrossCoreSetFlag<0, PIPE_MTE3>(1);
-        AscendC::CrossCoreWaitFlag(1);
-
-        AscendC::PipeBarrier<PIPE_ALL>();
-        R2C_tail_calc(c2c_output_gm_tensor.GetPhyAddr(0), output_gm_tensor.GetPhyAddr(0), tiling_data.batchSize, tiling_data.fftN);
-    }
-}
-
 template<int32_t aiv_split_way>
 __aicore__ __inline__ void common_fft_r2c_mix_vector_by_batch(
     __gm__ uint8_t * __restrict__ ffts_addr,
@@ -242,7 +148,6 @@ __aicore__ __inline__ void common_fft_r2c_mix_vector_by_batch(
     output_index_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t *>(gm_output_index));
     a_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_a));
     b_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_b));
-
 
     AscendC::GlobalTensor<float> workspace_input_gm_tensor;
     AscendC::GlobalTensor<float> workspace_output_gm_tensor;
@@ -303,23 +208,15 @@ __aicore__ __inline__ void common_fft_r2c_mix_vector_by_batch(
             0,
             odd
         );
-            
+
         AscendC::CrossCoreSetFlag<0, PIPE_MTE3>(1);
         AscendC::CrossCoreWaitFlag(1);
 
-        if (odd == 1) {
-            AscendC::PipeBarrier<PIPE_ALL>();
-            R2C_odd(c2c_output_gm_tensor.GetPhyAddr(0), input_index_gm_tensor.GetPhyAddr(0), a_gm_tensor.GetPhyAddr(0), b_gm_tensor.GetPhyAddr(0), output_index_gm_tensor.GetPhyAddr(0), now_output_gm_tensor.GetPhyAddr(0), tiling_data.fftN, batch_actual, 0, batch_actual);
-        } else {
-            AscendC::PipeBarrier<PIPE_ALL>();
-            R2C(c2c_output_gm_tensor.GetPhyAddr(0), input_index_gm_tensor.GetPhyAddr(0), a_gm_tensor.GetPhyAddr(0), b_gm_tensor.GetPhyAddr(0), output_index_gm_tensor.GetPhyAddr(0), now_output_gm_tensor.GetPhyAddr(0), tiling_data.fftN * 2, batch_actual, 0, batch_actual);
-
-            AscendC::CrossCoreSetFlag<0, PIPE_MTE3>(1);
-            AscendC::CrossCoreWaitFlag(1);
-
-            AscendC::PipeBarrier<PIPE_ALL>();
-            R2C_tail_calc(c2c_output_gm_tensor.GetPhyAddr(0), now_output_gm_tensor.GetPhyAddr(0), batch_actual, tiling_data.fftN);
-        }
+        // by-batch 奇数档模板仅被 _odd 变体实例化且三处调用均显式传 odd=1，
+        // 原 if/else 的 else 调 R2C（基础档实现）不可达（issue #323）：收敛为
+        // 仅保留 live 调用，消除死/活双实现诱导修复错配
+        AscendC::PipeBarrier<PIPE_ALL>();
+        R2C_odd(c2c_output_gm_tensor.GetPhyAddr(0), input_index_gm_tensor.GetPhyAddr(0), a_gm_tensor.GetPhyAddr(0), b_gm_tensor.GetPhyAddr(0), output_index_gm_tensor.GetPhyAddr(0), now_output_gm_tensor.GetPhyAddr(0), tiling_data.fftN, batch_actual, 0, batch_actual);
 
         AscendC::CrossCoreSetFlag<0, PIPE_MTE3>(1);
         AscendC::CrossCoreWaitFlag(1);
@@ -368,7 +265,6 @@ __aicore__ __inline__ void common_fft_r2c_mix_even_vector_by_batch(
     output_index_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t *>(gm_output_index));
     a_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_a));
     b_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_b));
-
 
     AscendC::GlobalTensor<float> workspace_input_gm_tensor;
     AscendC::GlobalTensor<float> workspace_output_gm_tensor;
@@ -428,7 +324,7 @@ __aicore__ __inline__ void common_fft_r2c_mix_even_vector_by_batch(
             tiling_data.isInverse,
             max_floats
         );
-            
+
         AscendC::CrossCoreSetFlag<0, PIPE_MTE3>(1);
         AscendC::CrossCoreWaitFlag(1);
 

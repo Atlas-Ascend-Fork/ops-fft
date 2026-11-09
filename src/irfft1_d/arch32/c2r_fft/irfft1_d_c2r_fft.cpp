@@ -38,7 +38,6 @@ static void GenInputIndex(int64_t fftN, int parity, std::vector<uint32_t>& input
             }
         } else {
             uint32_t idx_size = (uint32_t)(fftN / 2) * 2;
-            uint32_t idx_padding = (idx_size + 63) / 64 * 64;
             for (uint32_t i = 0; i < idx_size / 2; i++) {
                 inputIndex[i * 2] = (uint32_t)((idx_size + 2 - i * 2 - 2) * sizeof(float));
                 inputIndex[i * 2 + 1] = (uint32_t)((idx_size + 2 - i * 2 - 1) * sizeof(float));
