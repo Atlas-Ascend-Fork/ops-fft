@@ -141,9 +141,12 @@ struct gm_to_l1<ArchTag, DataType, DataFormat::ND, DataFormat::ZN> {
                                                    1,           // dstNzNStride
                                                    0));         // dstNzMatrixStride, unused
         } else {
+            // 循环体地址随 i 推进（issue #308）：原 l1Tensor/gmTensor 无 i 偏移，
+            // nTileActual 次循环每次从同一地址拷贝同一块数据，其余行永远读不到；
+            // 对齐同文件 ND→NZ 特化（i * BLOCK_SIZE / i * dVal）的写法
             for (uint32_t i = 0; i < nTileActual; ++i) {
-                AscendC::DataCopy(l1Tensor,
-                                  gmTensor,
+                AscendC::DataCopy(l1Tensor[i * BLOCK_SIZE],
+                                  gmTensor[i * dVal],
                                   AscendC::Nd2NzParams(1,           // ndNum
                                                        1,           // nValue
                                                        dTileActual, // dValue
