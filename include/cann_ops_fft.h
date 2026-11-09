@@ -261,20 +261,25 @@ ACLFFT_API aclfftResult
 
 /*! @brief Return size of the work area size required for a 1D plan.
  *
+ *  @note 本接口当前为占位实现（issue #306）：恒返回 ACLFFT_NOT_IMPLEMENTED，
+ *  请勿依赖（与 API 文档“当前版本暂未实现，调用前请勿依赖”口径一致）。
+ *
  *  @param[in] plan Pointer to the FFT plan.
  *  @param[in] nx Number of elements in the x-direction.
  *  @param[in] type FFT type.
- *  @param[in] batch Deprecated: batch 参数由 plan 携带，本入参值被忽略（与声明行
- *  内注释同口径，issue #266）。
+ *  @param[in] batch 未实现的占位形参（接口恒返回 NOT_IMPLEMENTED，无参数语义）。
  *  @param[out] workSize Pointer to work area size (returned value).
  */
 ACLFFT_API aclfftResult aclfftGetSize1d(aclfftHandle plan,
                                         int          nx,
                                         aclfftType   type,
-                                        int          batch, /* deprecated: batch 参数由 plan 携带，见 aclfftPlan1d 文档 */
+                                        int          batch,
                                         size_t*      workSize);
 
 /*! @brief Return size of the work area size required for a 2D plan.
+ *
+ *  @note 本接口当前为占位实现（issue #306）：恒返回 ACLFFT_NOT_IMPLEMENTED，
+ *  请勿依赖（与 API 文档“当前版本暂未实现，调用前请勿依赖”口径一致）。
  *
  *  @param[in] plan Pointer to the FFT plan.
  *  @param[in] nx Number of elements in the x-direction.
@@ -286,6 +291,9 @@ ACLFFT_API aclfftResult
     aclfftGetSize2d(aclfftHandle plan, int nx, int ny, aclfftType type, size_t* workSize);
 
 /*! @brief Return size of the work area size required for a 3D plan.
+ *
+ *  @note 本接口当前为占位实现（issue #306）：恒返回 ACLFFT_NOT_IMPLEMENTED，
+ *  请勿依赖（与 API 文档“当前版本暂未实现，调用前请勿依赖”口径一致）。
  *
  *  @param[in] plan Pointer to the FFT plan.
  *  @param[in] nx Number of elements in the x-direction.
@@ -299,6 +307,9 @@ ACLFFT_API aclfftResult
 
 /*! @brief Return size of the work area size required for a rank-dimensional plan.
  *
+ *  @note 本接口当前为占位实现（issue #306）：恒返回 ACLFFT_NOT_IMPLEMENTED，
+ *  请勿依赖（与 API 文档“当前版本暂未实现，调用前请勿依赖”口径一致）。
+ *
  *  @param[in] plan Pointer to the FFT plan.
  *  @param[out] workSize Pointer to work area size (returned value).
  */
@@ -306,12 +317,18 @@ ACLFFT_API aclfftResult aclfftGetSize(aclfftHandle plan, size_t* workSize);
 
 /*! @brief Set the plan's auto-allocation flag.  The plan will allocate its own workarea.
  *
+ *  @note 本接口当前为占位实现（issue #306）：恒返回 ACLFFT_NOT_IMPLEMENTED，
+ *  请勿依赖（与 API 文档“当前版本暂未实现，调用前请勿依赖”口径一致）。
+ *
  *  @param[in] plan Pointer to the FFT plan.
  *  @param[in] autoAllocate 0 to disable auto-allocation, non-zero to enable.
  */
 ACLFFT_API aclfftResult aclfftSetAutoAllocation(aclfftHandle plan, int autoAllocate);
 
 /*! @brief Set the plan's work area.
+ *
+ *  @note 本接口当前为占位实现（issue #306）：恒返回 ACLFFT_NOT_IMPLEMENTED，
+ *  请勿依赖（与 API 文档“当前版本暂未实现，调用前请勿依赖”口径一致）。
  *
  *  @param[in] plan Pointer to the FFT plan.
  *  @param[in] workArea Pointer to the work area.
@@ -410,6 +427,15 @@ ACLFFT_API aclfftResult aclfftExecZ2D(aclfftHandle            plan,
  *  @param[in] stream The ACL stream.
  */
 ACLFFT_API aclfftResult aclfftSetStream(aclfftHandle plan, aclrtStream stream);
+
+/*! @brief Set the plan's stride.
+ *
+ *  @note 本接口当前为占位实现（issue #306）：恒返回 ACLFFT_NOT_IMPLEMENTED，
+ *  请勿依赖（与 API 文档“当前版本暂未实现，调用前请勿依赖”口径一致）。
+ *
+ *  @param[in] plan Pointer to the FFT plan.
+ *  @param[in] stride Stride between rows.
+ */
 ACLFFT_API aclfftResult aclfftSetStride(aclfftHandle plan, int32_t stride);
 
 /*! @brief Destroy and deallocate an existing plan.
@@ -420,11 +446,17 @@ ACLFFT_API aclfftResult aclfftDestroy(aclfftHandle plan);
 
 /*! @brief Get CANN FFT version.
  *
+ *  @note 本接口当前为占位实现（issue #306）：恒返回 ACLFFT_NOT_IMPLEMENTED，
+ *  请勿依赖（与 API 文档“当前版本暂未实现，调用前请勿依赖”口径一致）。
+ *
  *  @param[out] version CANN FFT version (returned value).
  */
 ACLFFT_API aclfftResult aclfftGetVersion(int* version);
 
 /*! @brief Get library property.
+ *
+ *  @note 本接口当前为占位实现（issue #306）：恒返回 ACLFFT_NOT_IMPLEMENTED，
+ *  请勿依赖（与 API 文档“当前版本暂未实现，调用前请勿依赖”口径一致）。
  *
  *  @param[in] type Property type.
  *  @param[out] value Returned value.
