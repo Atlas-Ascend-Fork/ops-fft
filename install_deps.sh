@@ -47,6 +47,24 @@ version_lt() {
     ! version_ge "$1" "$2"
 }
 
+# GCC/g++ 版本解析（issue #312）：原 `--version | awk '/^gcc/ {print $4}'` 依赖
+# 品牌串字段位——Ubuntu 格式“gcc (品牌) 11.4.0 ...”第 4 段为版本，RHEL 格式
+# “gcc (GCC) 8.3.1 20190507 ...”第 4 段为日期、无日期后缀时为空串，取错值后
+# version_ge 误判触发安装分支。改为对首行提取首个 x.y.z 版本串，无 x.y.z 时
+# 回退 -dumpfullversion（GCC 7+ 恒输出完整版本），仍无则回 0.0.0 走安装分支
+parse_gcc_version() {
+    local compiler="$1"
+    local ver
+    ver=$("$compiler" --version 2>/dev/null | head -n 1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
+    if [ -z "$ver" ]; then
+        ver=$("$compiler" -dumpfullversion 2>/dev/null | head -n 1)
+    fi
+    if [ -z "$ver" ]; then
+        ver="0.0.0"
+    fi
+    echo "$ver"
+}
+
 detect_os() {
     # OS detection, supports debian (uses apt), rhel (uses dnf or yum), macos
     if [[ "$(uname -s)" == "Linux" ]]; then
@@ -154,7 +172,9 @@ install_python() {
         if version_ge "$curr_ver" "$req_ver" && version_lt "$curr_ver" "$max_ver"; then
             echo "Python installed successfully ($curr_ver)"
         else
-            echo "Python version $curr_ver does not meet requirements (required: >= 3.7.0, < 3.10), please install manually"
+            # 报错文案与 max_ver 统一（issue #311）：实际校验上限已按 #244 提升至
+            # < 3.14，文案停留 "< 3.10" 会误导 3.10~3.13 用户降级到 3.9
+            echo "Python version $curr_ver does not meet requirements (required: >= 3.7.0, < 3.14), please install manually"
             exit 1
         fi
     else
@@ -170,9 +190,9 @@ install_gcc() {
     local curr_ver=""
 
     if command -v gcc &> /dev/null; then
-        curr_ver=$(gcc --version | awk '/^gcc/ {print $4}')
+        curr_ver=$(parse_gcc_version gcc)
     elif command -v g++ &> /dev/null; then
-        curr_ver=$(g++ --version | awk '/^g\+\+/ {print $4}')
+        curr_ver=$(parse_gcc_version g++)
     else
         curr_ver="0.0.0"
     fi
@@ -212,7 +232,7 @@ install_gcc() {
     esac
 
     if command -v gcc &> /dev/null; then
-        curr_ver=$(gcc --version | awk '/^gcc/ {print $4}')
+        curr_ver=$(parse_gcc_version gcc)
         if version_ge "$curr_ver" "$req_ver"; then
             echo "GCC installed successfully ($curr_ver)"
         else
