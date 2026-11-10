@@ -497,8 +497,17 @@ run_tests() {
     fi
 
     export OPS_FFT_TEST_DATA_ROOT="$SCRIPT_DIR/src"
-    timeout -k 1s ${TEST_TIMEOUT}s ./tests/all_ops_test 2>&1
-    test_result=$?
+    test_result=0
+    if ! command -v timeout > /dev/null 2>&1; then
+        # timeout 为 GNU coreutils 专属（issue #332）：macOS 默认无该命令，
+        # 原样执行报 127 会被误读为"NPU test failed"而非缺少依赖，给出明确
+        # 提示并按既有失败聚合口径记录
+        log_error "command 'timeout' (GNU coreutils) not found; install coreutils (e.g. 'brew install coreutils') to run tests"
+        test_result=127
+    else
+        timeout -k 1s ${TEST_TIMEOUT}s ./tests/all_ops_test 2>&1
+        test_result=$?
+    fi
     set -e
 
     cd "$SCRIPT_DIR"
@@ -749,7 +758,13 @@ main() {
 
     # 验证算子（parse_operators 统一承担逗号拆分与 "all" 直通，issue #231：
     # 原内联拆分与死函数 parse_operators 同构两处维护，收敛为函数单点实现）
-    mapfile -t OPS < <(parse_operators "$BUILD_OPERATORS")
+    # 兼容 bash 3.2（issue #332）：mapfile 是 bash 4.0+ 内建，macOS 自带
+    # /bin/bash 3.2 下报 command not found（127）直接中断构建；改用 while
+    # read 循环填充数组（parse_operators 输出无尾随空行，POSIX 兼容写法）
+    OPS=()
+    while IFS= read -r op_line; do
+        OPS+=("$op_line")
+    done < <(parse_operators "$BUILD_OPERATORS")
     if [ "$BUILD_OPERATORS" != "all" ]; then
         validate_operators "${OPS[*]}"
     fi
