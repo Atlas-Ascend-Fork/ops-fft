@@ -162,8 +162,14 @@ install_python() {
             ;;
         macos)
             run_command brew install python@3.9
-            echo 'export PATH="/usr/local/opt/python@3.9/bin:$PATH"' >> ~/.zshrc
-            run_command source ~/.zshrc
+            # 幂等追加（issue #331）：重复运行不再向 ~/.zshrc 叠加重复行；
+            # 不在安装器进程内 source 用户 rc——bash 下执行 ~/.zshrc 的 zsh
+            # 语法（compdef/setopt/oh-my-zsh 等）退出码常非零，set -e 会误判
+            # 安装失败中断流程，改为提示用户重开终端生效
+            if ! grep -qF 'export PATH="/usr/local/opt/python@3.9/bin:$PATH"' ~/.zshrc 2>/dev/null; then
+                echo 'export PATH="/usr/local/opt/python@3.9/bin:$PATH"' >> ~/.zshrc
+            fi
+            echo "python@3.9 installed; open a new terminal (or run 'source ~/.zshrc') to take effect"
             ;;
     esac
 
@@ -225,9 +231,14 @@ install_gcc() {
                 xcode-select --install
             fi
             run_command brew install gcc@11
-            echo 'export CC=/usr/local/bin/gcc-11' >> ~/.zshrc
-            echo 'export CXX=/usr/local/bin/g++-11' >> ~/.zshrc
-            run_command source ~/.zshrc
+            # 幂等追加（issue #331）：同 python 分支，不 source 用户 rc、不重复追加
+            if ! grep -qF 'export CC=/usr/local/bin/gcc-11' ~/.zshrc 2>/dev/null; then
+                echo 'export CC=/usr/local/bin/gcc-11' >> ~/.zshrc
+            fi
+            if ! grep -qF 'export CXX=/usr/local/bin/g++-11' ~/.zshrc 2>/dev/null; then
+                echo 'export CXX=/usr/local/bin/g++-11' >> ~/.zshrc
+            fi
+            echo "gcc@11 installed; open a new terminal (or run 'source ~/.zshrc') to take effect"
             ;;
     esac
 
