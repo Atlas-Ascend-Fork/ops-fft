@@ -8,6 +8,9 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+// 直连覆盖分支按 arch 门控（issue #330）：本 TU 定义该宏后，共享头中的
+// aclfftRfft1DR2CFft32 直连分支仅在此编译单元编入（arch35 侧不引用该符号）
+#define OPS_FFT_TEST_ARCH32_DIRECT_ENTRY
 #include "rfft1_d_test.h"
 #include "rfft1_d/rfft1_d.h"
 
