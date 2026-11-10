@@ -308,8 +308,10 @@ parse_operators() {
 # （macOS）不支持且报错曾被 2>/dev/null 吞掉，导致 --ops 校验在 macOS 上以
 # "Invalid operators" 误导性失败；glob 展开不依赖 find 实现，失败可见
 get_available_operators() {
+    # 仅算子目录（issue #334）：以 CMakeLists.txt 存在为准，src/common 等公共
+    # 目录不再列为可选算子（否则 --ops=common 通过校验却注册 0 个算子）
     for d in "$SCRIPT_DIR"/src/*/; do
-        [ -d "$d" ] && basename "$d"
+        [ -f "$d/CMakeLists.txt" ] && basename "$d"
     done | sort
 }
 

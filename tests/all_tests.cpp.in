@@ -83,6 +83,14 @@ int main() {
     // 打印失败用例列表
     TEST_PRINT_FAILED_CASES();
 
+    // 零用例守卫（issue #334）：算子选择错误（如 --ops=common 这类公共目录）
+    // 时注册 0 个测试，failed==0 会假报 SUCCESS——空跑视为失败并以非零退出
+    if (OpsFftTest::g_global_stats.total == 0) {
+        std::cerr << "[ERROR] no test cases registered; the operator selection (--ops) matched no registered operator" << std::endl;
+        OpsFftTest::ACLManager::finalize(stream);
+        return 2;
+    }
+
     // 清理残留 bin 文件
     const char* data_root = std::getenv("OPS_FFT_TEST_DATA_ROOT");
     if (data_root && std::strlen(data_root) > 0) {

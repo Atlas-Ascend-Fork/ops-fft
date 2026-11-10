@@ -70,7 +70,11 @@ macro(_discover_operators)
     # 扫描 src 目录
     file(GLOB OPS RELATIVE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/*)
     foreach(OP ${OPS})
-        if(IS_DIRECTORY ${CMAKE_SOURCE_DIR}/src/${OP})
+        # 仅收录含 CMakeLists.txt 的算子目录（issue #334）：src/common 等公共
+        # 目录混入候选集会让 --ops=common 通过校验却注册 0 个算子，产生
+        # "空测试假 SUCCESS"的空跑；默认全量 configure 也不再触发
+        # "Operator common missing CMakeLists.txt" 的 WARNING 噪音
+        if(IS_DIRECTORY ${CMAKE_SOURCE_DIR}/src/${OP} AND EXISTS ${CMAKE_SOURCE_DIR}/src/${OP}/CMakeLists.txt)
             list(APPEND OPERATOR_DIRS ${OP})
         endif()
     endforeach()
