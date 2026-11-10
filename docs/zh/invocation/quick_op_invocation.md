@@ -35,7 +35,7 @@
 
     ```bash
     # 安装命令
-    ./build_out/cann-*-ops-fft-*linux*.run --full
+    ./build_out/cann-*-ops-fft_*_linux-*.run --full
     ```
 
     ops-fft安装在`${ASCEND_HOME_PATH}/cann`路径中，`${ASCEND_HOME_PATH}`表示CANN软件安装目录。
@@ -52,7 +52,7 @@
 
     ```bash
     # 卸载命令
-    ./build_out/cann-*-ops-fft-*linux*.run --uninstall
+    ./build_out/cann-*-ops-fft_*_linux-*.run --uninstall
     ```
 
 ## 本地验证
