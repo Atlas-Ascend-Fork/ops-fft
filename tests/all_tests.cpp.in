@@ -86,7 +86,8 @@ int main() {
     // 清理残留 bin 文件
     const char* data_root = std::getenv("OPS_FFT_TEST_DATA_ROOT");
     if (data_root && std::strlen(data_root) > 0) {
-        std::string cleanup_cmd = std::string("find ") + data_root + " -name '*.bin' -delete 2>/dev/null";
+        // 路径经 shell_quote 包装（issue #335）：数据根可含空格或 shell 元字符
+        std::string cleanup_cmd = std::string("find ") + OpsFftTest::ShellQuote(data_root) + " -name '*.bin' -delete 2>/dev/null";
         system(cleanup_cmd.c_str());
     }
 

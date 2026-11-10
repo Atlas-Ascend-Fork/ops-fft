@@ -320,11 +320,28 @@ inline std::string GetDataRoot(const std::string& op_name) {
     return op_name + "_data";
 }
 
+// shell 单引号包装（issue #335）：OPS_FFT_TEST_DATA_ROOT 与数据目录可经环境
+// 变量或仓库检出路径引入空格/shell 元字符，拼接进 system()/popen() 命令前
+// 统一包装，避免被拆参或当命令语法执行（含单引号转义）
+inline std::string ShellQuote(const std::string& raw) {
+    std::string out = "'";
+    for (char c : raw) {
+        if (c == '\'') {
+            out += "'\\''";
+        } else {
+            out += c;
+        }
+    }
+    out += "'";
+    return out;
+}
+
 // Batch generate all test data (one Python call)
 // 退出码检查（issue #212）：gen_data.py 失败（缺 torch/numpy/脚本异常）原先
 // 无感知，后续比对会因 golden 缺失而整体失败，此处提前打印醒目告警定位根因
 inline void BatchGenAllData(const std::string& data_dir) {
-    std::string cmd = "cd " + data_dir + " && PYTHONPATH=" + data_dir + "/../../common/host TORCH_DEVICE_BACKEND_AUTOLOAD=0 python3 -u gen_data.py";
+    std::string cmd = "cd " + ShellQuote(data_dir) + " && PYTHONPATH=" + ShellQuote(data_dir + "/../../common/host")
+                      + " TORCH_DEVICE_BACKEND_AUTOLOAD=0 python3 -u gen_data.py";
     int genRes = system(cmd.c_str());
     if (genRes != 0) {
         std::cerr << "[ERROR] gen_data.py failed (exit=" << genRes << ") in " << data_dir
@@ -334,7 +351,7 @@ inline void BatchGenAllData(const std::string& data_dir) {
 
 // Cleanup all .bin files in data dir
 inline void CleanupAllData(const std::string& data_dir) {
-    std::string cmd = "rm -f " + data_dir + "/*.bin";
+    std::string cmd = "rm -f " + ShellQuote(data_dir) + "/*.bin";
     system(cmd.c_str());
 }
 
@@ -355,7 +372,8 @@ struct BatchCompareOutcome {
 inline BatchCompareOutcome BatchCompareAllData(const std::string& data_dir) {
     BatchCompareOutcome outcome;
     auto& results = outcome.cases;
-    std::string cmd = "cd " + data_dir + " && PYTHONPATH=" + data_dir + "/../../common/host TORCH_DEVICE_BACKEND_AUTOLOAD=0 python3 -u compare_data.py";
+    std::string cmd = "cd " + ShellQuote(data_dir) + " && PYTHONPATH=" + ShellQuote(data_dir + "/../../common/host")
+                      + " TORCH_DEVICE_BACKEND_AUTOLOAD=0 python3 -u compare_data.py";
     std::string output;
     std::array<char, 4096> buffer;
     FILE* pipe = popen(cmd.c_str(), "r");
