@@ -13,8 +13,7 @@
 #include "common.h"
 #include "common_func.h"
 #include "simd.h"
-#include "iterator.h"
-#include "mma.h"
+#include "mem.h"
 #include "utils.h"
 
 __aicore__ __inline__ __attribute__((overloadable, always_inline)) void init_ub(AscendC::LocalTensor<uint16_t>& buf1_input_addr_buf,
@@ -345,7 +344,7 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void common_c
             int32_t now_batch_idx = (aiv_id_per_group == 0 ? 0 : (batch_actual / 2));
             int32_t now_batch_actual =
                 (aiv_id_per_group == 0 ? (batch_actual / 2) : (batch_actual - (batch_actual / 2)));
-            
+
             if (type == 2) {
                 PIPE_BARRIER(ALL);
             }

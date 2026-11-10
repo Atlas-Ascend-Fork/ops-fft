@@ -13,8 +13,7 @@
 #include "common.h"
 #include "common_func.h"
 #include "simd.h"
-#include "iterator.h"
-#include "mma.h"
+#include "mem.h"
 #include "utils.h"
 
 __aicore__ __inline__ __attribute__((always_inline)) void matrix_dot_kernel(

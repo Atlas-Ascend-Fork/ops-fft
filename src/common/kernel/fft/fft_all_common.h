@@ -21,8 +21,6 @@
 #include "common.h"
 #include "common_func.h"
 #include "simd.h"
-#include "iterator.h"
-#include "mma.h"
 #include "utils.h"
 
 __aicore__ __inline__ void __attribute__((always_inline))
@@ -92,7 +90,7 @@ __aicore__ __inline__ __attribute__((always_inline)) void stock_fft_mix_aic(
     __gm__ float *__restrict__ gm_tw_matrix_array, __gm__ float *__restrict__ gm_workspace_input,
     __gm__ float *__restrict__ gm_workspace_output, __gm__ float *__restrict__ gm_workspace_sync,
     __gm__ int32_t *__restrict__ gm_radix_list, __gm__ float *__restrict__ gm_output,
-    __gm__ float *__restrict__ gm_auxil, int64_t batch_size, int64_t N, int32_t radix_list_len, 
+    __gm__ float *__restrict__ gm_auxil, int64_t batch_size, int64_t N, int32_t radix_list_len,
     int32_t fftDirection, int64_t max_floats = (1 << 21))
 {
     // 除0整改
@@ -337,7 +335,7 @@ __aicore__ __inline__  __attribute__((always_inline)) void stock_fft_c2r_mix_eve
 
     int32_t tile_M0;
     int32_t tile_N0;
-    int32_t tile_K0; 
+    int32_t tile_K0;
     // 让每次处理的数据小于 2 ^ 21 次方
     int64_t L2_CACHE_MAX_FLOAT = max_floats;
     int64_t batch_part_len = (L2_CACHE_MAX_FLOAT + N - 1) / N;
@@ -412,14 +410,14 @@ __aicore__ __inline__  __attribute__((always_inline)) void stock_fft_c2r_mix_eve
             }
 
             int64_t N2_padding = ROUND(N2, tile_N0);
-        
+
             if (N2 > 1) {
                 matrix_dot_sync(nullptr, now_tw_matrix_array, gm_tmp_output, gm_workspace_sync, gm_radix_list, gm_auxil, batch_actual, N0, N1, N2, tile_M0, tile_N0, tile_K0, step_index, step_len, fftDirection, seq357);
 
                 FftsCrossCoreSync<PIPE_MTE3, 0>(1);
                 WaitFlagDev(1);
                 FftsCrossCoreSync<PIPE_MTE3, 2>(0);
-                
+
             } else {
                 if (odd_combination == 1) {
                     complex_combination_vtranspose_sync_RI_odd<aiv_split_way>(nullptr, gm_output + (batch_index) * batch_part_len * N, gm_workspace_sync, gm_auxil, 1, batch_actual, N1, N0, N0, tile_M0, tile_N0, tile_K0, step_len);
@@ -427,7 +425,7 @@ __aicore__ __inline__  __attribute__((always_inline)) void stock_fft_c2r_mix_eve
                 else {
                     complex_combination_vtranspose_sync_RI<aiv_split_way>(nullptr, gm_output + (batch_index) * batch_part_len * 2 * N, gm_workspace_sync, gm_auxil, 1, batch_actual, N1, N0, N0, tile_M0, tile_N0, tile_K0, step_len);
                 }
-                
+
             }
             auto tmp = gm_tmp_input;
             gm_tmp_input = gm_tmp_output;
@@ -470,7 +468,7 @@ __aicore__ __inline__  __attribute__((always_inline)) void stock_fft_r2c_mix_eve
 
     int32_t tile_M0;
     int32_t tile_N0;
-    int32_t tile_K0; 
+    int32_t tile_K0;
     // 让每次处理的数据小于 2 ^ 21 次方
     int64_t L2_CACHE_MAX_FLOAT = max_floats;
     int64_t batch_part_len = (L2_CACHE_MAX_FLOAT + N - 1) / N;
@@ -550,14 +548,14 @@ __aicore__ __inline__  __attribute__((always_inline)) void stock_fft_r2c_mix_eve
             }
 
             int64_t N2_padding = ROUND(N2, tile_N0);
-        
+
             if (N2 > 1) {
                 matrix_dot_sync(nullptr, now_tw_matrix_array, gm_tmp_output, gm_workspace_sync, gm_radix_list, gm_auxil, batch_actual, N0, N1, N2, tile_M0, tile_N0, tile_K0, step_index, step_len, fftDirection, seq357);
 
                 FftsCrossCoreSync<PIPE_MTE3, 0>(1);
                 WaitFlagDev(1);
                 FftsCrossCoreSync<PIPE_MTE3, 2>(0);
-                
+
             } else {
                 __gm__ float * gm_current_output_real = gm_output + batch_index * batch_part_len * N;
                 __gm__ float * gm_current_output_imag = gm_output + batch_size * N + batch_index * batch_part_len * N;
@@ -577,7 +575,6 @@ __aicore__ __inline__  __attribute__((always_inline)) void stock_fft_r2c_mix_eve
         }
     }
 }
-
 
 __aicore__ __inline__ void Init4Cube(__gm__ uint8_t * __restrict__ ffts_addr) {
     AscendC::SetSyncBaseAddr((uint64_t)ffts_addr);

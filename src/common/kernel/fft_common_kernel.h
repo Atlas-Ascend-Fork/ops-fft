@@ -15,8 +15,7 @@
 #include "common.h"
 #include "common_func.h"
 #include "simd.h"
-#include "iterator.h"
-#include "mma.h"
+#include "mem.h"
 #include "utils.h"
 
 constexpr int32_t ASCENDFFT_FORWARD_VAL = -1;

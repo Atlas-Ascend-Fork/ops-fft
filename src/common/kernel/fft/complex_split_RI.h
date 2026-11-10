@@ -15,8 +15,7 @@
 #include "common.h"
 #include "common_func.h"
 #include "simd.h"
-#include "iterator.h"
-#include "mma.h"
+#include "mem.h"
 #include "utils.h"
 
 // 将（16, row_num) 或者(row_num_padding, 16) 转置，配合UB存放的指针数据来使用
@@ -234,11 +233,11 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void complex_
                       (batch_actual * N1_actual * 2 * N2_actual_round + 8 * C0_SIZE - 1) / (8 * C0_SIZE), 1, 2, 8, 8);
             SET_FLAG(V, MTE3, event_id + 2);
             WAIT_FLAG(V, MTE3, event_id);
-            AscendC::DataCopyPad(gm_output_real_ptr, buf_output_real, 
+            AscendC::DataCopyPad(gm_output_real_ptr, buf_output_real,
                 AscendC::DataCopyExtParams(N2_actual_round / tile_N0, tile_N0 * sizeof(float),
                                            0, (2 * N1 * tile_N0 - tile_N0) * sizeof(float), 0));
             WAIT_FLAG(V, MTE3, event_id + 2);
-            AscendC::DataCopyPad(gm_output_imag_ptr, buf_output_imag, 
+            AscendC::DataCopyPad(gm_output_imag_ptr, buf_output_imag,
                 AscendC::DataCopyExtParams(N2_actual_round / tile_N0, tile_N0 * sizeof(float),
                                            0, (2 * N1 * tile_N0 - tile_N0) * sizeof(float), 0));
         } else {
@@ -266,7 +265,7 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void complex_
                     AscendC::DataCopy(buf_input[j * 2 * N1_actual * N2_actual_round + i * tile_N0],
                                       buf_output_real[j * N1_actual * N2_actual_round + i * N2_actual_round],
                         AscendC::DataCopyParams(
-                            N2_actual_round / tile_N0, 
+                            N2_actual_round / tile_N0,
                             tile_N0 / C0_SIZE,
                             0,
                             (N1_actual * tile_N0 - tile_N0) / C0_SIZE
@@ -287,11 +286,11 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void complex_
             SET_FLAG(V, MTE3, event_id);
             WAIT_FLAG(V, MTE3, event_id);
             for (int32_t j = 0; j < batch_actual; j++) {
-                AscendC::DataCopyPad(gm_output_real_ptr[j * 2 * N1 * N2_padding], buf_input[j * 2 * N1_actual * N2_actual_round], 
+                AscendC::DataCopyPad(gm_output_real_ptr[j * 2 * N1 * N2_padding], buf_input[j * 2 * N1_actual * N2_actual_round],
                     AscendC::DataCopyExtParams(N2_actual_round / tile_N0, N1_actual * tile_N0 * sizeof(float),
                                                0, (2 * N1 * tile_N0 - N1_actual * tile_N0) * sizeof(float), 0));
                 AscendC::DataCopyPad(gm_output_imag_ptr[j * 2 * N1 * N2_padding],
-                                     buf_input[j * 2 * N1_actual * N2_actual_round + N1_actual * N2_actual_round], 
+                                     buf_input[j * 2 * N1_actual * N2_actual_round + N1_actual * N2_actual_round],
                     AscendC::DataCopyExtParams(N2_actual_round / tile_N0, N1_actual * tile_N0 * sizeof(float),
                                             0, (2 * N1 * tile_N0 - N1_actual * tile_N0) * sizeof(float), 0));
             }
@@ -326,7 +325,7 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void c2r_even
     const int16_t subgroup_num = get_subblockdim();
     const int16_t aiv_id = aic_id * subgroup_num + aiv_id_per_group;
     const int16_t aiv_num = group_num * subgroup_num;
-    
+
     const int32_t max_num = 24 * 1024 / sizeof(float);
 
     AscendC::GlobalTensor<float> gm_input_real_tensor, gm_output_tensor, gm_input_imag_tensor;
@@ -378,7 +377,6 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void c2r_even
     SET_FLAG(MTE3, MTE2, EVENT_ID0);
     SET_FLAG(MTE3, MTE2, EVENT_ID1);
 
-
     for (int64_t i = 0; i < loop; i++) {
         int64_t loop_idx = i;
         if (loop_idx % aiv_num != aiv_id) {
@@ -389,7 +387,7 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void c2r_even
         int64_t batch_N1_idx = loop_idx / N2_loop;
         int32_t N1_idx = batch_N1_idx % N1_loop;
         int64_t batch_idx = batch_N1_idx / N1_loop;
-        
+
         int32_t N2_actual = N2_max_num;
         if (N2_block_idx == N2_loop - 1 && N2_remain > 0) {
             N2_actual = N2_remain;
@@ -406,7 +404,7 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void c2r_even
         }
 
         int32_t N2_actual_round = ROUND(N2_actual, tile_N0);
-        
+
         auto buf_input = flag ? buf1_input : buf2_input;
         auto buf_input_imag = flag ? buf1_input_imag : buf2_input_imag;
         auto buf_output_real = flag ? buf1_output_real : buf2_output_real;
@@ -447,27 +445,27 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void c2r_even
 
             SET_FLAG(V, MTE3, event_id);
             WAIT_FLAG(V, MTE3, event_id);
-            copy_ubuf2gm(gm_current_output_real, buf_input, batch_actual, 2 * N1_actual * tile_N0, 2 * N1_actual * tile_N0, 2 * N1 * tile_N0); 
+            copy_ubuf2gm(gm_current_output_real, buf_input, batch_actual, 2 * N1_actual * tile_N0, 2 * N1_actual * tile_N0, 2 * N1 * tile_N0);
         } else if (batch_max_num == 1 && N2_actual == N2 && N2 <= tile_N0) {
 
             SET_FLAG(V, MTE3, event_id);
 
             SET_FLAG(V, MTE3, event_id + 2);
             WAIT_FLAG(V, MTE3, event_id);
-            copy_ubuf2gm(gm_current_output_real, buf_output_real, N1_actual, tile_N0, tile_N0, tile_N0); 
+            copy_ubuf2gm(gm_current_output_real, buf_output_real, N1_actual, tile_N0, tile_N0, tile_N0);
             WAIT_FLAG(V, MTE3, event_id + 2);
-            copy_ubuf2gm(gm_current_output_imag, buf_output_imag, N1_actual, tile_N0, tile_N0, tile_N0); 
+            copy_ubuf2gm(gm_current_output_imag, buf_output_imag, N1_actual, tile_N0, tile_N0, tile_N0);
         } else if (batch_max_num == 1 && N1_max_num == 1) {
 
             SET_FLAG(V, MTE3, event_id);
 
             SET_FLAG(V, MTE3, event_id + 2);
             WAIT_FLAG(V, MTE3, event_id);
-            AscendC::DataCopyPad(gm_current_output_real, buf_output_real, 
+            AscendC::DataCopyPad(gm_current_output_real, buf_output_real,
                     AscendC::DataCopyExtParams(N2_actual_round / tile_N0, tile_N0 * sizeof(float),
                                                0, (2 * N1 * tile_N0 - tile_N0) * sizeof(float), 0));
             WAIT_FLAG(V, MTE3, event_id + 2);
-            AscendC::DataCopyPad(gm_current_output_imag, buf_output_imag, 
+            AscendC::DataCopyPad(gm_current_output_imag, buf_output_imag,
                     AscendC::DataCopyExtParams(N2_actual_round / tile_N0, tile_N0 * sizeof(float),
                                                0, (2 * N1 * tile_N0 - tile_N0) * sizeof(float), 0));
         } else {
@@ -498,11 +496,11 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void c2r_even
             WAIT_FLAG(V, MTE3, event_id);
             for (int j = 0; j < batch_actual; j++) {
                 AscendC::DataCopyPad(gm_current_output_real[j * 2 * N1 * N2_padding],
-                                     buf_input[j * 2 * N1_actual * N2_actual_round], 
+                                     buf_input[j * 2 * N1_actual * N2_actual_round],
                     AscendC::DataCopyExtParams(N2_actual_round / tile_N0, N1_actual * tile_N0 * sizeof(float),
                                                0, (2 * N1 * tile_N0 - N1_actual * tile_N0) * sizeof(float), 0));
                 AscendC::DataCopyPad(gm_current_output_imag[j * 2 * N1 * N2_padding],
-                                     buf_input[j * 2 * N1_actual * N2_actual_round + N1_actual * N2_actual_round], 
+                                     buf_input[j * 2 * N1_actual * N2_actual_round + N1_actual * N2_actual_round],
                     AscendC::DataCopyExtParams(N2_actual_round / tile_N0, N1_actual * tile_N0 * sizeof(float),
                                                0, (2 * N1 * tile_N0 - N1_actual * tile_N0) * sizeof(float), 0));
             }
@@ -513,7 +511,6 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void c2r_even
     WAIT_FLAG(MTE3, MTE2, EVENT_ID0);
     WAIT_FLAG(MTE3, MTE2, EVENT_ID1);
 }
-
 
 // 对于 N2 较小的情况， 一次读取多个 N2， 在UB中填充成ROUND(N2, tile_N0)。并存入到全局内存
 __aicore__ __inline__ __attribute__((overloadable, always_inline)) void complex_split_RI_tile_zN_vtranspose_load(
@@ -859,7 +856,7 @@ __aicore__ __inline__ __attribute__((always_inline)) void complex_split_RI_tile_
     const int16_t aiv_num = group_num * subgroup_num;
 
     AscendC::GlobalTensor<float> gm_input_tensor, gm_output_tensor;
-    
+
     gm_input_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_input));
     gm_output_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_output));
 
@@ -998,12 +995,12 @@ __aicore__ __inline__ __attribute__((always_inline)) void complex_split_RI_tile_
             SET_FLAG(V, MTE3, event_id + 2);
             WAIT_FLAG(V, MTE3, event_id);
             AscendC::DataCopyPad(gm_output_real_ptr,
-                                 buf_output_real, 
+                                 buf_output_real,
                     AscendC::DataCopyExtParams(N2_actual_round / tile_N0, tile_N0 * sizeof(float),
                                                0, (2 * N1 * tile_N0 - tile_N0) * sizeof(float), 0));
             WAIT_FLAG(V, MTE3, event_id + 2);
             AscendC::DataCopyPad(gm_output_imag_ptr,
-                                 buf_output_imag, 
+                                 buf_output_imag,
                     AscendC::DataCopyExtParams(N2_actual_round / tile_N0, tile_N0 * sizeof(float),
                                                0, (2 * N1 * tile_N0 - tile_N0) * sizeof(float), 0));
         } else {
@@ -1034,11 +1031,11 @@ __aicore__ __inline__ __attribute__((always_inline)) void complex_split_RI_tile_
             WAIT_FLAG(V, MTE3, event_id);
             for (int32_t j = 0; j < batch_actual; j++) {
                 AscendC::DataCopyPad(gm_output_real_ptr[j * 2 * N1 * N2_padding],
-                                     buf_input[j * 2 * N1_actual * N2_actual_round], 
+                                     buf_input[j * 2 * N1_actual * N2_actual_round],
                     AscendC::DataCopyExtParams(N2_actual_round / tile_N0, N1_actual * tile_N0 * sizeof(float),
                                                0, (2 * N1 * tile_N0 - N1_actual * tile_N0) * sizeof(float), 0));
                 AscendC::DataCopyPad(gm_output_imag_ptr[j * 2 * N1 * N2_padding],
-                                     buf_input[j * 2 * N1_actual * N2_actual_round + N1_actual * N2_actual_round], 
+                                     buf_input[j * 2 * N1_actual * N2_actual_round + N1_actual * N2_actual_round],
                     AscendC::DataCopyExtParams(N2_actual_round / tile_N0, N1_actual * tile_N0 * sizeof(float),
                                                0, (2 * N1 * tile_N0 - N1_actual * tile_N0) * sizeof(float), 0));
             }

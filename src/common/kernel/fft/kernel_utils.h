@@ -14,8 +14,6 @@
 #include "common.h"
 #include "common_func.h"
 #include "simd.h"
-#include "iterator.h"
-#include "mma.h"
 #include "utils.h"
 // W 矩阵分块参数单一实现（issue #318）：与 host 侧 getTile 共用
 #include "fft_tile_common.h"
