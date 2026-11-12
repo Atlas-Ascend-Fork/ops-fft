@@ -135,9 +135,10 @@ namespace Fft1DApiIntegrationTest {
         // 3) batches==0 拒绝（issue #188）
         if (aclfftFft1DN(&dummy, &dummy, 32768, 0, 0, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (aclfftFft1DDft(&dummy, &dummy, 256, 0, 0, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
-        // 4) batches > INT32_MAX 拒绝（issue #119/#162/#163）
+        // 4) batches > INT32_MAX 拒绝（issue #119/#162/#163/#336）
         if (aclfftFft1DN(&dummy, &dummy, 32768, 0, 0x80000000u, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (aclfftRfft1DDft(&dummy, &dummy, 256, 0, 0x80000000u, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftFft1DDft(&dummy, &dummy, 256, 0, 0x80000000u, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         // 5) isForward 非法值拒绝（issue #147/#167/#168/#169）
         if (aclfftFft1DDft(&dummy, &dummy, 256, 0, 1, 2, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
         if (aclfftIrfft1DDft(&dummy, &dummy, 256, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;

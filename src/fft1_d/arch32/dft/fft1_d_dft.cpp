@@ -13,6 +13,8 @@
  * \brief
  */
 
+#include <limits>
+
 #include "../../fft1_d.h"
 #include "fft_common_core.h"
 #include "fft1_d_dft_tilingdata.h"
@@ -108,6 +110,13 @@ extern "C" aclError aclfftFft1DDft(
     // 返回"成功"但输出缓冲未写入
     if (batches == 0) {
         std::cerr << "[ops-fft] aclfftFft1DDft: batches=0 is not supported" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    // batches 上限门禁（issue #336，对齐 rfft1_d_dft #162/irfft1_d_dft #163/
+    // fft1_d_n #119/fft2_d_dd #324 同族口径）：uint32_t batches 经 SetTilingData
+    // 直赋 int32_t m，>INT32_MAX 时截断为负值下发设备，内核以负矩阵维启动行为未定义
+    if (batches > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
+        std::cerr << "[ops-fft] aclfftFft1DDft: batches=" << batches << " exceeds INT32_MAX" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
     auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();
