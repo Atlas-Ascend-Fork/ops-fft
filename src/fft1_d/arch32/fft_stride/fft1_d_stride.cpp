@@ -220,7 +220,10 @@ aclError aclfftFft1DStride(
     CHECK_ACL(aclrtMemcpy(dev_input, inputSize, x, inputSize, ACL_MEMCPY_HOST_TO_DEVICE));
     CHECK_ACL(aclrtMemcpy(dev_s_matrix, sMatrixSize, sMatrixHost.data(), sMatrixSize, ACL_MEMCPY_HOST_TO_DEVICE));
 
-    Fft1DStrideTilingData tilingData;
+    // 值初始化：radixVec 等定长数组仅填 [0, iterCount) 前缀，整结构 memcpy
+    // 下发设备前必须清零，避免携带栈上未初始化内存下发设备（issue #338，
+    // 对齐 #117/#289 Mix 路径已整改口径）
+    Fft1DStrideTilingData tilingData{};
     tilingData.batchSize = batches;
     tilingData.fftN = n;
     tilingData.fftStride = stride;

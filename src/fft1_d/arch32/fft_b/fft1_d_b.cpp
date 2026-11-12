@@ -235,7 +235,9 @@ extern "C" aclError aclfftFft1DB(float *x, float *y, uint32_t n, int32_t norm,
     CHECK_ACL(AllocFft1BDevBuffers(dev, x, inputSize, outputSize, wMatrixHost, wMatrixSize,
                                    tMatrixHost, tMatrixSize, indexHost, indexSize, totalWorkspaceSize));
 
-    Fft1DBTilingData tilingData;
+    // 值初始化：radixVec 定长数组仅填 2 项，整结构 memcpy 下发设备前必须清零，
+    // 避免携带栈上未初始化内存下发设备（issue #338，对齐 #117/#289 已整改口径）
+    Fft1DBTilingData tilingData{};
     FillFft1BTiling(tilingData, n, batches, isForward, radixVec);
     CHECK_ACL(aclrtMemcpy(dev.tiling.get(), sizeof(Fft1DBTilingData), &tilingData, sizeof(Fft1DBTilingData),
                           ACL_MEMCPY_HOST_TO_DEVICE));

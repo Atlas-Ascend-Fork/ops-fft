@@ -324,7 +324,10 @@ extern "C" aclError aclfftFft1DN(
     CHECK_ACL(aclrtMemcpy(dev_tMatrix, tMatrixSize, tMatrixHost.data(), tMatrixSize, ACL_MEMCPY_HOST_TO_DEVICE));
     CHECK_ACL(aclrtMemcpy(dev_index, indexSize, indexHost.data(), indexSize, ACL_MEMCPY_HOST_TO_DEVICE));
 
-    Fft1DNTilingData tilingData;
+    // 值初始化：radixVec/aicInputAddr/aivOutputAddr/lessTCopy/syncTilingNum 五个
+    // 定长数组仅填 [0, iterCount) 前缀，整结构 memcpy 下发设备前必须清零，避免
+    // 携带栈上未初始化内存下发设备（issue #338，对齐 #117/#289 已整改口径）
+    Fft1DNTilingData tilingData{};
     SetFft1DNTilingData(tilingData, n, batches, repeatBatchSize, radixVec, isForward, coreNum);
     CHECK_ACL(aclrtMemcpy(
         dev_tiling, sizeof(Fft1DNTilingData), &tilingData, sizeof(Fft1DNTilingData), ACL_MEMCPY_HOST_TO_DEVICE));
