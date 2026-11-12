@@ -123,6 +123,14 @@ static aclError SetTilingData(
     }
 
     tiling.radixListLen = stageCount;
+    // 空分解拒绝（issue #337，对齐 aclfftFft1DC2CMix "empty radix list" 口径）：
+    // 分解对象 tempN（偶 n 取 n/2）<=1 时 while 零次迭代、radixListLen=0（n=1
+    // 与 n=2 均命中），空内核启动后回拷未写入的输出缓冲并按成功返回，调用方
+    // 拿到未初始化数据且无任何错误指示
+    if (tiling.radixListLen == 0) {
+        std::cerr << "rfft1_d_fft: empty radix list for N=" << fftN << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
 
     int64_t fftPointCount = isOddN ? fftN : (fftN / 2);
     int64_t perBatchComplexBytes = fftPointCount * sizeof(float) * 2;

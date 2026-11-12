@@ -55,6 +55,28 @@ namespace Fft1DApiIntegrationTest {
         }
     }
 
+    // issue #337: arch35 C2C/R2C/C2R 直连入口 n=1 落入空分解（while 零次迭代、
+    // radixListLen=0），按成功返回未初始化输出。三入口补空分解拒绝（对齐
+    // aclfftFft1DC2CMix "empty radix list" 口径）后直连 n=1 须返回
+    // ACL_ERROR_INVALID_PARAM；R2C 分解对象为 n/2，n=2 同样落入空分解（此前
+    // 亦为成功返回未初始化输出），一并断言
+    static void run_empty_decomposition_reject_test(OpsFftTest::TestStats& stats) {
+        TEST_CASE_BEGIN("empty_decomposition_reject");
+        float dummy = 0.0f;
+        bool all_ok = true;
+        if (aclfftFft1DC2C(&dummy, &dummy, 1, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DFft(&dummy, &dummy, 1, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftRfft1DFft(&dummy, &dummy, 2, 0, 1, 1, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (aclfftIrfft1DFft(&dummy, &dummy, 1, 0, 1, 0, nullptr) != ACL_ERROR_INVALID_PARAM) all_ok = false;
+        if (all_ok) {
+            TEST_CASE_PASS_DETAIL(stats, "empty_decomposition_reject",
+                                   "arch35 C2C/R2C/C2R direct entries reject n=1 (R2C also n=2) empty decomposition");
+        } else {
+            TEST_CASE_FAIL_DETAIL(stats, "empty_decomposition_reject",
+                                   "some arch35 entry accepted an empty decomposition (see build log)");
+        }
+    }
+
     void run_all_tests(aclrtStream stream, OpsFftTest::TestStats& stats) {
         std::vector<C2CTestCase> cases = {
             // radix-2 (N=2^k) -> arch35/fft/ : fft_c2c_arch35_multi_core
@@ -85,6 +107,7 @@ namespace Fft1DApiIntegrationTest {
         OpsFftTest::RunBatchTests(stream, stats, "fft1_d", cases, run_c2c_case);
         run_batches_zero_reject_test(stats);
         run_direction_contract_reject_test(stats);
+        run_empty_decomposition_reject_test(stats);
     }
 }
 
