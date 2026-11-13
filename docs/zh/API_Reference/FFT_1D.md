@@ -102,7 +102,7 @@ aclfftResult aclfftExecC2R(aclfftHandle     plan,
     <tr>
       <td>dimType（int）</td>
       <td>输入</td>
-      <td>变换维度方向：<ul><li><code>ACLFFT_HORIZONTAL</code>：横向 FFT，对每一行做变换，数据按行连续排布。</li><li><code>ACLFFT_VERTICAL</code>：纵向 FFT，对每一列做变换，列间以 batch 为步长排布。</li></ul></td>
+      <td>变换维度方向：<ul><li><code>ACLFFT_HORIZONTAL</code>：横向 FFT，对每一行做变换，数据按行连续排布。</li><li><code>ACLFFT_VERTICAL</code>：纵向 FFT，对行主序的 (nx, batch) 数据逐列做变换，同一列相邻采样的步长为 batch 个复数。</li></ul></td>
     </tr>
   </tbody>
   </table>
@@ -135,7 +135,7 @@ aclfftResult aclfftExecC2R(aclfftHandle     plan,
     <tr>
       <td>idata（aclfftComplex*）</td>
       <td>输入</td>
-      <td>Host 侧输入数据指针。<ul><li>横向：shape 为 (batch, nx)，共 batch*nx 个复数。</li><li>纵向：shape 为 (nx, batch)，按列主序排布，共 nx*batch 个复数。</li></ul></td>
+      <td>Host 侧输入数据指针。<ul><li>横向：shape 为 (batch, nx)，共 batch*nx 个复数。</li><li>纵向：shape 为 (nx, batch)，按行主序（C 顺序）排布，共 nx*batch 个复数；第 k 个采样、第 b 列的偏移为 k*batch+b。</li></ul></td>
     </tr>
     <tr>
       <td>odata（aclfftComplex*）</td>

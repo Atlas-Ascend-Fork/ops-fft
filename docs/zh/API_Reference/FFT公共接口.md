@@ -45,7 +45,7 @@ typedef enum aclfftType_t {
 | 宏 | 值 | 说明 |
 | :--- | :---: | :--- |
 | `ACLFFT_HORIZONTAL` | 0 | 横向 FFT，对每一行做一维变换，数据按行连续排布。 |
-| `ACLFFT_VERTICAL` | 1 | 纵向 FFT，对每一列做一维变换，列间以 `batch` 为步长排布。 |
+| `ACLFFT_VERTICAL` | 1 | 纵向 FFT，对行主序的 `(nx, batch)` 数据逐列做一维变换，同一列相邻采样的步长为 `batch` 个复数。 |
 
 ## aclfftCreate
 
@@ -133,7 +133,7 @@ aclfftResult aclfftMakePlan1d(aclfftHandle plan,
     <tr>
       <td>dimType（int）</td>
       <td>输入</td>
-      <td>变换维度方向：<ul><li><code>ACLFFT_HORIZONTAL</code>：横向 FFT，内部 stride 置 1。</li><li><code>ACLFFT_VERTICAL</code>：纵向 FFT，内部将 batch 转为列间 stride、batch 置 1。</li></ul></td>
+      <td>变换维度方向：<ul><li><code>ACLFFT_HORIZONTAL</code>：横向 FFT，内部 stride 置 1。</li><li><code>ACLFFT_VERTICAL</code>：纵向 FFT，内部将原始 batch 用作同一列相邻采样的 stride，内部 batch 置 1。</li></ul></td>
     </tr>
     <tr>
       <td>workSize（size_t*）</td>
