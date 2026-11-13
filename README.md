@@ -88,16 +88,16 @@ toolkit 安装包文件名格式如下：
 sudo ./build_out/cann-950-ops-fft_9.0.0_linux-*.run --full
 
 # 查看安装包信息
-./cann-950-ops-fft_9.0.0_linux-*.run --help
+./build_out/cann-950-ops-fft_9.0.0_linux-*.run --help
 
 # 安装到自定义路径
-sudo ./cann-950-ops-fft_9.0.0_linux-*.run --full --install-path=/opt/ascend
+sudo ./build_out/cann-950-ops-fft_9.0.0_linux-*.run --full --install-path=/opt/ascend
 
 # 卸载
-sudo ./cann-950-ops-fft_9.0.0_linux-*.run --uninstall
+sudo ./build_out/cann-950-ops-fft_9.0.0_linux-*.run --uninstall
 
 # 升级
-sudo ./cann-950-ops-fft_9.0.0_linux-*.run --upgrade
+sudo ./build_out/cann-950-ops-fft_9.0.0_linux-*.run --upgrade
 ```
 
 ## 📖 项目说明
