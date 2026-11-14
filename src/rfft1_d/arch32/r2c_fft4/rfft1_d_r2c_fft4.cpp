@@ -79,12 +79,14 @@ void GenerateTiling(int n, int n1, int n2, int n3, int n4, int blockNum, uint8_t
     }
     {
         int stepN = 128;
+        // l2Blocks==0 守卫（issue #341，入口同款）：row < stepN 时分块表为空，
+        // 直接返回不再生成越界布局；原 l2Step==0 检查位于钳 1 之后永不可达
+        if (row / stepN == 0) {
+            return;
+        }
         int l2Step = std::min(row / stepN, 4194304 / 2 / col / stepN);
         if (l2Step <= 0) {
             l2Step = 1;
-        }
-        if (l2Step == 0) {
-            return;
         }
         int l2Blocks = row / stepN / l2Step;
         RfftHost::GenerateBlockedTwiddle(n, row, col, blockNum, stepN, l2Step, twiddleBuf);
@@ -145,12 +147,16 @@ extern "C" aclError aclfftRfft1DR2CFft4(float *x, float *y, uint32_t n,
     int col = n3 * n4;
 
     int stepN = 128;
+    // l2Blocks==0 拒绝（issue #341）：row < stepN 时 twiddle 分块表为空、内核按
+    // l2Blocks 寻址越界，显式拒绝而非钳 1 静默放行；原 l2Step==0 检查位于钳 1
+    // 之后永不可达（防御意图落空）。当前 fft4 域分解后 row = n1*n2 >= 2^12，
+    // 该守卫仅防未来域放宽
+    if (row / stepN == 0) {
+        return ACL_ERROR_INVALID_PARAM;
+    }
     int l2Step = std::min(row / stepN, 4194304 / 2 / col / stepN);
     if (l2Step <= 0) {
         l2Step = 1;
-    }
-    if (l2Step == 0) {
-        return ACL_ERROR_INVALID_PARAM;
     }
     int l2Blocks = row / stepN / l2Step;
 
