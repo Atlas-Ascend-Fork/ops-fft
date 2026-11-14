@@ -135,7 +135,9 @@ extern "C" aclError aclfftFft2DDd(float *x, float *y, uint32_t fftX, uint32_t ff
     CHECK_ACL(aclrtMemcpy(dev_pMatrix, pMatrixSize, pMatrixHost.data(), pMatrixSize, ACL_MEMCPY_HOST_TO_DEVICE));
     CHECK_ACL(aclrtMemcpy(dev_qMatrix, qMatrixSize, qMatrixHost.data(), qMatrixSize, ACL_MEMCPY_HOST_TO_DEVICE));
 
-    Fft2DTilingData tilingData;
+    // 值初始化（issue #342，对齐 #338/#117 声明点值初始化口径）：整结构 memcpy
+    // 下发设备前清零，结构体日后新增无 NSDMI 字段时不携带未初始化栈内存
+    Fft2DTilingData tilingData{};
     tilingData.batchSize = batches;
     tilingData.fftX = fftX;
     tilingData.fftY = fftY;

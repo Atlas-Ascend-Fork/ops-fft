@@ -111,7 +111,9 @@ extern "C" aclError aclfftRfft1DR2CFft2(float *x, float *y, uint32_t n,
         return ACL_ERROR_INVALID_PARAM;
     }
 
-    Rfft1DR2CFftTilingData tilingData;
+    // 值初始化（issue #342，对齐 #338/#117 声明点值初始化口径）：整结构 memcpy
+    // 下发设备前清零，结构体日后新增无 NSDMI 字段时不携带未初始化栈内存
+    Rfft1DR2CFftTilingData tilingData{};
     RfftHost::InitializeTiling<2>(tilingData, fftN, batches, n1, n2);
 
     int64_t halfN = fftN / 2;

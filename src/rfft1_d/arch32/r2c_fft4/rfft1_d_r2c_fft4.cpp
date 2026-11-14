@@ -169,7 +169,9 @@ extern "C" aclError aclfftRfft1DR2CFft4(float *x, float *y, uint32_t n,
     size_t eyeSize = 32 * 32 * sizeof(float);
     uint32_t tilingSize = sizeof(Rfft1DR2CFftTilingData);
 
-    Rfft1DR2CFftTilingData tilingData;
+    // 值初始化（issue #342，对齐 #338/#117 声明点值初始化口径）：整结构 memcpy
+    // 下发设备前清零，结构体日后新增无 NSDMI 字段时不携带未初始化栈内存
+    Rfft1DR2CFftTilingData tilingData{};
     RfftHost::InitializeTiling<4>(tilingData, fftN, batches, n1, n2, n3, n4);
 
     // host pinned 缓冲纳入 RAII（issue #223）：twiddle/gather/eye 三块缓冲任一

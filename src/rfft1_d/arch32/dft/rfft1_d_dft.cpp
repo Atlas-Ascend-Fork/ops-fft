@@ -88,7 +88,9 @@ extern "C" aclError aclfftRfft1DDft(
     int32_t N = (fftN / 2 + 1) * MUL_DIV_TWO;
     int32_t K = fftN;
 
-    Rfft1DDftTilingData tilingData;
+    // 值初始化（issue #342，对齐 #338/#117 声明点值初始化口径）：整结构 memcpy
+    // 下发设备前清零，结构体日后新增无 NSDMI 字段时不携带未初始化栈内存
+    Rfft1DDftTilingData tilingData{};
     tilingData.batchSize = 1;
     tilingData.m = M;
     tilingData.n = N;
