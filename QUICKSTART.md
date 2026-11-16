@@ -92,7 +92,7 @@ Build package success: build_out/cann-950-ops-fft_9.0.0_linux-*.run
 
 编译成功后，run包存放于项目根目录的build_out目录下。
 
-> **注意**：编译前必须设置`ASCEND_HOME_PATH`（或`ASCEND_INSTALL_PATH`，优先级更高）环境变量。若未设置，脚本会以`[ERROR] ASCEND_HOME_PATH environment variable is not set!`退出；若指向的目录不存在，会以`[ERROR] ASCEND_HOME_PATH directory does not exist`退出。可执行`source <CANN安装目录>/set_env.sh`（如`/usr/local/Ascend/ascend-toolkit/latest/set_env.sh`）后再重试；若source后仍不生效，检查是否在`su`降权后丢失了环境变量，改用`sudo -E`或切换到安装CANN的用户执行。
+> **注意**：`build.sh`在解析参数前会为`ASCEND_HOME_PATH`兜底赋值（取值优先级：`ASCEND_INSTALL_PATH` > `ASCEND_HOME_PATH` > 默认值`/usr/local/Ascend/cann`）并无条件导出，因此不存在"environment variable is not set"报错分支。若解析出的目录不存在（如未设置环境变量且默认路径下无CANN），脚本会以`[ERROR] ASCEND_HOME_PATH directory does not exist: <目录>`退出。可执行`source <CANN安装目录>/set_env.sh`（如`/usr/local/Ascend/cann/set_env.sh`）或显式`export ASCEND_HOME_PATH=<CANN安装目录>`后再重试；若source后仍不生效，检查是否在`su`降权后丢失了环境变量，改用`sudo -E`或切换到安装CANN的用户执行。
 
 ### 安装ops-fft算子包
 
@@ -110,7 +110,7 @@ ops-fft 包不附带独立的环境变量脚本，环境配置复用 CANN Toolki
 source <CANN安装目录>/set_env.sh
 ```
 
-> 与上文"编译前准备"中的 `set_env.sh` 为同一脚本（如 `/usr/local/Ascend/ascend-toolkit/latest/set_env.sh`）。
+> 与上文编译说明中的 `set_env.sh` 为同一脚本（如 `/usr/local/Ascend/cann/set_env.sh`）。
 
 ### 运行测试
 
