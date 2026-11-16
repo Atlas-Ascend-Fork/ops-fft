@@ -486,7 +486,11 @@ __aicore__ __inline__ void R2C_even(
         int index_size = N >= BIASC ? BIAS : ((N / 2 + 63) / 64) * 64;
         uint64_t lenBurstC = (num + 7) / 8;
         uint64_t lenBurstIndex = (index_size + 7) / 8;
-        uint64_t lenBurstOutIndex = (BIASC + 7) / 8;
+        // output_index 表实际条目数 = index_size*2（与 host GenOutputIndex 同式，N 即完整变换点数），
+        // N<4096 时表小于 4096 项，固定按 16KB 搬入会越界读设备缓冲（issue #344）
+        uint64_t out_index_entries = static_cast<uint64_t>(index_size) * 2;
+        uint64_t burst_out_index_entries = out_index_entries < static_cast<uint64_t>(BIASC) ? out_index_entries : static_cast<uint64_t>(BIASC);
+        uint64_t lenBurstOutIndex = (burst_out_index_entries + 7) / 8;
         // 每次vector乘加需要的次数
         uint8_t repeat = (num / 2 + 63) / 64; // repeat 上限 32（num 受 BIASC=4096 封顶），无越界（issue #317 更正陈旧警示）
         // 每次vector reduce需要的次数
