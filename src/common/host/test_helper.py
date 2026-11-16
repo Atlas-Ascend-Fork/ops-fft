@@ -122,11 +122,25 @@ def ordered_tolerance(value):
     return tolerance
 
 
+def parse_case_filter(raw):
+    """Parse a comma-separated --cases value into a name list (None when absent).
+
+    issue #345: C++ 侧传入本架构实际运行的用例集，批量 gen/compare 仅覆盖该集合，
+    避免把对端架构专属用例计入失败并空跑其 golden 生成。
+    """
+    if not raw:
+        return None
+    names = [item.strip() for item in raw.split(",") if item.strip()]
+    return names or None
+
+
 def compare_main(curr_dir, configs):
     parser = argparse.ArgumentParser()
     parser.add_argument("--atol", type=ordered_tolerance, default=None)
     parser.add_argument("--rtol", type=ordered_tolerance, default=None)
     parser.add_argument("--case", type=str, default=None)
+    parser.add_argument("--cases", type=str, default=None,
+                        help="comma-separated case names to restrict the batch loop (issue #345)")
     args = parser.parse_args()
     if args.case:
         cfg = configs.get(args.case)
@@ -141,8 +155,20 @@ def compare_main(curr_dir, configs):
         ok = compare_one(curr_dir, args.case, atol, rtol, detail_only=True)
         cleanup_case(curr_dir, args.case)
         return 0 if ok else 1
+    case_filter = parse_case_filter(args.cases)
+    missing = []
+    if case_filter is not None:
+        missing = [name for name in case_filter if name not in configs]
+        for name in missing:
+            # C++ 用例集与 compare_data.py 配置不同步属注册缺陷，必须保持失败信号
+            logger.info(f"[FAIL] {name}: no config in compare_data.py")
+        names = [name for name in case_filter if name in configs]
+    else:
+        names = list(configs.keys())
     total = passed = failed = 0
-    for name, cfg in configs.items():
+    failed += len(missing)
+    for name in names:
+        cfg = configs[name]
         atol = args.atol if args.atol is not None else cfg["atol"]
         rtol = args.rtol if args.rtol is not None else cfg["rtol"]
         if compare_one(curr_dir, name, atol, rtol):
@@ -158,6 +184,8 @@ def gen_main(configs, gen_one_fn):
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=12345)
     parser.add_argument("--case", type=str, default=None)
+    parser.add_argument("--cases", type=str, default=None,
+                        help="comma-separated case names to restrict the batch loop (issue #345)")
     args = parser.parse_args()
     if args.case:
         cfg = next((c for c in configs if c["name"] == args.case), None)
@@ -168,10 +196,22 @@ def gen_main(configs, gen_one_fn):
         with contextlib.redirect_stdout(io.StringIO()):
             gen_one_fn(cfg, args.seed)
     else:
-        for cfg in configs:
+        case_filter = parse_case_filter(args.cases)
+        selected = configs
+        if case_filter is not None:
+            known = {cfg["name"] for cfg in configs}
+            missing = [name for name in case_filter if name not in known]
+            for name in missing:
+                # C++ 用例集与 gen_data.py 配置不同步属注册缺陷，必须保持失败信号
+                logger.info(f"Unknown case in --cases: {name}")
+            if missing:
+                return 1
+            selected_set = set(case_filter)
+            selected = [cfg for cfg in configs if cfg["name"] in selected_set]
+        for cfg in selected:
             cleanup_case(os.getcwd(), cfg["name"])
         logger.info(f"Generating golden data with seed={args.seed}...")
-        for cfg in configs:
+        for cfg in selected:
             gen_one_fn(cfg, args.seed)
-        logger.info(f"Done. {len(configs)} test cases generated.")
+        logger.info(f"Done. {len(selected)} test cases generated.")
     return 0

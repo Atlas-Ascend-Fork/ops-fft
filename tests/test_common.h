@@ -336,12 +336,27 @@ inline std::string ShellQuote(const std::string& raw) {
     return out;
 }
 
+// Build the --cases argument restricted to the cases this binary actually runs
+// (issue #345): gen/compare 必须只覆盖本架构用例集，否则 compare_data.py 的
+// 两架构并集 configs 会让脚本退出码恒为 1（诊断信号被空触发），并为对端架构
+// 专属超大 shape 白做 golden。用例名来自静态用例表（字母/数字/下划线），
+// 经 ShellQuote 包装后拼接。
+template <typename CaseT>
+inline std::string BuildCasesArg(const std::vector<CaseT>& cases) {
+    std::string joined;
+    for (const auto& tc : cases) {
+        if (!joined.empty()) joined += ",";
+        joined += tc.name;
+    }
+    return " --cases=" + ShellQuote(joined);
+}
+
 // Batch generate all test data (one Python call)
 // 退出码检查（issue #212）：gen_data.py 失败（缺 torch/numpy/脚本异常）原先
 // 无感知，后续比对会因 golden 缺失而整体失败，此处提前打印醒目告警定位根因
-inline void BatchGenAllData(const std::string& data_dir) {
+inline void BatchGenAllData(const std::string& data_dir, const std::string& cases_arg = "") {
     std::string cmd = "cd " + ShellQuote(data_dir) + " && PYTHONPATH=" + ShellQuote(data_dir + "/../../common/host")
-                      + " TORCH_DEVICE_BACKEND_AUTOLOAD=0 python3 -u gen_data.py";
+                      + " TORCH_DEVICE_BACKEND_AUTOLOAD=0 python3 -u gen_data.py" + cases_arg;
     int genRes = system(cmd.c_str());
     if (genRes != 0) {
         std::cerr << "[ERROR] gen_data.py failed (exit=" << genRes << ") in " << data_dir
@@ -369,11 +384,12 @@ struct BatchCompareOutcome {
     int scriptExit = 0;
 };
 
-inline BatchCompareOutcome BatchCompareAllData(const std::string& data_dir) {
+inline BatchCompareOutcome BatchCompareAllData(const std::string& data_dir,
+                                               const std::string& cases_arg = "") {
     BatchCompareOutcome outcome;
     auto& results = outcome.cases;
     std::string cmd = "cd " + ShellQuote(data_dir) + " && PYTHONPATH=" + ShellQuote(data_dir + "/../../common/host")
-                      + " TORCH_DEVICE_BACKEND_AUTOLOAD=0 python3 -u compare_data.py";
+                      + " TORCH_DEVICE_BACKEND_AUTOLOAD=0 python3 -u compare_data.py" + cases_arg;
     std::string output;
     std::array<char, 4096> buffer;
     FILE* pipe = popen(cmd.c_str(), "r");
@@ -437,14 +453,16 @@ inline void RunBatchTests(aclrtStream stream, TestStats& stats,
                            RunFunc run_func) {
     std::string data_dir = GetDataRoot(op_name);
 
-    BatchGenAllData(data_dir);
+    // issue #345：仅对本架构实际运行的用例做 golden 生成与比对
+    std::string cases_arg = BuildCasesArg(cases);
+    BatchGenAllData(data_dir, cases_arg);
 
     std::map<std::string, bool> npu_success;
     for (const auto& tc : cases) {
         npu_success[tc.name] = run_func(stream, tc);
     }
 
-    auto compare = BatchCompareAllData(data_dir);
+    auto compare = BatchCompareAllData(data_dir, cases_arg);
     const auto& compare_results = compare.cases;
 
     for (const auto& tc : cases) {
