@@ -81,8 +81,7 @@
 │   │   │   ├── fft_exec_helper.h                       # Host 侧执行辅助
 │   │   │   └── test_helper.py                          # 测试辅助脚本
 │   │   ├── kernel                                      # Kernel 侧公共实现
-│   │   │   ├── base                                    # 基础设施（common/func/iterators 等）
-│   │   │   │   └── iterators                           # 各级存储迭代器
+│   │   │   ├── base                                    # 基础设施（common/common_func/hardware/mem/simd/utils）
 │   │   │   └── fft                                     # FFT Kernel 公共实现
 │   │   └── tiling                                      # Tiling 数据公共定义
 │   ├── fft1_d                                          # fft1_d 算子目录
