@@ -1066,12 +1066,12 @@ def read_version_info(delivery_dir: str, package_attr: PackageAttr) -> Tuple[str
     install_script = package_attr['install_script']
     install_script_paths = install_script.split('/')
     if len(install_script_paths) < 2:
-        raise InstallScriptFormatError()
+        raise InstallScriptFormatError(install_script)
 
     version_path = os.path.join(delivery_dir, *install_script_paths[:-2], "version.info")
     if not os.path.isfile(version_path):
         raise VersionInfoNotExist(version_path)
-    
+
     with open(version_path, 'r') as file:
         line1 = file.readline().strip()
         line2 = file.readline().strip()
@@ -1080,7 +1080,7 @@ def read_version_info(delivery_dir: str, package_attr: PackageAttr) -> Tuple[str
     m = re.match(r'[.a-zA-Z0-9]+$', version) or re.match(r'[-a-zA-Z.0-9]+$', version)
     if not m:
         raise VersionFormatNotMatch()
-    
+
     return version, version_dir
 
 
