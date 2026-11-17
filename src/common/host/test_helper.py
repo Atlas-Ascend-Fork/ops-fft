@@ -39,6 +39,12 @@ def read_comparison_file(path):
 
 
 def comparison_details(output_np, golden_np, atol, rtol):
+    # 0 字节比对文件（写盘被截断、磁盘满等）在此按明确失败返回（issue #361）：
+    # 空张量直接进入 torch.max 会抛 RuntimeError 中断批量比对
+    if len(golden_np) == 0 or len(output_np) == 0:
+        detail = (f"empty comparison data (golden={len(golden_np)}, output={len(output_np)}, "
+                  f"atol={atol}, rtol={rtol})")
+        return False, detail
     output = torch.from_numpy(output_np).to(torch.float64)
     golden = torch.from_numpy(golden_np).to(torch.float64)
     diff = torch.abs(output - golden)

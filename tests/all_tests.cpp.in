@@ -95,7 +95,12 @@ int main() {
     const char* data_root = std::getenv("OPS_FFT_TEST_DATA_ROOT");
     if (data_root && std::strlen(data_root) > 0) {
         // 路径经 shell_quote 包装（issue #335）：数据根可含空格或 shell 元字符
-        std::string cleanup_cmd = std::string("find ") + OpsFftTest::ShellQuote(data_root) + " -name '*.bin' -delete 2>/dev/null";
+        // 清理范围限定各算子 *_data 测试数据目录（issue #363）：数据根默认为整个
+        // src 树，原先整树递归删除 .bin 对未来入库的 .bin fixture 存在误删风险；
+        // -path 限定与 GetDataRoot 的 <root>/<op>/tests/<op>_data 布局一致，
+        // 运行期产物仍被清除，测试数据目录之外的 .bin 不受影响
+        std::string cleanup_cmd = std::string("find ") + OpsFftTest::ShellQuote(data_root) +
+                                  " -type f -path '*/tests/*_data/*' -name '*.bin' -delete 2>/dev/null";
         system(cleanup_cmd.c_str());
     }
 

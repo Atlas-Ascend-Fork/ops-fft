@@ -21,6 +21,18 @@ namespace OpsFftTest {
 TestStats g_global_stats;
 std::vector<std::string> g_failed_cases;
 
+// 测试设备号可经环境变量 OPS_FFT_TEST_DEVICE 覆盖（issue #362）：
+// 多卡 CI 环境 0 号卡被占用/不可用时可在指定卡上运行；
+// 未设置时取 0，行为与原实现一致
+int GetTestDeviceId()
+{
+    const char *env = std::getenv("OPS_FFT_TEST_DEVICE");
+    if (env == nullptr || *env == '\0') {
+        return 0;
+    }
+    return std::atoi(env);
+}
+
 // ACL 初始化
 int ACLManager::init(aclrtStream& stream) {
     // 初始化 ACL
@@ -31,9 +43,10 @@ int ACLManager::init(aclrtStream& stream) {
     }
 
     // 设置设备
-    ret = aclrtSetDevice(0);
+    const int device_id = GetTestDeviceId();
+    ret = aclrtSetDevice(device_id);
     if (ret != ACL_SUCCESS) {
-        std::cerr << "aclrtSetDevice failed: " << ret << std::endl;
+        std::cerr << "aclrtSetDevice(" << device_id << ") failed: " << ret << std::endl;
         aclFinalize();
         return -1;
     }
@@ -42,7 +55,7 @@ int ACLManager::init(aclrtStream& stream) {
     ret = aclrtCreateStream(&stream);
     if (ret != ACL_SUCCESS) {
         std::cerr << "aclrtCreateStream failed: " << ret << std::endl;
-        aclrtResetDevice(0);
+        aclrtResetDevice(device_id);
         aclFinalize();
         return -1;
     }
@@ -56,7 +69,7 @@ void ACLManager::finalize(aclrtStream& stream) {
         aclrtDestroyStream(stream);
         stream = nullptr;
     }
-    aclrtResetDevice(0);
+    aclrtResetDevice(GetTestDeviceId());
     aclFinalize();
 }
 
