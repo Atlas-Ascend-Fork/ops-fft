@@ -26,6 +26,7 @@
 #include <array>
 #include <map>
 #include <sstream>
+#include <algorithm>
 // pclose 退出码判定（issue #316）：WIFEXITED/WEXITSTATUS
 #include <sys/wait.h>
 #include "acl/acl.h"

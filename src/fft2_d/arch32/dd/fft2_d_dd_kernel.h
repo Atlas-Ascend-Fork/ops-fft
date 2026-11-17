@@ -30,17 +30,6 @@ const int16_t SYNC_ALL_CORE_FLAG_ID = 0;
 const int16_t SYNC_SINGLE_VC_FLAG_ID = 1;
 const int16_t SYNC_SINGLE_CV_FLAG_ID = 2;
 
-/**
- * @brief Ceil(a/b)
- * @param [in] int64_t a：需要取整的数
- * @param [in] int64_t b：需要向上取整的最小粒度
- * @return Ceil(a/b)
- */
-__aicore__ inline int64_t __attribute__((overloadable, always_inline)) CeilADivB(int64_t a, int64_t b)
-{
-    return ((a + b - 1) / b);
-}
-
 #ifdef __DAV_C220_VEC__
 
 const uint64_t BLOCK_SIZE = 32 / sizeof(float);
@@ -60,7 +49,7 @@ const uint16_t PATTERN_MODE_REPEAT_TWO_GET_SECOND = 2;
 *********************************/
 __aicore__ __inline__ void LoadDataFromGmToUb(AscendC::LocalTensor<float> dst_ub_tensor, AscendC::GlobalTensor<float> src_gm_tensor, uint32_t copyCount) {
 
-    int32_t copy_block_count = CeilADivB(copyCount, BLOCK_SIZE);
+    int32_t copy_block_count = CeilDiv<int64_t>(copyCount, BLOCK_SIZE);
     AscendC::DataCopy(
         dst_ub_tensor,
         src_gm_tensor,
@@ -83,7 +72,7 @@ __aicore__ __inline__ void LoadDataFromGmToUb(AscendC::LocalTensor<float> dst_ub
 *********************************/
 __aicore__ __inline__ void SaveDataFromUbToGm(AscendC::GlobalTensor<float> dst_gm_tensor, AscendC::LocalTensor<float> src_ub_tensor, uint32_t copyCount) {
 
-    int32_t copy_block_count = CeilADivB(copyCount, BLOCK_SIZE);
+    int32_t copy_block_count = CeilDiv<int64_t>(copyCount, BLOCK_SIZE);
     AscendC::DataCopy(
         dst_gm_tensor,
         src_ub_tensor,
@@ -97,7 +86,7 @@ __aicore__ __inline__ void SaveDataFromUbToGm(AscendC::GlobalTensor<float> dst_g
 }
 
 __aicore__ __inline__ void SaveDataFromUbToGmWithJump(AscendC::GlobalTensor<float> dst_gm_tensor, AscendC::LocalTensor<float> src_ub_tensor, uint32_t repeat, uint32_t copyCount, uint32_t offset) {
-    int32_t copy_block_count = CeilADivB(copyCount, BLOCK_SIZE);
+    int32_t copy_block_count = CeilDiv<int64_t>(copyCount, BLOCK_SIZE);
     int32_t gm_dst_stride = offset / BLOCK_SIZE - copy_block_count;
 
     AscendC::DataCopy(
@@ -125,7 +114,7 @@ __aicore__ __inline__ void SeparateRIMultiBatch(
     const int32_t max_datacount_perloop = 48 * 1024 / (COMPLEX_DOUBLE * sizeof(float));
     const int32_t row_count_per_loop = max_datacount_perloop / y_len;
 
-    const int32_t loop_count = CeilADivB(x_len, row_count_per_loop);
+    const int32_t loop_count = CeilDiv<int64_t>(x_len, row_count_per_loop);
     const int32_t loop_remain_row_count = x_len % row_count_per_loop;
 
     // divide data
@@ -179,7 +168,7 @@ __aicore__ __inline__ void SeparateRI(
 
     const int32_t max_datacount_perloop = 48 * 1024 / (COMPLEX_DOUBLE * sizeof(float));
 
-    const int32_t loop_count = CeilADivB(separate_count, max_datacount_perloop);
+    const int32_t loop_count = CeilDiv<int64_t>(separate_count, max_datacount_perloop);
     const int32_t loop_remain_count = separate_count % max_datacount_perloop;
 
     // divide data
@@ -1754,10 +1743,10 @@ extern "C" __global__ __aicore__ void dd(
     const int32_t dft_ylength = tiling_para[2];
     const int32_t batch_nums_per_loop = tiling_para[3];
 
-    const int32_t loop_count = CeilADivB(batch_size, batch_nums_per_loop);
+    const int32_t loop_count = CeilDiv<int64_t>(batch_size, batch_nums_per_loop);
     const int32_t batch_remain = batch_size % batch_nums_per_loop;
     const int32_t l2_cache_loop_num = 500;
-    const int32_t big_loop_count = CeilADivB(loop_count, l2_cache_loop_num);
+    const int32_t big_loop_count = CeilDiv<int64_t>(loop_count, l2_cache_loop_num);
     const int32_t big_loop_remain = loop_count % l2_cache_loop_num;
 
     uint64_t flag_id = SYNC_ALL_CORE_FLAG_ID;
@@ -1882,10 +1871,10 @@ extern "C" __global__ __aicore__ void dd(
     const int32_t dft_ylength = tiling_para[2];
     const int32_t batch_nums_per_loop = tiling_para[3];
 
-    const int32_t loop_count = CeilADivB(batch_size, batch_nums_per_loop);
+    const int32_t loop_count = CeilDiv<int64_t>(batch_size, batch_nums_per_loop);
     const int32_t batch_remain = batch_size % batch_nums_per_loop;
     const int32_t l2_cache_loop_num = 500;
-    const int32_t big_loop_count = CeilADivB(loop_count, l2_cache_loop_num);
+    const int32_t big_loop_count = CeilDiv<int64_t>(loop_count, l2_cache_loop_num);
     const int32_t big_loop_remain = loop_count % l2_cache_loop_num;
 
     uint64_t flag_id;

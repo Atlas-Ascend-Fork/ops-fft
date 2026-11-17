@@ -45,17 +45,6 @@ const int16_t SYNC_ALL_CORE_FLAG_ID = 0;
 const int16_t SYNC_SINGLE_VC_FLAG_ID = 1;
 const int16_t SYNC_SINGLE_CV_FLAG_ID = 2;
 
-/**
- * @brief Ceil(a/b)
- * @param [in] int64_t a：需要取整的数
- * @param [in] int64_t b：需要向上取整的最小粒度
- * @return Ceil(a/b)
- */
-__aicore__ inline int64_t __attribute__((overloadable, always_inline)) CeilADivB(int64_t a, int64_t b)
-{
-    return ((a + b - 1) / b);
-}
-
 /*********************************
  * @brief 从gm指定位置拷入数据至连续ub（使用所有VectorCore）
  * @param [out] ub_dst ub数据块的首地址（float32）
@@ -200,7 +189,7 @@ __aicore__ __inline__ void SeparateRI(__gm__ float *__restrict__ gm_dst, __gm__ 
 
     const int32_t n_repeat_count = max_datacount_perloop / dValue;
 
-    const int32_t n_loop_count = CeilADivB(nValue, n_repeat_count);
+    const int32_t n_loop_count = CeilDiv<int64_t>(nValue, n_repeat_count);
     const int32_t n_loop_remain_count = nValue % n_repeat_count;
 
     // divide data
@@ -290,7 +279,7 @@ __aicore__ __inline__ void TransposeWithStrideAndCombineRI(__gm__ float *__restr
     // assume Q = 64
     int32_t singleBufRepeatCnt = 48 * 1024 / (singleUnitElementCount * sizeof(float));
 
-    int32_t p_loop_count = CeilADivB(P, singleBufRepeatCnt);
+    int32_t p_loop_count = CeilDiv<int64_t>(P, singleBufRepeatCnt);
     int32_t p_loop_remain = P % singleBufRepeatCnt;
 
     // divide data
@@ -796,7 +785,7 @@ extern "C" __global__ __aicore__ void fft_stride(__gm__ uint8_t *__restrict__ ff
         const int32_t iter_count = tiling_para[4];
         const int32_t S0 = tiling_para[10];
 
-        const int32_t big_loop_count = CeilADivB(fft_stride, S0);
+        const int32_t big_loop_count = CeilDiv<int64_t>(fft_stride, S0);
         const int32_t big_loop_remain_count = fft_stride % S0;
 
         __gm__ float *__restrict__ gm_wksp2 = gm_workspace + fft_length * S0 * COMPLEX_DOUBLE;
@@ -854,7 +843,7 @@ extern "C" __global__ __aicore__ void fft_stride(__gm__ uint8_t *__restrict__ ff
         const int32_t iter_count = tiling_para[4];
         const int32_t S0 = tiling_para[10];
 
-        const int32_t big_loop_count = CeilADivB(fft_stride, S0);
+        const int32_t big_loop_count = CeilDiv<int64_t>(fft_stride, S0);
         const int32_t big_loop_remain_count = fft_stride % S0;
 
         __gm__ float *__restrict__ gm_wksp2 = gm_workspace + fft_length * S0 * COMPLEX_DOUBLE;

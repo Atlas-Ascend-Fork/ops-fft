@@ -229,7 +229,7 @@ __aicore__ __inline__ void step_ppmatmul_0_1(__gm__ float *__restrict__ gm_a, __
                                             )
                                         );
                                     }
-                                    
+
                                 } else {
                                     auto l1_src_a_tensor = l1_buf_a_tensor[k_part_idx * k_part_len * BLOCK_SIZE];
                                     for (int32_t i = 0; i < m_round / BLOCK_SIZE; i++) {
@@ -763,34 +763,34 @@ __aicore__ __inline__ void step_reduce(__gm__ float *__restrict__ gm_input, __gm
     auto real_buf2 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(real_buf2_tensor.GetPhyAddr()));
     auto imag_buf1 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(imag_buf1_tensor.GetPhyAddr()));
     auto imag_buf2 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(imag_buf2_tensor.GetPhyAddr()));
- 
+
     int32_t aiv_id = AscendC::GetSubBlockIdx();
     int32_t per_aiv_core_element_num = N;
- 
+
     int32_t N0 = 128;
     if (N <= 2048) {
         N0 = 256;  // 多Batch合并要求, 数据排布不同
     }
- 
+
     // 计算每个核要处理的batch数量
     int32_t batch_id = batch_id_begin;
     int32_t batch_end = N >= 8192 ? min(batch_id_end, batch_id + batch_size) : batch_id_end;
     int32_t batch_num =
         N >= 8192 ? 1 : min(max_repeat_count * 64 / N, min(N0 / N_radix, batch_size));  // 一次迭代处理的batch数量
- 
+
     max_repeat_count = N >= 8192 ? 192 : batch_num * N / 64;
- 
+
     int32_t ping_flag = 1;
 
     SET_FLAG(MTE3, MTE2, EVENT_ID0);
     SET_FLAG(MTE3, MTE2, EVENT_ID1);
- 
+
     for (; batch_id < batch_end; batch_id += batch_num) {  // 一个核处理batch_num_sum个batch，一次处理batch_num个batch
         int32_t batch_actual = ((batch_id + batch_num) >= batch_end) ? (batch_end - batch_id) : batch_num;
         int32_t all_repeats = batch_actual * N / 64;
         int32_t repeat = N >= 8192 ? 192 : batch_num * N / 64;
         int32_t loop = (all_repeats + max_repeat_count - 1) / max_repeat_count;
- 
+
         for (int32_t i = 0; i < loop; ++i) {
             if (i == loop - 1) {
                 repeat = all_repeats - (loop - 1) * max_repeat_count;
@@ -802,9 +802,9 @@ __aicore__ __inline__ void step_reduce(__gm__ float *__restrict__ gm_input, __gm
             auto imag_buf = ping_flag ? imag_buf1 : imag_buf2;
             auto imag_buf_tensor = ping_flag ? imag_buf1_tensor : imag_buf2_tensor;
             auto event_id = ping_flag ? EVENT_ID0 : EVENT_ID1;
- 
+
             WAIT_FLAG(MTE3, MTE2, event_id);
- 
+
             if (N < 8192) {
                 for (int32_t j = 0; j < batch_actual; ++j) {
                     AscendC::DataCopy(
@@ -857,7 +857,7 @@ __aicore__ __inline__ void step_reduce(__gm__ float *__restrict__ gm_input, __gm
 
             SET_FLAG(V, MTE3, event_id);
             WAIT_FLAG(V, MTE3, event_id);
- 
+
             if (N < 8192) {
                 AscendC::DataCopy(
                     gm_output_tensor[batch_id * N * 2 + aiv_id * N / 2 * batch_actual + i * max_repeat_count * 64 * 2],
@@ -1434,7 +1434,7 @@ __aicore__ __inline__ void SeparateRIwithRadix4(__gm__ float *__restrict__ gm_in
             }
             SET_FLAG(V, MTE3, event_id);
             WAIT_FLAG(V, MTE3, event_id);
-            
+
             AscendC::DataCopy(
                 gm_output_tensor[batch_id * 2 * inputN + n_idx * 2 * N0 + aiv_id * 4 * N0],
                 output_ub_tensor,
@@ -1469,8 +1469,6 @@ __aicore__ __inline__ void ContinuousMulDev(
     int32_t loop = num_of_8blocks / max_repeat_num;  // 1
     AscendC::SetMaskNorm();
     SetVectorMask<float>((uint64_t)0, (uint64_t)-1);
-
-    uint64_t mask[1] = { UINT64_MAX };
 
     for (int32_t i = 0; i < loop; i++) {
         mul_v<ArchType::ASCEND_V220, float>(
@@ -1629,7 +1627,7 @@ __aicore__ __inline__ void PartitionMulDev(
 {
     AscendC::SetMaskNorm();
     SetVectorMask<float>((uint64_t)0, (uint64_t)-1);
-    
+
     if (col == 128) {
         mul_v<ArchType::ASCEND_V220, float>(dst, src0, src1, row / 2, 1, 1, 1, 32, 32, 32);
         mul_v<ArchType::ASCEND_V220, float>(dst[64], src0[64], src1[64], row / 2, 1, 1, 1, 32, 32, 32);
@@ -1695,7 +1693,7 @@ __aicore__ __inline__ void step_complex_mul_0_1(__gm__ float *__restrict__ input
     AscendC::GlobalTensor<float> input1_tensor;
     AscendC::GlobalTensor<float> t_matrix_tensor;
     AscendC::GlobalTensor<float> output_tensor;
- 
+
     input1_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(input1));
     t_matrix_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(t_matrix));
     output_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(output));
@@ -1707,7 +1705,7 @@ __aicore__ __inline__ void step_complex_mul_0_1(__gm__ float *__restrict__ input
     AscendC::LocalTensor<float> input1_ub2_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)(96 * 1024));
     AscendC::LocalTensor<float> input2_ub1_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)(128 * 1024));
     AscendC::LocalTensor<float> input2_ub2_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)(160 * 1024));
- 
+
     auto output_ub1 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(output_ub1_tensor.GetPhyAddr()));
     auto output_ub2 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(output_ub2_tensor.GetPhyAddr()));
     auto input1_ub1 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(input1_ub1_tensor.GetPhyAddr()));
@@ -1986,7 +1984,7 @@ __aicore__ __inline__ void step_2iter_count_gather_real_imag(__gm__ float *__res
     AscendC::GlobalTensor<float> gm_output_tensor;
     AscendC::GlobalTensor<float> gm_input_tensor;
     AscendC::GlobalTensor<float> gm_index_tensor;
- 
+
     gm_output_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_output));
     gm_input_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_input));
     gm_index_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_index));
@@ -2018,7 +2016,7 @@ __aicore__ __inline__ void step_2iter_count_gather_real_imag(__gm__ float *__res
     AscendC::LocalTensor<float> temp_ub2_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)(160 * 1024));
     AscendC::LocalTensor<float> output_ub1_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)(128 * 1024));
     AscendC::LocalTensor<float> output_ub2_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)(160 * 1024));
- 
+
     auto input_ub1 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(input_ub1_tensor.GetPhyAddr()));
     auto input_ub2 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(input_ub2_tensor.GetPhyAddr()));
     auto index_ub = reinterpret_cast<__ubuf__ float *>((uintptr_t)(index_ub_tensor.GetPhyAddr()));

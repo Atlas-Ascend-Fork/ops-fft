@@ -247,8 +247,6 @@ __aicore__ __inline__ void ContinuousMulDev(
     AscendC::SetMaskNorm();
     SetVectorMask<float>((uint64_t)0, (uint64_t)-1);
 
-    uint64_t mask[1] = { UINT64_MAX };
-
     for (int32_t i = 0; i < loop; i++) {
         mul_v<ArchType::ASCEND_V220, float>(
             dst[max_repeat_num * ele_num_in_8blocks * i],

@@ -22,7 +22,6 @@
 #include "lib/matmul_intf.h"
 #include "common_func.h"
 
-#define CUBE_DFT
 using DTYPE_X = float;
 using DTYPE_Y = float;
 

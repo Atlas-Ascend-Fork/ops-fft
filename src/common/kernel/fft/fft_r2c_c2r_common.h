@@ -411,13 +411,13 @@ __aicore__ __inline__ void C2R_even(
                 // UB_BUF6: BI;   UB_BUF7: BR
                 // FrevR的计算
 
-                AscendC::Mul(temp1_ub_tensor, buf5_ub_tensor, MatrixB_Real_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FervR * BR
-                AscendC::Mul(temp2_ub_tensor, buf4_ub_tensor, MatrixB_Real_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FervI * BR
+                AscendC::Mul(temp1_ub_tensor, buf5_ub_tensor, MatrixB_Real_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FrevR * BR
+                AscendC::Mul(temp2_ub_tensor, buf4_ub_tensor, MatrixB_Real_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FrevI * BR
                 AscendC::Mul(buf5_ub_tensor, buf5_ub_tensor, MatrixB_Imag_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8});  // FrevR * BI
                 AscendC::Mul(buf4_ub_tensor, buf4_ub_tensor, MatrixB_Imag_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8});  // FrevI * BI
                 AscendC::PipeBarrier<PIPE_V>();
-                AscendC::Sub(buf4_ub_tensor, temp1_ub_tensor, buf4_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FervR * BR - FrevI * BI
-                AscendC::Add(buf5_ub_tensor, temp2_ub_tensor, buf5_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FrevR * BI + FervI * BR
+                AscendC::Sub(buf4_ub_tensor, temp1_ub_tensor, buf4_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FrevR * BR - FrevI * BI
+                AscendC::Add(buf5_ub_tensor, temp2_ub_tensor, buf5_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FrevR * BI + FrevI * BR
                 AscendC::PipeBarrier<PIPE_V>();
 
                 // **********虚实结合***************
@@ -668,20 +668,20 @@ __aicore__ __inline__ void R2C_even(
                 // UB_BUF6: BI;   UB_BUF7: BR
                 // FrevR的计算
 
-                AscendC::Mul(temp1_ub_tensor, buf5_ub_tensor, MatrixB_Real_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FervR * BR
-                AscendC::Mul(temp2_ub_tensor, buf4_ub_tensor, MatrixB_Real_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FervI * BR
+                AscendC::Mul(temp1_ub_tensor, buf5_ub_tensor, MatrixB_Real_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FrevR * BR
+                AscendC::Mul(temp2_ub_tensor, buf4_ub_tensor, MatrixB_Real_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FrevI * BR
                 AscendC::Mul(buf5_ub_tensor, buf5_ub_tensor, MatrixB_Imag_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8});  // FrevR * BI
                 AscendC::Mul(buf4_ub_tensor, buf4_ub_tensor, MatrixB_Imag_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8});  // FrevI * BI
                 AscendC::PipeBarrier<PIPE_V>();
 
-                AscendC::Sub(buf4_ub_tensor, temp1_ub_tensor, buf4_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FervR * BR - FrevI * BI
-                AscendC::Add(buf5_ub_tensor, temp2_ub_tensor, buf5_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FrevR * BI + FervI * BR
+                AscendC::Sub(buf4_ub_tensor, temp1_ub_tensor, buf4_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FrevR * BR - FrevI * BI
+                AscendC::Add(buf5_ub_tensor, temp2_ub_tensor, buf5_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FrevR * BI + FrevI * BR
                 AscendC::PipeBarrier<PIPE_V>();
 
                 //  **********虚实结合***************
                 // A和B结果组合
                 AscendC::Add(buf1_ub_tensor, buf1_ub_tensor, buf4_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FR * AR - FI * AI
-                AscendC::Add(buf2_ub_tensor, buf2_ub_tensor, buf5_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FR * AI + FI * ARs
+                AscendC::Add(buf2_ub_tensor, buf2_ub_tensor, buf5_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FR * AI + FI * AR
                 AscendC::PipeBarrier<PIPE_V>();
                 // UB_BUF8实数， UB_BUF9虚数，结果组合
                 // 结果在UB_BUF0里面

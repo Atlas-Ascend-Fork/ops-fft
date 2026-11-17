@@ -499,8 +499,7 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void fft_matm
                     if (n_part_idx == 0 && batch_part_idx == 0) {
                         WaitFlagDev(ping_flag + 2);
                     }
-                    if (trans_c) {
-                    } else {
+                    if (!trans_c) {
                         // 如果 batch_len > 1 去掉矩阵的padding，便于虚实结合按照向量来操作
                         if (step_index == step_len - 1 && batch_len > 1) {
                             if (batch_part_actual > 1) {
