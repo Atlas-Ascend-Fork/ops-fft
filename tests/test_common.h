@@ -367,10 +367,15 @@ inline void BatchGenAllData(const std::string& data_dir, const std::string& case
     }
 }
 
-// Cleanup all .bin files in data dir
-inline void CleanupAllData(const std::string& data_dir) {
-    std::string cmd = "rm -f " + ShellQuote(data_dir) + "/*.bin";
-    system(cmd.c_str());
+// Match test_helper.cleanup_case: remove only the executed cases' owned artifacts.
+template <typename CaseT>
+inline void CleanupCaseData(const std::string& data_dir, const std::vector<CaseT>& cases) {
+    for (const auto& tc : cases) {
+        for (const char* suffix : {"input", "golden", "golden_forward", "output"}) {
+            std::string path = data_dir + "/" + tc.name + "_" + suffix + ".bin";
+            std::remove(path.c_str());
+        }
+    }
 }
 
 // Batch compare all cases (one Python call), returns map of name -> (passed, detail)
@@ -493,7 +498,7 @@ inline void RunBatchTests(aclrtStream stream, TestStats& stats,
         }
     }
 
-    CleanupAllData(data_dir);
+    CleanupCaseData(data_dir, cases);
 }
 
 } // namespace OpsFftTest
