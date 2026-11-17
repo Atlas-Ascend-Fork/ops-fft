@@ -2,7 +2,7 @@
 
 > 本章罗列的部分目录是可选的，请以实际交付件为准。尤其**单算子目录**，不同场景下交付件有差异。
 
-项目全量目录层级介绍如下：
+项目目录层级介绍如下：
 
 ```
 ├── cmake                                               # 项目工程编译目录
@@ -128,7 +128,13 @@
 │       ├── rfft1_d.h
 │       ├── arch32                                      # Ascend910B 架构实现
 │       │   ├── dft                                     # DFT 实现
-│       │   └── r2c_fft                                 # R2C FFT 实现
+│       │   ├── r2c_fft                                 # R2C FFT 实现
+│       │   ├── r2c_fft1                                # PACO R2C FFT 实现
+│       │   ├── r2c_fft2                                # PACO R2C FFT 实现
+│       │   ├── r2c_fft3_1                              # PACO R2C FFT 实现
+│       │   ├── r2c_fft3_2                              # PACO R2C FFT 实现
+│       │   ├── r2c_fft4                                # PACO R2C FFT 实现
+│       │   └── r2c_fft5                                # PACO R2C FFT 实现
 │       ├── arch35                                      # Ascend950 架构实现
 │       │   ├── fast_dft                               # Fast DFT 实现
 │       │   └── fft                                     # FFT 实现
@@ -150,6 +156,15 @@
 ├── README.md                                           # 项目工程总介绍文档
 ├── QUICKSTART.md                                       # 快速入门指南
 ├── SECURITY.md                                         # 项目安全声明文件
+├── CHANGELOG.md                                        # 版本变更记录
+├── install_deps.sh                                     # 依赖安装脚本
+├── requirements.txt                                    # Python 依赖列表
+├── classify_rule.yaml                                  # 文件分类规则
+├── LICENSE                                             # 许可证
+├── COPYING-PACO                                        # PACO FFT 第三方许可证文本
+├── LICENSE-PACO                                        # PACO FFT 第三方双许可声明
+├── Third_Party_Open_Source_Software_List.yaml          # 三方软件清单
+├── Third_Party_Open_Source_Software_Notice             # 三方软件声明
 ├── OAT.xml                                             # 开源审计工具配置
 ├── build.sh                                            # 项目工程编译脚本
 └── version.cmake                                       # 版本号CMake配置

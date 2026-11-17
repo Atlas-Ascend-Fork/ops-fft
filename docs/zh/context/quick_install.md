@@ -14,7 +14,6 @@
    - gcc >= 7.3.0
    - cmake >= 3.16.0
    - pigz（可选，安装后可提升打包速度，建议版本 >= 2.4）
-   - dos2unix
    - gawk
    - make
 
@@ -30,6 +29,18 @@
    单击[下载链接](https://www.hiascend.com/hardware/firmware-drivers/community)，根据实际产品型号和环境架构，获取对应的`Ascend-hdk-<chip_type>-npu-driver_<version>_linux-<arch>.run`、`Ascend-hdk-<chip_type>-npu-firmware_<version>_linux-<arch>.run`包。
 
    安装指导详见《[CANN 软件安装指南](https://www.hiascend.com/document/redirect/CannCommunityInstSoftware)》。
+
+3. **安装 Python 依赖（执行测试回归时需要）**
+
+   构建测试与 pre-commit 钩子所需的 Python 依赖统一维护在仓库根目录 requirements.txt（numpy、torch、pytest），执行如下命令安装：
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+   > **说明：**
+   > - 其中 torch 版本口径与 .pre-commit-config.yaml 保持一致（torch==2.8.0+cpu），并通过 requirements.txt 内置的 PyTorch CPU 源（--extra-index-url）安装。
+   > - 若仅编译算子、不执行测试回归，可跳过本步骤。
 
 ## 环境准备（二选一）
 

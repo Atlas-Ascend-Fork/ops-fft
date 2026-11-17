@@ -10,8 +10,8 @@
 # ----------------------------------------------------------------------------
 
 PARAM_INVALID="0x0002"
-INSTALL_FAILED="0x0000"
-INSTALL_FAILED_DES="Update successfully."
+INSTALL_FAILED="0x0001"
+INSTALL_FAILED_DES="Install failed."
 FILE_NOT_EXIST="0x0080"
 FILE_NOT_EXIST_DES="File not found."
 FILE_READ_FAILED="0x0082"

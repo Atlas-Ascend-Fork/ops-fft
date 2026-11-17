@@ -235,7 +235,13 @@ ops-fft/
 │   │   ├── rfft1_d.h           # 算子接口
 │   │   ├── arch32/             # Ascend910B 架构实现
 │   │   │   ├── dft/            # DFT 实现
-│   │   │   └── r2c_fft/        # R2C FFT 实现
+│   │   │   ├── r2c_fft/        # R2C FFT 实现
+│   │   │   ├── r2c_fft1/       # PACO R2C FFT 实现
+│   │   │   ├── r2c_fft2/       # PACO R2C FFT 实现
+│   │   │   ├── r2c_fft3_1/     # PACO R2C FFT 实现
+│   │   │   ├── r2c_fft3_2/     # PACO R2C FFT 实现
+│   │   │   ├── r2c_fft4/       # PACO R2C FFT 实现
+│   │   │   └── r2c_fft5/       # PACO R2C FFT 实现
 │   │   ├── arch35/             # Ascend950 架构实现
 │   │   │   ├── fast_dft/       # 快速 DFT 实现
 │   │   │   └── fft/            # FFT 实现
@@ -251,6 +257,8 @@ ops-fft/
 ├── classify_rule.yaml          # 文件分类规则
 ├── CMakeLists.txt              # 主 CMake 配置
 ├── CONTRIBUTING.md             # 贡献指南
+├── COPYING-PACO                # PACO FFT 第三方许可证文本
+├── LICENSE-PACO                # PACO FFT 第三方双许可声明
 ├── install_deps.sh             # 依赖安装脚本
 ├── LICENSE                     # 许可证
 ├── OAT.xml                     # 许可证扫描配置
