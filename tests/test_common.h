@@ -17,6 +17,7 @@
 #define CANN_OPS_FFT_TEST_COMMON_H
 
 #include <iostream>
+#include <cmath>
 #include <string>
 #include <unistd.h>
 #include <cstring>
@@ -142,7 +143,7 @@ extern std::vector<std::string> g_failed_cases;
         TEST_ASSERT((local_stats), all_match, error_msg); \
     } while(0)
 
-// 容差数组比较宏（浮点数，带容差）
+// 容差数组比较宏（有限浮点数，带容差）；NaN/Inf 不作为有效比较结果
 // 循环上界取 length 与 size() 的较小者（issue #247）：length 为调用方传入值，
 // 与实际 size() 脱节时不再越界读
 #define TEST_ASSERT_ARRAY_NEAR(local_stats, actual, expected, length, tol, error_msg) \
@@ -155,7 +156,8 @@ extern std::vector<std::string> g_failed_cases;
                       << ") != expected.size() (" << (expected).size() << ")" << std::endl; \
         } else { \
             for (size_t _i = 0; _i < std::min(static_cast<size_t>(length), (actual).size()); ++_i) { \
-                if (std::abs((actual)[_i] - (expected)[_i]) > (tol)) { \
+                if (!std::isfinite((actual)[_i]) || !std::isfinite((expected)[_i]) || \
+                    std::abs((actual)[_i] - (expected)[_i]) > (tol)) { \
                     all_match = false; \
                     first_mismatch = _i; \
                     break; \
