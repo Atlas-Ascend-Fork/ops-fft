@@ -41,8 +41,10 @@ inline bool run_c2c_case(aclrtStream stream, const C2CTestCase& tc) {
 
     if (tc.direction == 0) {
         aclfftHandle plan_fwd, plan_bwd;
-        if (aclfftPlan1d(&plan_fwd, tc.n, ACLFFT_C2C, tc.batch, ACLFFT_HORIZONTAL) != ACLFFT_SUCCESS) return false;
-        if (aclfftPlan1d(&plan_bwd, tc.n, ACLFFT_C2C, tc.batch, ACLFFT_HORIZONTAL) != ACLFFT_SUCCESS) {
+        // roundtrip 布局与正向分支一致取用例 layout 字段（issue #387）：原先硬编码
+        // ACLFFT_HORIZONTAL，未来新增 VERTICAL roundtrip 用例时会被静默按水平执行
+        if (aclfftPlan1d(&plan_fwd, tc.n, ACLFFT_C2C, tc.batch, tc.layout) != ACLFFT_SUCCESS) return false;
+        if (aclfftPlan1d(&plan_bwd, tc.n, ACLFFT_C2C, tc.batch, tc.layout) != ACLFFT_SUCCESS) {
             aclfftDestroy(plan_fwd); return false;
         }
         std::vector<aclfftComplex> mid(total_complex);

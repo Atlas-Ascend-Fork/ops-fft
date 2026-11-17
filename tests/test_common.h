@@ -101,7 +101,10 @@ extern std::vector<std::string> g_failed_cases;
         std::cout << "----------------------------------------" << std::endl; \
     } while(0)
 
-// 断言宏：失败时打印错误信息并退出，成功时不打印
+// 断言宏：失败时打印错误信息、计入失败清单并退出进程（成功时不打印）。
+// 退出路径的 ACL 资源释放与残留 .bin 清理由 ACLManager::init 注册的 atexit
+// 兜底完成（issue #384），不再绕过 finalize 与数据清理；失败信息同时计入
+// g_failed_cases，与 TEST_CASE_FAIL_DETAIL 口径对齐
 #define TEST_ASSERT(local_stats, condition, error_msg) \
     do { \
         if (!(condition)) { \
@@ -109,6 +112,7 @@ extern std::vector<std::string> g_failed_cases;
             (local_stats).failed++; \
             OpsFftTest::g_global_stats.total++; \
             OpsFftTest::g_global_stats.failed++; \
+            OpsFftTest::g_failed_cases.push_back(error_msg); \
             std::cerr << "  [ERROR] " << (error_msg) << std::endl; \
             std::exit(1); \
         } \
@@ -117,7 +121,8 @@ extern std::vector<std::string> g_failed_cases;
 // 精确数组比较宏（无容差）
 // 防护口径对齐 TEST_ASSERT_ARRAY_NEAR（issue #326，同 #247 修复模式）：先校验两容器
 // size 一致（不一致直接判失败并打印两侧 size），再以 min(length, size) 钳制比较长度，
-// length 为调用方传入值，与实际 size() 脱节时不再越界读
+// length 为调用方传入值，与实际 size() 脱节时不再越界读；length 小于实际 size()
+// 的少比情形打印告警（issue #386），避免尾部元素被静默跳过
 #define TEST_ASSERT_ARRAY_EQ(local_stats, actual, expected, length, error_msg) \
     do { \
         bool all_match = true; \
@@ -127,6 +132,11 @@ extern std::vector<std::string> g_failed_cases;
             std::cerr << "  [ERROR] " << (error_msg) << ": actual.size() (" << (actual).size() \
                       << ") != expected.size() (" << (expected).size() << ")" << std::endl; \
         } else { \
+            if (static_cast<size_t>(length) < (actual).size()) { \
+                std::cout << "  [WARN] " << (error_msg) << ": length (" << static_cast<size_t>(length) \
+                          << ") < actual.size() (" << (actual).size() << "), tail " \
+                          << ((actual).size() - static_cast<size_t>(length)) << " elements not compared" << std::endl; \
+            } \
             for (size_t _i = 0; _i < std::min(static_cast<size_t>(length), (actual).size()); ++_i) { \
                 if ((actual)[_i] != (expected)[_i]) { \
                     all_match = false; \
@@ -145,7 +155,8 @@ extern std::vector<std::string> g_failed_cases;
 
 // 容差数组比较宏（有限浮点数，带容差）；NaN/Inf 不作为有效比较结果
 // 循环上界取 length 与 size() 的较小者（issue #247）：length 为调用方传入值，
-// 与实际 size() 脱节时不再越界读
+// 与实际 size() 脱节时不再越界读；length 小于实际 size() 的少比情形打印告警
+// （issue #386），避免尾部元素被静默跳过
 #define TEST_ASSERT_ARRAY_NEAR(local_stats, actual, expected, length, tol, error_msg) \
     do { \
         bool all_match = true; \
@@ -155,6 +166,11 @@ extern std::vector<std::string> g_failed_cases;
             std::cerr << "  [ERROR] " << (error_msg) << ": actual.size() (" << (actual).size() \
                       << ") != expected.size() (" << (expected).size() << ")" << std::endl; \
         } else { \
+            if (static_cast<size_t>(length) < (actual).size()) { \
+                std::cout << "  [WARN] " << (error_msg) << ": length (" << static_cast<size_t>(length) \
+                          << ") < actual.size() (" << (actual).size() << "), tail " \
+                          << ((actual).size() - static_cast<size_t>(length)) << " elements not compared" << std::endl; \
+            } \
             for (size_t _i = 0; _i < std::min(static_cast<size_t>(length), (actual).size()); ++_i) { \
                 if (!std::isfinite((actual)[_i]) || !std::isfinite((expected)[_i]) || \
                     std::abs((actual)[_i] - (expected)[_i]) > (tol)) { \

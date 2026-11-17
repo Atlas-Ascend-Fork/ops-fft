@@ -50,6 +50,12 @@ cmake-build-release
 # UT report file
 ut_report.txt
 
+# 测试运行期 .bin 产物（issue #385）：gen_data.py/compare_data.py 在源码树
+# *_data 目录生成 *_input/_golden/_output.bin，进程异常中断（断言退出、超时
+# 终止）时残留；忽略范围与收尾清理口径一致（issue #363）限定 *_data 目录，
+# 未来入库的 .bin fixture 不受影响
+**/tests/*_data/*.bin
+
 # ascend package download dir
 ascend_download
 
