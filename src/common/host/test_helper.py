@@ -172,6 +172,9 @@ def compare_main(curr_dir, configs):
     else:
         names = list(configs.keys())
     total = passed = failed = 0
+    # 缺名用例同时计入总数与失败，保证 恒有 通过+失败=总测试数（issue #369），
+    # 避免 通过23/失败2 之类大于总数的失败计数出现在汇总行
+    total += len(missing)
     failed += len(missing)
     for name in names:
         cfg = configs[name]
