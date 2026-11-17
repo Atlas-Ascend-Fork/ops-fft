@@ -457,7 +457,7 @@ __aicore__ __inline__ void PartitionMulDev(
     }
 }
 
-__aicore__ __inline__ void SeparateRIzZLayOut(__gm__ float *__restrict__ gm_input, __gm__ float *__restrict__ gm_output,
+__aicore__ __inline__ void SeparateRIzZLayout(__gm__ float *__restrict__ gm_input, __gm__ float *__restrict__ gm_output,
                                               int32_t inputN, int32_t M, int32_t N, int32_t batchSize)
 {
     int32_t N0 = M < 128 ? 256 : 128;
@@ -2781,7 +2781,7 @@ extern "C" __global__ __aicore__ void fft_n(__gm__ uint8_t *__restrict__ ffts_ad
                         if (N < 65536) {
                             SeparateRI(gm_input + addrBias, gm_output + addrBias, inputN, iBatch);
                         } else {
-                            SeparateRIzZLayOut(gm_input + addrBias, gm_output + addrBias, inputN, M, N, iBatch);
+                            SeparateRIzZLayout(gm_input + addrBias, gm_output + addrBias, inputN, M, N, iBatch);
                         }
                         FftsCrossCoreSync<PIPE_MTE3, INTER_CORE_SYNC_MODE>(INTER_CORE_SYNC_FLAG_ID);
                         WaitFlagDev(INTER_CORE_SYNC_FLAG_ID);

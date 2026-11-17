@@ -77,6 +77,10 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void complex_
     now_UB += max_num * sizeof(float);
 
     int32_t N2_max_num = max_num;
+    // 除0整改：对齐 vtranspose_load 变体，N2==0 时 ROUND(N2, tile_N0) 为 0 导致下方除零（issue #376）
+    if (N2 == 0) {
+        N2 = 1;
+    }
     int32_t N1_max_num = N2_max_num / ROUND(N2, tile_N0);
     N1_max_num = N1_max_num + (N1_max_num == 0);
 
@@ -354,6 +358,10 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void c2r_even
     now_UB += max_num * sizeof(float);
 
     int32_t N2_max_num = max_num;
+    // 除0整改：对齐 vtranspose_load 变体，N2==0 时 ROUND(N2, tile_N0) 为 0 导致下方除零（issue #376）
+    if (N2 == 0) {
+        N2 = 1;
+    }
     int32_t N1_max_num = N2_max_num / ROUND(N2, tile_N0);
     N1_max_num = N1_max_num + (N1_max_num == 0);
 
@@ -880,6 +888,10 @@ __aicore__ __inline__ __attribute__((always_inline)) void complex_split_RI_tile_
     now_UB += max_num * sizeof(float);
 
     int32_t N2_max_num = max_num;
+    // 除0整改：对齐 vtranspose_load 变体，N2==0 时 ROUND(N2, tile_N0) 为 0 导致下方除零（issue #376）
+    if (N2 == 0) {
+        N2 = 1;
+    }
     int32_t N1_max_num = N2_max_num / ROUND(N2, tile_N0);  // 64
     N1_max_num = N1_max_num + (N1_max_num == 0);
 

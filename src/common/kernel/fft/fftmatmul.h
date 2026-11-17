@@ -258,7 +258,6 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void fft_matm
         } else {
             if (seq357 && step_len >= 3 && step_index == step_len - 2 &&
                 is_vec_padding) {  // 倒数第二次迭代 N2 较小，直接padding成tile_N0读取
-                int64_t out_batch_size = batch_size / per_N1 / per_N0;
                 for (int32_t j = 0; j < batch_actual; j++) {
                     int64_t out_batch_idx = (batch_idx * batch_len + j) / (per_N1 * per_N0);
                     int64_t per_batch_idx = (batch_idx * batch_len + j) % (per_N1 * per_N0) / per_N0;
@@ -271,7 +270,6 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void fft_matm
                 seq357 && step_len >= 4 && step_index < step_len - 2 &&
                 step_index !=
                     0) {  // 迭代次数大于4的其他迭代，按照padding的距离读取矩阵，布局为(2 * N1, ROUND(N2, tile_N0))
-                int64_t out_batch_size = batch_size / per_N1 / per_N0;
                 for (int32_t j = 0; j < batch_actual; j++) {
                     int64_t out_batch_idx = (batch_idx * batch_len + j) / (per_N1 * per_N0);
                     int64_t per_batch_idx = (batch_idx * batch_len + j) % (per_N1 * per_N0) / per_N0;
@@ -812,7 +810,6 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void fft_matm
                 } else {
                     if (seq357 && step_len >= 3 && step_index == step_len - 2 &&
                         is_vec_padding) {  // 倒数第二次迭代 N2 较小，直接padding成tile_N0读取
-                        int64_t out_batch_size = batch_size / per_N1 / per_N0;
                         for (int32_t j = batch_actual - 1; j >= 0; j--) {
                             int64_t out_batch_idx = (batch_idx * batch_len + j) / (per_N1 * per_N0);
                             int64_t per_batch_idx = (batch_idx * batch_len + j) % (per_N1 * per_N0) / per_N0;
@@ -828,7 +825,6 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void fft_matm
                         seq357 && step_len >= 4 && step_index < step_len - 2 &&
                         step_index !=
                             0) {  // 迭代次数大于4的其他迭代，按照padding的距离读取矩阵，布局为(2 * N1, ROUND(N2, tile_N0))
-                        int64_t out_batch_size = batch_size / per_N1 / per_N0;
                         for (int32_t j = batch_actual - 1; j >= 0; j--) {
                             int64_t out_batch_idx = (batch_idx * batch_len + j) / (per_N1 * per_N0);
                             int64_t per_batch_idx = (batch_idx * batch_len + j) % (per_N1 * per_N0) / per_N0;

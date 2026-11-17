@@ -1,11 +1,3 @@
-#ifndef FFT1_D_C2C_MIX_KERNEL_H
-#define FFT1_D_C2C_MIX_KERNEL_H
-// FftAllMixTilingData 统一取自公共定义（issue #254，原 arch35 本地副本已删除）
-#include "fft_all_mix_tiling_data.h"
-
-#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 3510)
-
-
 /**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
@@ -16,6 +8,12 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#ifndef FFT1_D_C2C_MIX_KERNEL_H
+#define FFT1_D_C2C_MIX_KERNEL_H
+// FftAllMixTilingData 统一取自公共定义（issue #254，原 arch35 本地副本已删除）
+#include "fft_all_mix_tiling_data.h"
+
+#if defined(__NPU_ARCH__) && (__NPU_ARCH__ == 3510)
 
 #include <cstdint>
 #include "kernel_operator.h"
@@ -28,7 +26,6 @@ constexpr int THREAD_NUM_RAD3 = 512;
 constexpr int THREAD_NUM = 256;
 constexpr int32_t MAX_FFT_STAGES_TILING = 32;
 
-
 template <bool SCALE_OUT, bool TRANSPOSE>
 __simt_vf__ __launch_bounds__(THREAD_NUM_RAD2) inline void stockhamForwardRadix2(
     __gm__ float* in,
@@ -39,7 +36,6 @@ __simt_vf__ __launch_bounds__(THREAD_NUM_RAD2) inline void stockhamForwardRadix2
     int N,
     int batchOffset,
     int len,
-    int radix, // unused, should be 2
     int prev,
     int part
 ) {
@@ -134,7 +130,6 @@ __simt_vf__ __launch_bounds__(THREAD_NUM_RAD3) inline void stockhamForwardRadix3
     int N,
     int batchOffset,
     int len,
-    int radix, // unused, should be 3
     int prev,
     int part
 ) {
@@ -324,7 +319,6 @@ __simt_vf__ __launch_bounds__(THREAD_NUM) inline void stockhamForwardRadix5(
     int N,
     int batchOffset,
     int len,
-    int radix, // unused, should be 5
     int prev,
     int part
 ) {
@@ -630,7 +624,6 @@ __simt_vf__ __launch_bounds__(THREAD_NUM) inline void stockhamForwardRadix7(
     int N,
     int batchOffset,
     int len,
-    int radix, // unused, should be 7
     int prev,
     int part
 ) {
@@ -1285,7 +1278,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                             fftN,
                             batchStart,
                             len,
-                            radix,
                             prev,
                             part);
                     } else if (radix == 3) {
@@ -1300,7 +1292,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                             fftN,
                             batchStart,
                             len,
-                            radix,
                             prev,
                             part);
                     } else if (radix == 5) {
@@ -1315,7 +1306,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                             fftN,
                             batchStart,
                             len,
-                            radix,
                             prev,
                             part);
                     } else if (radix == 7) {
@@ -1330,7 +1320,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                             fftN,
                             batchStart,
                             len,
-                            radix,
                             prev,
                             part);
                     } else {
@@ -1361,7 +1350,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                             fftN,
                             batchStart,
                             len,
-                            radix,
                             prev,
                             part);
                     } else if (radix == 3) {
@@ -1376,7 +1364,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                             fftN,
                             batchStart,
                             len,
-                            radix,
                             prev,
                             part);
                     } else if (radix == 5) {
@@ -1391,7 +1378,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                             fftN,
                             batchStart,
                             len,
-                            radix,
                             prev,
                             part);
                     } else if (radix == 7) {
@@ -1406,7 +1392,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                             fftN,
                             batchStart,
                             len,
-                            radix,
                             prev,
                             part);
                     } else {
@@ -1439,7 +1424,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                             fftN,
                             batchStart,
                             len,
-                            radix,
                             prev,
                             part);
                     } else if (radix == 3) {
@@ -1454,7 +1438,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                             fftN,
                             batchStart,
                             len,
-                            radix,
                             prev,
                             part);
                     } else if (radix == 5) {
@@ -1469,7 +1452,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                             fftN,
                             batchStart,
                             len,
-                            radix,
                             prev,
                             part);
                     } else if (radix == 7) {
@@ -1484,7 +1466,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                             fftN,
                             batchStart,
                             len,
-                            radix,
                             prev,
                             part);
                     } else {
@@ -1515,7 +1496,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                             fftN,
                             batchStart,
                             len,
-                            radix,
                             prev,
                             part);
                     } else if (radix == 3) {
@@ -1530,7 +1510,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                             fftN,
                             batchStart,
                             len,
-                            radix,
                             prev,
                             part);
                     } else if (radix == 5) {
@@ -1545,7 +1524,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                             fftN,
                             batchStart,
                             len,
-                            radix,
                             prev,
                             part);
                     } else if (radix == 7) {
@@ -1560,7 +1538,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                             fftN,
                             batchStart,
                             len,
-                            radix,
                             prev,
                             part);
                     } else {
@@ -1593,7 +1570,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                     fftN,
                     batchStart,
                     len,
-                    radix,
                     prev,
                     part);
             } else if (radix == 3) {
@@ -1608,7 +1584,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                     fftN,
                     batchStart,
                     len,
-                    radix,
                     prev,
                     part);
             } else if (radix == 5) {
@@ -1623,7 +1598,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                     fftN,
                     batchStart,
                     len,
-                    radix,
                     prev,
                     part);
             } else if (radix == 7) {
@@ -1638,7 +1612,6 @@ extern "C" __global__ __vector__ void fft_c2c_arch35_mix_multi_core(
                     fftN,
                     batchStart,
                     len,
-                    radix,
                     prev,
                     part);
             } else {

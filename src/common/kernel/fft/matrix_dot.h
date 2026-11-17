@@ -275,10 +275,6 @@ __aicore__ __inline__ __attribute__((always_inline)) void matrix_dot_kernel(
             mul_v<ArchType::ASCEND_V220>(buf_tmp_real, buf_input_real, buf_tw_matrix_real,
                  (batch_actual * half_M0 * tile_N0 + 8 * C0_SIZE - 1) / (8 * C0_SIZE), 1, 1, 1, 8, 8, 8);
             PIPE_BARRIER(V);
-            // vmla(reinterpret_cast<__ubuf__ float *>(buf_tmp_real.GetPhyAddr()),
-            //      reinterpret_cast<__ubuf__ float *>(buf_input_imag.GetPhyAddr()),
-            //      reinterpret_cast<__ubuf__ float *>(buf_tw_matrix_imag.GetPhyAddr()),
-            //      (batch_actual * half_M0 * tile_N0 + 8 * C0_SIZE - 1) / (8 * C0_SIZE), 1, 1, 1, 8, 8, 8);
             mul_v<ArchType::ASCEND_V220>(buf_input_imag, buf_input_imag, buf_tw_matrix_imag,
                  (batch_actual * half_M0 * tile_N0 + 8 * C0_SIZE - 1) / (8 * C0_SIZE), 1, 1, 1, 8, 8, 8);
             PIPE_BARRIER(V);
@@ -298,10 +294,6 @@ __aicore__ __inline__ __attribute__((always_inline)) void matrix_dot_kernel(
             mul_v<ArchType::ASCEND_V220>(buf_tmp_imag, buf_input_real, buf_tw_matrix_imag,
                  (batch_actual * half_M0 * tile_N0 + 8 * C0_SIZE - 1) / (8 * C0_SIZE), 1, 1, 1, 8, 8, 8);
             PIPE_BARRIER(V);
-            // vmla(reinterpret_cast<__ubuf__ float *>(buf_tmp_imag.GetPhyAddr()),
-            //      reinterpret_cast<__ubuf__ float *>(buf_input_imag.GetPhyAddr()),
-            //      reinterpret_cast<__ubuf__ float *>(buf_tw_matrix_real.GetPhyAddr()),
-            //      (batch_actual * half_M0 * tile_N0 + 8 * C0_SIZE - 1) / (8 * C0_SIZE), 1, 1, 1, 8, 8, 8);
             mul_v<ArchType::ASCEND_V220>(buf_input_imag, buf_input_imag, buf_tw_matrix_real,
                  (batch_actual * half_M0 * tile_N0 + 8 * C0_SIZE - 1) / (8 * C0_SIZE), 1, 1, 1, 8, 8, 8);
             PIPE_BARRIER(V);
@@ -311,7 +303,7 @@ __aicore__ __inline__ __attribute__((always_inline)) void matrix_dot_kernel(
         }
 
         if (seq357 && step_len >= 3 && step_index == step_len - 3 &&
-            is_vec_padding) {  // 需要将数据排布成(batch, N0, 2 * N1, ROUND(N2, tile_N0)) 在该条件中 ROUND(N2, tile_N0)=tile_N0。讨论时间：24_3_14
+            is_vec_padding) {  // 需要将数据排布成(batch, N0, 2 * N1, ROUND(N2, tile_N0))，该条件中 ROUND(N2, tile_N0)=tile_N0
             PIPE_BARRIER(V);
             AscendC::DataCopy(buf_input_real, buf_tmp_real,
                 AscendC::DataCopyParams(batch_actual * half_M0, tile_N0 / C0_SIZE, 0, (2 * tile_N0 - tile_N0) / C0_SIZE));
@@ -362,7 +354,7 @@ __aicore__ __inline__ __attribute__((always_inline)) void matrix_dot_kernel(
             }
         } else if (seq357 && step_len >= 4 &&
                    step_index <
-                       step_len - 3) {  // 需要将数据排布成(batch, N0, 2 * N1, ROUND(N2, tile_N0)) . 讨论时间：24_3_14
+                       step_len - 3) {  // 需要将数据排布成(batch, N0, 2 * N1, ROUND(N2, tile_N0))
             PIPE_BARRIER(V);
             AscendC::DataCopy(buf_input_real, buf_tmp_real,
                 AscendC::DataCopyParams(batch_actual * half_M0, tile_N0 / C0_SIZE, 0, (2 * tile_N0 - tile_N0) / C0_SIZE));

@@ -621,7 +621,6 @@ __aicore__ __inline__ void R2C_even(
                 } else {
                     // 数据量大于512要用多个UB块操作
 
-                    // int64_t offset_loopc_rev = (repeat_times - 1 - loop) * BIASC;
                     int64_t offset_block = ((loop + 1) * BIASC >= (N - 2)) ? (N - 2) : (loop * BIASC + BIASC);
                     int64_t offset_loopc_rev = (N - 2) - offset_block;
                     AscendC::SetFlag<AscendC::HardEvent::V_MTE2>(event_id);

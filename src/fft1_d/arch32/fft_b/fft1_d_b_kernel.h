@@ -1,4 +1,4 @@
- /**
+/**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
@@ -21,6 +21,12 @@ constexpr int32_t CUBE_MATRIX_SIZE = BLOCK_SIZE * C0_SIZE;
 constexpr int32_t L0AB_PINGPONG_BUFFER_LEN = 32 * 1024 / sizeof(float);
 constexpr int32_t L1_PINGPONG_BUFFER_LEN = 256 * 1024 / sizeof(float);
 constexpr uint8_t INNER_GROUP_CV_SYNC_MODE = 2;
+// fft_batch 合并数基准（issue #382）：n=8192 时合并 64 个 fft_batch，fft_n 更大时
+// 按 fft_n / 8192 反比递减
+constexpr int32_t FFT_B_BATCH_GROUP_BASE = 64;
+// bulk 分桶预算（issue #382）：batch_size_bulk = 该预算 / (fft_n / 256)，
+// 使单个 bulk 覆盖的元素量恒为预算 * 256 点
+constexpr int32_t FFT_B_BULK_SUBBLOCK_BUDGET = 12288;
 
 __aicore__ __inline__ void loop_tiling(int32_t batch_size, int32_t &loop_per_block, int32_t &loop_idx)
 {
@@ -442,7 +448,7 @@ __aicore__ __inline__ void step_ppmatmul_2itercount_last_iter(__gm__ float *__re
     int32_t batch_end = min(batch_id_end, batch_id + batch_size);
     int32_t N_init = N;
     int32_t batch_num = fft_n >= 8192 ? 1 : min(192 * 64 / fft_n, N0 / N_init);
-    int32_t fft_batch_actual = fft_n >= 8192 ? 64 / (fft_n / 8192) : 1;
+    int32_t fft_batch_actual = fft_n >= 8192 ? FFT_B_BATCH_GROUP_BASE / (fft_n / 8192) : 1;
 
     // M:128 K:128 N:2
     SET_FLAG(MTE1, MTE2, EVENT_ID0);
@@ -2051,7 +2057,7 @@ __aicore__ __inline__ void step_2iter_count_gather_real_imag(__gm__ float *__res
     int32_t batch_id = batch_id_begin;
     int32_t batch_end = min(batch_id_end, batch_id + batch_size);
     int32_t batch_num = fftN >= 8192 ? 1 : min(192 * 64 / fftN, N0 / N_radix);
-    int32_t fft_batch_actual = fftN >= 8192 ? 64 / (fftN / 8192) : 1;
+    int32_t fft_batch_actual = fftN >= 8192 ? FFT_B_BATCH_GROUP_BASE / (fftN / 8192) : 1;
 
     SET_FLAG(V, MTE2, EVENT_ID0);
     SET_FLAG(V, MTE2, EVENT_ID1);
@@ -2201,7 +2207,7 @@ extern "C" __global__ __aicore__ void fft_b(__gm__ uint8_t *__restrict__ ffts_ad
     }
 
     /******分batch*/
-    int32_t batch_size_bulk = 12288 / (fft_n / 256);
+    int32_t batch_size_bulk = FFT_B_BULK_SUBBLOCK_BUDGET / (fft_n / 256);
     if (iter_count > 2) {
         batch_size_bulk = batch_size;
     }
@@ -2342,7 +2348,7 @@ extern "C" __global__ __aicore__ void fft_b(__gm__ uint8_t *__restrict__ ffts_ad
     }
 
     /******分batch*/
-    int32_t batch_size_bulk = 12288 / (fft_n / 256);
+    int32_t batch_size_bulk = FFT_B_BULK_SUBBLOCK_BUDGET / (fft_n / 256);
     if (iter_count > 2) {
         batch_size_bulk = batch_size;
     }

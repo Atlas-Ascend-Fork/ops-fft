@@ -327,6 +327,10 @@ __aicore__ __inline__  __attribute__((always_inline)) void stock_fft_c2r_mix_eve
     int32_t fftDirection,
     int64_t max_floats = (1 << 21)
 ) {
+    // 除0整改：对齐 stock_fft_mix_aic/stock_fft_mix_aiv 双道防护（issue #375）
+    if (N == 0) {
+        N = 1;
+    }
     set_ctrl(sbitset0(get_ctrl(), 48));
     int32_t step_len = radix_list_len;
 
@@ -339,6 +343,9 @@ __aicore__ __inline__  __attribute__((always_inline)) void stock_fft_c2r_mix_eve
     // 让每次处理的数据小于 2 ^ 21 次方
     int64_t L2_CACHE_MAX_FLOAT = max_floats;
     int64_t batch_part_len = (L2_CACHE_MAX_FLOAT + N - 1) / N;
+    if (batch_part_len == 0) {
+        batch_part_len = 1;
+    }
     int64_t batch_loop = (batch_size + batch_part_len - 1) / batch_part_len;
     int64_t batch_remain = batch_size % batch_part_len;
 
@@ -460,6 +467,10 @@ __aicore__ __inline__  __attribute__((always_inline)) void stock_fft_r2c_mix_eve
     int32_t fftDirection,
     int64_t max_floats = (1 << 21)
 ) {
+    // 除0整改：对齐 stock_fft_mix_aic/stock_fft_mix_aiv 双道防护（issue #375）
+    if (N == 0) {
+        N = 1;
+    }
     set_ctrl(sbitset0(get_ctrl(), 48));
     int32_t step_len = radix_list_len;
 
@@ -472,6 +483,9 @@ __aicore__ __inline__  __attribute__((always_inline)) void stock_fft_r2c_mix_eve
     // 让每次处理的数据小于 2 ^ 21 次方
     int64_t L2_CACHE_MAX_FLOAT = max_floats;
     int64_t batch_part_len = (L2_CACHE_MAX_FLOAT + N - 1) / N;
+    if (batch_part_len == 0) {
+        batch_part_len = 1;
+    }
     int64_t batch_loop = (batch_size + batch_part_len - 1) / batch_part_len;
     int64_t batch_remain = batch_size % batch_part_len;
 
