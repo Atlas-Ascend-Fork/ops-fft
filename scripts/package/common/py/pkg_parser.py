@@ -1075,8 +1075,12 @@ def read_version_info(delivery_dir: str, package_attr: PackageAttr) -> Tuple[str
     with open(version_path, 'r') as file:
         line1 = file.readline().strip()
         line2 = file.readline().strip()
-    version = line1.split("=")[1]
-    version_dir = line2.split("=")[1]
+    try:
+        version = line1.split("=")[1]
+        version_dir = line2.split("=")[1]
+    except IndexError:
+        # 缺少等号的行同样按格式非法处理，避免 IndexError 裸穿透（issue #365）
+        raise VersionFormatNotMatch()
     m = re.match(r'[.a-zA-Z0-9]+$', version) or re.match(r'[-a-zA-Z.0-9]+$', version)
     if not m:
         raise VersionFormatNotMatch()
@@ -1109,6 +1113,9 @@ def parse_xml_config(filepath: str,
         sys.exit(FAIL)
     except VersionInfoNotExist as ex:
         CommLog.cilog_error("The version.info file %s does not exist in %s!", str(ex), filepath)
+        sys.exit(FAIL)
+    except VersionFormatNotMatch:
+        CommLog.cilog_error("The version.info format is illegal in %s! Expected \"version=<value>\".", filepath)
         sys.exit(FAIL)
     if args.disable_multi_version:
         version_dir = None
