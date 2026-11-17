@@ -136,6 +136,11 @@ if(BUILD_TESTING)
         ${ASCEND_HOME_PATH}/lib64/libacl_rt.so
     )
 
+    add_test(NAME all_ops_test COMMAND all_ops_test)
+    set_tests_properties(all_ops_test PROPERTIES
+        ENVIRONMENT "OPS_FFT_TEST_DATA_ROOT=${CMAKE_SOURCE_DIR}/src"
+    )
+
     message(STATUS "已配置测试目标: all_ops_test")
 
 endif()

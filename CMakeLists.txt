@@ -147,6 +147,7 @@ install(FILES
 # 3.7 编译测试
 ##############################################################################
 if(BUILD_TESTING)
+    enable_testing()
     add_subdirectory(tests)
 endif()
 
