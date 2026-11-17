@@ -62,7 +62,6 @@ __aicore__ __inline__ void R2C_odd(
         // 每次取N个数, 执行batch_size次
         uint64_t num = copy_len > BIASC ? BIASC : copy_len;
         uint64_t lenBurstC = (num + 7) / 8;
-        uint64_t lenBurstOutIndex = (BIASC + 7) / 8;
         // 每次vector乘加需要的次数
         uint8_t repeat = (num / 2 + 63) / 64; // repeat 上限 32（num 受 BIASC=4096 封顶），无越界（issue #317 更正陈旧警示）
         // 每次vector reduce需要的次数
@@ -167,7 +166,6 @@ __aicore__ __inline__ void C2R_even(
         uint64_t lenBurstC = (num + 7) / 8;
         uint64_t lenBurstOut = ((N > BIASC ? BIASC : N) + 7) / 8;
         uint64_t lenBurstIndex = (index_size + 7) / 8;
-        uint64_t lenBurstOutIndex = (BIASC + 7) / 8;
         // 每次vector乘加需要的次数
         uint8_t repeat = (num / 2 + 63) / 64; // repeat 上限 32（num 受 BIASC=4096 封顶），无越界（issue #317 更正陈旧警示）
         // 每次vector reduce需要的次数
@@ -531,7 +529,7 @@ __aicore__ __inline__ void R2C_even(
         AscendC::LocalTensor<uint32_t> reverse_index_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, uint32_t>(20 * 8192);
         AscendC::LocalTensor<uint32_t> vgather_index_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, uint32_t>(21 * 8192);
 
-        AscendC::DataCopy(vgather_index_ub_tensor, output_index_gm_tensor, AscendC::DataCopyParams(1, lenBurstOutIndex, 0, 0)); // 搬入4096个数
+        AscendC::DataCopy(vgather_index_ub_tensor, output_index_gm_tensor, AscendC::DataCopyParams(1, lenBurstOutIndex, 0, 0)); // 搬入 output_index 表实际条目数（≤4096，见 lenBurstOutIndex 计算）
         AscendC::PipeBarrier<PIPE_MTE2>();
 
         AscendC::SetFlag<AscendC::HardEvent::V_MTE2>(EVENT_ID0);
