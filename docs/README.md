@@ -25,6 +25,7 @@ docs/
 │   │   ├── FFT_2D.md                  # 二维 FFT 接口
 │   │   └── figures/                   # 公式图片
 │   ├── op_list.md                     # 算子列表
+├── implementation.md                  # 接口实现状态文档
 └── README.md                          # 文档总入口
 ```
 
@@ -39,6 +40,7 @@ docs/
 | [测试编写指南](zh/develop/test_writing_guide.md) | 介绍如何快速编写算子测试文件 |
 | [算子调用指南](zh/invocation/quick_op_invocation.md) | 介绍算子编译、安装和调用方法 |
 | [接口参考](zh/API_Reference/README.md) | 介绍 `aclfft` 系列 C 接口（一维/二维 FFT、公共接口、错误码） |
+| [接口实现文档](implementation.md) | 介绍各 `aclfft` 接口在 A2/A3、950 平台上的实现状态 |
 | [算子调试调优](zh/debug/op_debug_prof.md) | 介绍常见的算子调试、调优方法 |
 
 ## 附录
