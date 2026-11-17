@@ -79,7 +79,7 @@ class MakeselfPkgParams(NamedTuple):
     makeself_header: Optional[str] = None
     help_info: Optional[str] = None
     source_target: Optional[str] = None
-    
+
     install_script: Optional[str] = None
     independent_pkg: Optional[bool] = False
     cleanup: Optional[str] = None
@@ -108,7 +108,7 @@ def get_compress_tool() -> str:
         if path:
             return "--" + tool
     CommLog.cilog_error("The system does not come with a compression tool pre-installed."
-                        "Please ensure at least one of the folllowing compression tools is available: %s", tools)
+                        "Please ensure at least one of the following compression tools is available: %s", tools)
     return ""
 
 
@@ -153,7 +153,7 @@ def compose_makeself_command(params: MakeselfPkgParams) -> str:
         get_cleanup_commands(),
         [params.package_name, params.comments]
        )
-    
+
     command = ' '.join(commands)
     return command
 
@@ -182,7 +182,7 @@ def create_makeself_pkg_params_factory(source_target: str,
             makeself_header=makeself_header,
             help_info=help_info,
             source_target=source_target,
-            
+
             install_script=install_script,
             independent_pkg=independent_pkg,
             cleanup=cleanup,
