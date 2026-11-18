@@ -14,6 +14,7 @@
  */
 
 #include "test_common.h"
+#include <cctype>
 #include <iostream>
 #include <cstring>
 #include <sstream>
@@ -25,7 +26,9 @@ static std::string normalize_name(const char* s) {
     std::string result;
     for (const char* p = s; *p; ++p) {
         char c = std::tolower(static_cast<unsigned char>(*p));
-        if (c != '_' && c != '-') result += c;
+        // 空白字符一并剥离（issue #390）：过滤令牌形如 "fft1d, fft2d" 时
+        // 逗号后的前导空格不得参与匹配，测试名本身不含空白，此剥离对其无影响
+        if (c != '_' && c != '-' && !std::isspace(static_cast<unsigned char>(c))) result += c;
     }
     return result;
 }
@@ -40,6 +43,11 @@ static bool should_run_test(const char* name) {
     std::string token;
     while (std::getline(ss, token, ',')) {
         std::string token_norm = normalize_name(token.c_str());
+        // 空令牌跳过（issue #390）：尾逗号/连续逗号产出空令牌，空串前缀匹配恒真
+        // 会使过滤静默失效
+        if (token_norm.empty()) {
+            continue;
+        }
         if (name_norm == token_norm || name_norm.find(token_norm) == 0) {
             return true;
         }
@@ -65,11 +73,15 @@ int main() {
 
     // 运行所有测试
     auto& tests = OpsFftTest::TestRegistry::get_tests();
+    const char* filter_env = std::getenv("OPS_FFT_TEST_FILTER");
+    const bool has_filter = (filter_env != nullptr) && (std::strlen(filter_env) > 0);
+    std::size_t matched_tests = 0;
     for (const auto& test_entry : tests) {
         if (!should_run_test(test_entry.name)) {
             std::cout << "[SKIP] " << test_entry.name << std::endl;
             continue;
         }
+        ++matched_tests;
         OpsFftTest::TestStats local_stats;
         TEST_PRINT_HEADER(test_entry.name);
         test_entry.func(stream, local_stats);
@@ -82,6 +94,15 @@ int main() {
 
     // 打印失败用例列表
     TEST_PRINT_FAILED_CASES();
+
+    // 过滤零匹配守卫（issue #390）：先于 #334 零注册守卫判定——OPS_FFT_TEST_FILTER
+    // 非空且无任何命中时明确指向过滤配置错误，避免被下方的零注册守卫误报为
+    // --ops 选择错误（实测过滤零匹配时 total==0，#334 守卫先触发）
+    if (has_filter && matched_tests == 0 && !tests.empty()) {
+        std::cerr << "[ERROR] no test cases matched; the test filter (OPS_FFT_TEST_FILTER) matched no registered test case" << std::endl;
+        OpsFftTest::ACLManager::finalize(stream);
+        return 2;
+    }
 
     // 零用例守卫（issue #334）：算子选择错误（如 --ops=common 这类公共目录）
     // 时注册 0 个测试，failed==0 会假报 SUCCESS——空跑视为失败并以非零退出
