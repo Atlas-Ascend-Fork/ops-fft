@@ -235,8 +235,14 @@ endfunction()
 #   pkg_name    - 包名称 (必需)
 ##############################################################################
 function(check_pkg_build_deps pkg_name)
+    # Prefer the SDK selected by CMake; retain environment-only callers.
+    set(_pkg_ascend_home_path "${ASCEND_HOME_PATH}")
+    if("${_pkg_ascend_home_path}" STREQUAL "")
+        set(_pkg_ascend_home_path "$ENV{ASCEND_HOME_PATH}")
+    endif()
     execute_process(
-        COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_build_dependencies.py "$ENV{ASCEND_HOME_PATH}" ${CANN_VERSION_${pkg_name}_BUILD_DEPS}
+        COMMAND python3 ${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_build_dependencies.py
+                "${_pkg_ascend_home_path}" ${CANN_VERSION_${pkg_name}_BUILD_DEPS}
         RESULT_VARIABLE result
     )
     if(result)
