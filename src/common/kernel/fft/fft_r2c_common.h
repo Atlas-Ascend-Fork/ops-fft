@@ -60,7 +60,8 @@ __aicore__ __inline__ void common_fft_r2c_mix_cube_by_batch(
     int64_t n_fft_actual = odd == 1 ? tiling_data.fftN : tiling_data.fftN * 2;
     // 让每次处理的数据小于 2 ^ 21 次方
     int64_t L2_CACHE_MAX_ELES = max_floats;
-    int64_t n_batch_in_loop = (L2_CACHE_MAX_ELES + tiling_data.fftN - 1) / tiling_data.fftN;
+    // 除0防护：对齐 fft_all_common.h 口径，fftN==0 置 1 继续（issue #389）
+    int64_t n_batch_in_loop = (L2_CACHE_MAX_ELES + tiling_data.fftN - 1) / (tiling_data.fftN == 0 ? 1 : tiling_data.fftN);
     int64_t batch_loop = (tiling_data.batchSize + n_batch_in_loop - 1) / n_batch_in_loop;
     int64_t batch_remain = tiling_data.batchSize % n_batch_in_loop;
 
@@ -164,7 +165,8 @@ __aicore__ __inline__ void common_fft_r2c_mix_vector_by_batch(
     int64_t n_fft_actual = odd == 1 ? tiling_data.fftN : tiling_data.fftN * 2;
     // 让每次处理的数据小于 2 ^ 21 次方
     int64_t L2_CACHE_MAX_ELES = (1 << 21);
-    int64_t n_batch_in_loop = (L2_CACHE_MAX_ELES + tiling_data.fftN - 1) / tiling_data.fftN;
+    // 除0防护：对齐 fft_all_common.h 口径，fftN==0 置 1 继续（issue #389）
+    int64_t n_batch_in_loop = (L2_CACHE_MAX_ELES + tiling_data.fftN - 1) / (tiling_data.fftN == 0 ? 1 : tiling_data.fftN);
     int64_t batch_loop = (tiling_data.batchSize + n_batch_in_loop - 1) / n_batch_in_loop;
     int64_t batch_remain = tiling_data.batchSize % n_batch_in_loop;
 
@@ -281,7 +283,8 @@ __aicore__ __inline__ void common_fft_r2c_mix_even_vector_by_batch(
     int64_t n_fft_actual = tiling_data.fftN * 2;
     // 让每次处理的数据小于 2 ^ 21 次方
     int64_t L2_CACHE_MAX_ELES = max_floats;
-    int64_t n_batch_in_loop = (L2_CACHE_MAX_ELES + tiling_data.fftN - 1) / tiling_data.fftN;
+    // 除0防护：对齐 fft_all_common.h 口径，fftN==0 置 1 继续（issue #389）
+    int64_t n_batch_in_loop = (L2_CACHE_MAX_ELES + tiling_data.fftN - 1) / (tiling_data.fftN == 0 ? 1 : tiling_data.fftN);
     int64_t batch_loop = (tiling_data.batchSize + n_batch_in_loop - 1) / n_batch_in_loop;
     int64_t batch_remain = tiling_data.batchSize % n_batch_in_loop;
 
