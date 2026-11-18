@@ -1751,14 +1751,10 @@ extern "C" __global__ __aicore__ void dd(
 
     uint64_t flag_id = SYNC_ALL_CORE_FLAG_ID;
 
-    __gm__ float *__restrict__ gm_input_current;
-    __gm__ float *__restrict__ gm_workspace_current;
-    __gm__ float *__restrict__ gm_output_current;
     int32_t current_batch_nums;
     int32_t current_loop_nums;
 
     AscendC::GlobalTensor<float> input_current_gm_tensor;
-    AscendC::GlobalTensor<float> workspace_current_gm_tensor;
     AscendC::GlobalTensor<float> output_current_gm_tensor;
 
     if (loop_count <= l2_cache_loop_num) {
@@ -1773,7 +1769,6 @@ extern "C" __global__ __aicore__ void dd(
             }
 
             input_current_gm_tensor.SetGlobalBuffer(gm_input + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
-            workspace_current_gm_tensor.SetGlobalBuffer(gm_workspace + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
             output_current_gm_tensor.SetGlobalBuffer(gm_output + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
 
             if (current_batch_nums == 1) {
@@ -1810,7 +1805,6 @@ extern "C" __global__ __aicore__ void dd(
             }
 
             input_current_gm_tensor.SetGlobalBuffer(gm_input + (big_loop_idx * l2_cache_loop_num + loop_idx) * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
-            workspace_current_gm_tensor.SetGlobalBuffer(gm_workspace + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
             output_current_gm_tensor.SetGlobalBuffer(gm_output + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
 
             if (current_batch_nums == 1) {
@@ -1839,7 +1833,6 @@ extern "C" __global__ __aicore__ void dd(
             }
 
             input_current_gm_tensor.SetGlobalBuffer(gm_input + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
-            workspace_current_gm_tensor.SetGlobalBuffer(gm_workspace + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
             output_current_gm_tensor.SetGlobalBuffer(gm_output + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
 
             if (current_batch_nums == 1) {
@@ -1879,11 +1872,6 @@ extern "C" __global__ __aicore__ void dd(
 
     uint64_t flag_id;
 
-    __gm__ float *__restrict__ gm_input_current;
-    __gm__ float *__restrict__ gm_workspace_current;
-    __gm__ float *__restrict__ gm_output_current;
-
-    AscendC::GlobalTensor<float> input_current_gm_tensor;
     AscendC::GlobalTensor<float> workspace_current_gm_tensor;
     AscendC::GlobalTensor<float> output_current_gm_tensor;
 
@@ -1906,7 +1894,6 @@ extern "C" __global__ __aicore__ void dd(
                 current_batch_nums = batch_nums_per_loop;
             }
 
-            input_current_gm_tensor.SetGlobalBuffer(gm_input + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
             workspace_current_gm_tensor.SetGlobalBuffer(gm_workspace + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
             output_current_gm_tensor.SetGlobalBuffer(gm_output + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
 
@@ -1946,7 +1933,6 @@ extern "C" __global__ __aicore__ void dd(
                 current_batch_nums = batch_nums_per_loop;
             }
 
-            input_current_gm_tensor.SetGlobalBuffer(gm_input + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
             workspace_current_gm_tensor.SetGlobalBuffer(gm_workspace + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
             output_current_gm_tensor.SetGlobalBuffer(gm_output + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
 
@@ -2042,7 +2028,6 @@ extern "C" __global__ __aicore__ void dd(
                 current_batch_nums = batch_nums_per_loop;
             }
 
-            input_current_gm_tensor.SetGlobalBuffer(gm_input + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
             workspace_current_gm_tensor.SetGlobalBuffer(gm_workspace + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
             output_current_gm_tensor.SetGlobalBuffer(gm_output + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
 
@@ -2082,7 +2067,6 @@ extern "C" __global__ __aicore__ void dd(
                 current_batch_nums = batch_nums_per_loop;
             }
 
-            input_current_gm_tensor.SetGlobalBuffer(gm_input + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
             workspace_current_gm_tensor.SetGlobalBuffer(gm_workspace + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
             output_current_gm_tensor.SetGlobalBuffer(gm_output + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
 
