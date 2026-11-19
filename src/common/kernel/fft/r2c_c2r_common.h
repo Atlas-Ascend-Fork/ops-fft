@@ -75,11 +75,6 @@ __aicore__ __inline__ void C2R_odd(
         AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(EVENT_ID0);
         AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(EVENT_ID1);
 
-        AscendC::DataCopy(reverse_index1_ub_tensor, input_index_gm_tensor, AscendC::DataCopyParams(1, 4096 / 8, 0, 0));    // 搬入512长度
-        AscendC::PipeBarrier<PIPE_MTE2>();
-        AscendC::DataCopy(reverse_index2_ub_tensor, input_index_gm_tensor, AscendC::DataCopyParams(1, 4096 / 8, 0, 0));    // 搬入512长度
-        AscendC::PipeBarrier<PIPE_MTE2>();
-
 #ifndef MIX_CORE
 #else
         int32_t remain_size = copy_len % BIASC;
