@@ -91,6 +91,23 @@ target_compile_options(${OPS_FFT} PRIVATE
     $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=${ASCEND_NPU_ARCH}>
 )
 
+# 安全编译选项：BIND_NOW 立即绑定，与既有 GNU_RELRO 组成 full RELRO，
+# 仅增加装载期一次性的符号解析开销，算子运行期性能不受影响
+target_link_options(${OPS_FFT} PRIVATE
+    -Wl,-z,now
+)
+
+# 安全编译选项：链接后删除符号表（导出符号不受影响），未 strip 副本
+# 保留在 build/unstripped/ 供问题定位
+add_custom_command(TARGET ${OPS_FFT} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/unstripped
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        $<TARGET_FILE:${OPS_FFT}>
+        ${CMAKE_BINARY_DIR}/unstripped/$<TARGET_FILE_NAME:${OPS_FFT}>
+    COMMAND ${CMAKE_STRIP} --strip-unneeded $<TARGET_FILE:${OPS_FFT}>
+    COMMENT "ops_fft: strip symbol table, keep unstripped copy in build dir"
+)
+
 ##############################################################################
 # 3.3 编译 API 层（添加到最终动态库）
 ##############################################################################
