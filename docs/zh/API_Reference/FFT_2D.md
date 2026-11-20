@@ -56,7 +56,7 @@ aclfftResult aclfftExecC2C(aclfftHandle     plan,
 
 ## aclfftPlan2d
 
-- **功能描述**：分配并创建一个新的 Plan，并按二维 FFT 参数完成初始化。等价于依次调用 `aclfftCreate` 与 `aclfftMakePlan2d`（详见[FFT公共接口](./FFT公共接口.md)）；若初始化失败会自动销毁句柄并将 `*plan` 置空。
+- **功能描述**：分配并创建一个新的 Plan，并按二维 FFT 参数完成初始化。等价于依次调用 `aclfftCreate` 与 `aclfftMakePlan2d`（详见[FFT公共接口](./FFT_Common_Interface.md)）；若初始化失败会自动销毁句柄并将 `*plan` 置空。
 
 - **参数说明**：
 
@@ -102,7 +102,7 @@ aclfftResult aclfftExecC2C(aclfftHandle     plan,
 
 > **说明**：注意 `aclfftPlan2d` 的参数顺序为 `(plan, batch, nx, ny, type)`，`batch` 在 `nx`/`ny` 之前。
 
-- **返回值**：返回 `aclfftResult` 状态码，具体参见[FFT公共接口](./FFT公共接口.md#错误码aclfftresult)。
+- **返回值**：返回 `aclfftResult` 状态码，具体参见[FFT公共接口](./FFT_Common_Interface.md#错误码aclfftresult)。
 
 ## aclfftExecC2C
 
@@ -145,7 +145,7 @@ aclfftResult aclfftExecC2C(aclfftHandle     plan,
   </tbody>
   </table>
 
-- **返回值**：返回 `aclfftResult` 状态码，具体参见[FFT公共接口](./FFT公共接口.md#错误码aclfftresult)。
+- **返回值**：返回 `aclfftResult` 状态码，具体参见[FFT公共接口](./FFT_Common_Interface.md#错误码aclfftresult)。
 
 ### 变换缩放规则
 

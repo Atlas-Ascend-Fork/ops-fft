@@ -154,7 +154,7 @@ aclfftDestroy(plan);
 
 **支持的特性**：
 - ✅ 批量变换（batch > 1）
-- ✅ 归一化模式固定为 BACKWARD 语义（不可通过公共 API 配置，见 FFT公共接口.md 约束说明）
+- ✅ 归一化模式固定为 BACKWARD 语义（不可通过公共 API 配置，见 FFT_Common_Interface.md 约束说明）
 - ✅ 流式执行
 - ✅ In-place/Out-of-place 变换
 

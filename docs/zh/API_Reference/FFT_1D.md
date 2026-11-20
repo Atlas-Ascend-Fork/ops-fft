@@ -73,7 +73,7 @@ aclfftResult aclfftExecC2R(aclfftHandle     plan,
 
 ## aclfftPlan1d
 
-- **功能描述**：分配并创建一个新的 Plan，并按一维 FFT 参数完成初始化。等价于依次调用 `aclfftCreate` 与 `aclfftMakePlan1d`（详见[FFT公共接口](./FFT公共接口.md)）；若初始化失败会自动销毁句柄并将 `*plan` 置空。
+- **功能描述**：分配并创建一个新的 Plan，并按一维 FFT 参数完成初始化。等价于依次调用 `aclfftCreate` 与 `aclfftMakePlan1d`（详见[FFT公共接口](./FFT_Common_Interface.md)）；若初始化失败会自动销毁句柄并将 `*plan` 置空。
 
 - **参数说明**：
 
@@ -117,7 +117,7 @@ aclfftResult aclfftExecC2R(aclfftHandle     plan,
   </tbody>
   </table>
 
-- **返回值**：返回 `aclfftResult` 状态码，具体参见[FFT公共接口](./FFT公共接口.md#错误码aclfftresult)。
+- **返回值**：返回 `aclfftResult` 状态码，具体参见[FFT公共接口](./FFT_Common_Interface.md#错误码aclfftresult)。
 
 ## aclfftExecC2C
 
@@ -160,7 +160,7 @@ aclfftResult aclfftExecC2R(aclfftHandle     plan,
   </tbody>
   </table>
 
-- **返回值**：返回 `aclfftResult` 状态码，具体参见[FFT公共接口](./FFT公共接口.md#错误码aclfftresult)。
+- **返回值**：返回 `aclfftResult` 状态码，具体参见[FFT公共接口](./FFT_Common_Interface.md#错误码aclfftresult)。
 
 ## aclfftExecR2C
 
@@ -200,7 +200,7 @@ aclfftResult aclfftExecC2R(aclfftHandle     plan,
 
 - **缓冲区容量**：当 `idata` 与 `odata` 指向同一块内存时，需为压缩复数输出预留容量，至少为 `batch * 2 * (floor(nx/2)+1)` 个实数（float）。因此偶数 `nx` 时需 `batch*(nx+2)` 个 float，奇数 `nx` 时需 `batch*(nx+1)` 个 float；仅按 `batch*nx` 个 float 分配不足。分离缓冲区时，输入至少为 `batch*nx` 个 float，输出至少为 `batch*(floor(nx/2)+1)` 个复数。
 
-- **返回值**：返回 `aclfftResult` 状态码，具体参见[FFT公共接口](./FFT公共接口.md#错误码aclfftresult)。
+- **返回值**：返回 `aclfftResult` 状态码，具体参见[FFT公共接口](./FFT_Common_Interface.md#错误码aclfftresult)。
 
 ## aclfftExecC2R
 
@@ -238,7 +238,7 @@ aclfftResult aclfftExecC2R(aclfftHandle     plan,
   </tbody>
   </table>
 
-- **返回值**：返回 `aclfftResult` 状态码，具体参见[FFT公共接口](./FFT公共接口.md#错误码aclfftresult)。
+- **返回值**：返回 `aclfftResult` 状态码，具体参见[FFT公共接口](./FFT_Common_Interface.md#错误码aclfftresult)。
 
 ## 约束说明
 

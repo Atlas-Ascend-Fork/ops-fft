@@ -6,7 +6,7 @@ ops-fft 提供基于 Plan 模型的 `aclfft` 系列 C 接口，用于在 Ascend 
 
 | 文档 | 说明 |
 | :--- | :--- |
-| [FFT公共接口](./FFT公共接口.md) | 公共接口（`aclfftCreate`/`aclfftMakePlan1d`/`aclfftMakePlan2d`/`aclfftSetStream`/`aclfftDestroy`/`aclfftGetErrorString`）、数据类型定义与错误码。 |
+| [FFT公共接口](./FFT_Common_Interface.md) | 公共接口（`aclfftCreate`/`aclfftMakePlan1d`/`aclfftMakePlan2d`/`aclfftSetStream`/`aclfftDestroy`/`aclfftGetErrorString`）、数据类型定义与错误码。 |
 | [FFT_1D](./FFT_1D.md) | 一维 FFT 接口（`aclfftPlan1d`/`aclfftExecC2C`/`aclfftExecR2C`/`aclfftExecC2R`），对应算子 fft1_d、rfft1_d、irfft1_d。 |
 | [FFT_2D](./FFT_2D.md) | 二维 FFT 接口（`aclfftPlan2d`/`aclfftExecC2C`），对应算子 fft2_d。 |
 

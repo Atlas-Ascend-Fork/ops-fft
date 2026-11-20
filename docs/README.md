@@ -20,7 +20,7 @@ docs/
 │   │   └── quick_op_invocation.md     # 算子调用指南
 │   ├── API_Reference/                 # 接口参考文档目录
 │   │   ├── README.md                  # 接口参考索引
-│   │   ├── FFT公共接口.md             # 公共接口、数据类型与错误码
+│   │   ├── FFT_Common_Interface.md             # 公共接口、数据类型与错误码
 │   │   ├── FFT_1D.md                  # 一维 FFT 接口
 │   │   ├── FFT_2D.md                  # 二维 FFT 接口
 │   │   └── figures/                   # 公式图片

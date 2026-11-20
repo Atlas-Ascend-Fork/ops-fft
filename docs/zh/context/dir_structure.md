@@ -30,7 +30,7 @@
 │       ├── API_Reference                              # FFT 算子接口参考文档目录
 │       │   ├── FFT_1D.md                               # 一维 FFT 算子文档
 │       │   ├── FFT_2D.md                               # 二维 FFT 算子文档
-│       │   ├── FFT公共接口.md                         # FFT 公共接口文档
+│       │   ├── FFT_Common_Interface.md                         # FFT 公共接口文档
 │       │   ├── README.md                               # 接口参考索引
 │       │   └── figures                                 # 接口文档配图
 │       │       ├── FFT_2D_1.png
