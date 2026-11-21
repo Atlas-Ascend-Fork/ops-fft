@@ -41,35 +41,14 @@ __aicore__ __inline__ void R2C_odd(
 
         AscendC::GlobalTensor<float> input_gm_tensor;
         AscendC::GlobalTensor<float> output_gm_tensor;
-        AscendC::GlobalTensor<uint32_t> input_index_gm_tensor;
-        AscendC::GlobalTensor<uint32_t> output_index_gm_tensor;
-        AscendC::GlobalTensor<float> a_gm_tensor;
-        AscendC::GlobalTensor<float> b_gm_tensor;
 
         input_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_input));
         output_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_output));
-        input_index_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t *>(gm_input_index));
-        output_index_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ uint32_t *>(gm_output_index));
-        a_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_a));
-        b_gm_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_b));
-
-        uint64_t vecMask[2] = { UINT64_MAX, 0 };
 
         uint32_t aiv_id = AscendC::GetBlockIdx();
         uint32_t aiv_num = AscendC::GetBlockNum() * 2;
 
         int32_t copy_len = (N / 2 + 1) * 2; // 一半+1个虚数
-        // 每次取N个数, 执行batch_size次
-        uint64_t num = copy_len > BIASC ? BIASC : copy_len;
-        uint64_t lenBurstC = (num + 7) / 8;
-        // 每次vector乘加需要的次数
-        uint8_t repeat = (num / 2 + 63) / 64; // repeat 上限 32（num 受 BIASC=4096 封顶），无越界（issue #317 更正陈旧警示）
-        // 每次vector reduce需要的次数
-        uint8_t repeat_reduce = (num + 63) / 64;
-        // 每次vgather output需要的次数
-        uint8_t repeat_out = (num + 63) / 64;
-        // 每次把实数和虚部一起取出来
-        uint64_t loopN_times = batch_size;
         // 每次取得数的个数
         uint64_t repeat_times = (copy_len + BIASC - 1) / BIASC;
 
@@ -159,9 +138,6 @@ __aicore__ __inline__ void C2R_even(
 
         // 每次取N个数, 执行batch_size次
         uint64_t num = N + 2 > BIASC ? BIASC : N + 2;
-        // 规避Vgather问题的暂时变量：Vgather单次gather的源数据长度不能超过BIASC，
-        // 因此搬出阶段按out_num(而非全量N)粒度组织vgather，防止越界读取倒序缓冲
-        uint64_t out_num = N > BIASC ? BIASC : N;
         int index_size = (N + 2)>= BIASC ? BIAS : (((N + 2) / 2 + 63) / 64) * 64;
         uint64_t lenBurstC = (num + 7) / 8;
         uint64_t lenBurstOut = ((N > BIASC ? BIASC : N) + 7) / 8;
@@ -170,8 +146,6 @@ __aicore__ __inline__ void C2R_even(
         uint8_t repeat = (num / 2 + 63) / 64; // repeat 上限 32（num 受 BIASC=4096 封顶），无越界（issue #317 更正陈旧警示）
         // 每次vector reduce需要的次数
         uint8_t repeat_reduce = (num + 63) / 64;
-        // 每次vgather output需要的次数
-        uint8_t repeat_out = (out_num + 63) / 64;
         // 每次把实数和虚部一起取出来
         uint64_t loopN_times = batch_size;
         // 每次取得数的个数
@@ -684,8 +658,8 @@ __aicore__ __inline__ void R2C_even(
                 AscendC::Add(buf1_ub_tensor, buf1_ub_tensor, buf4_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FR * AR - FI * AI
                 AscendC::Add(buf2_ub_tensor, buf2_ub_tensor, buf5_ub_tensor, vecMask, repeat, {1, 1, 1, 8, 8, 8}); // FR * AI + FI * AR
                 AscendC::PipeBarrier<PIPE_V>();
-                // UB_BUF8实数， UB_BUF9虚数，结果组合
-                // 结果在UB_BUF0里面
+                // A/B 组合结果在 buf1/buf2（:654-655），经 vgather 按 output_index
+                // 从 buf1/buf2 收集全量实数谱到 buf4（:659），随后搬出（:665）
                 vgather(reinterpret_cast<__ubuf__ uint32_t *>(buf4_ub_tensor.GetPhyAddr(0)), (__ubuf__ unsigned int *)vgather_index_ub_tensor.GetPhyAddr(0), index1 * UB_VEC_SIZE, 8, repeat_out);
                 AscendC::SetFlag<AscendC::HardEvent::V_MTE3>(event_id);
                 AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(event_id);
