@@ -1,12 +1,12 @@
 /**
- * Copyright (c) 2026 Huawei Technologies Co., Ltd.
- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
- * CANN Open Software License Agreement Version 2.0 (the "License").
- * Please refer to the License for details. You may not use this file except in compliance with the License.
- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
- * See LICENSE in the root of the software repository for the full text of the License.
- */
+ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
+ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+ * CANN Open Software License Agreement Version 2.0 (the "License").
+ * Please refer to the License for details. You may not use this file except in compliance with the License.
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+ * See LICENSE in the root of the software repository for the full text of the License.
+ */
 
 /*!
  * \file rfft1_d_fast.h
@@ -105,23 +105,16 @@ public:
         dftGm.SetGlobalBuffer((__gm__ DTYPE_X*)dftMatrix, dftOverallSize);
     }
 
+    // 数据流为 matmul 直读/直写 GM（CubeDftMul 系列直接以 GlobalTensor 参与
+    // IterateAll），无独立 UB 搬入/搬出阶段；原 CopyIn/CopyOut 为守卫后空体的纯
+    // no-op，注释却声称 GM↔UB 搬运，误导数据流理解，已删除（issue #409），
+    // Process 仅保留计算段（子核守卫在 CountWholeDft 内）
     __aicore__ inline void Process()
     {
-        CopyIn();
         Compute();
-        CopyOut();
     }
 
 private:
-    // Copies the input from GM and splits the input; normalization is baked
-    // into the DFT matrix on host (Rfft1DDftGen normParam), not done here (issue #121)
-    __aicore__ inline void CopyIn()
-    {
-        if (g_coreType != AIV or GetSubBlockIdx() != 0) {
-            return;
-        }
-    }
-
     __aicore__ void CubeDftMul(
         GlobalTensor<DTYPE_X>& a1, GlobalTensor<DTYPE_X>& b1, GlobalTensor<DTYPE_Y>& c1, bool accumulate = false)
     {
@@ -181,14 +174,6 @@ private:
     __aicore__ inline void Compute()
     {
         CountWholeDft();
-    }
-
-    // Merges real and imaginary parts into complex representation and moves to GM
-    __aicore__ inline void CopyOut()
-    {
-        if (g_coreType != AIV or GetSubBlockIdx() != 0) {
-            return;
-        }
     }
 };
 
