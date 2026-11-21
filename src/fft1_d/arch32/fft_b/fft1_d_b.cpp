@@ -51,12 +51,9 @@ static std::vector<int32_t> InitIndexB(uint32_t n, const std::vector<uint32_t> &
 {
     std::vector<int32_t> index(128 * 128, 0);
 
-    if (n > 16384) {
-        for (int64_t i = 0; i < 128 * 64; ++i) {
-            index[i * 2] = i;
-            index[i * 2 + 1] = i;
-        }
-    } else if (n == 8192 || n == 16384) {
+    // n 域由 InitRadixB 保证 ∈ {256,...,16384}（issue #296 三级档位收口后超域在入口
+    // 直接拒绝）；原 n > 16384 特殊填充分支自此静态不可达，已删除（issue #411）
+    if (n == 8192 || n == 16384) {
         for (int64_t i = 0; i < 128 * 64; ++i) {
             index[i * 2] = i * 4;
             index[i * 2 + 1] = (64 * 64 + i) * 4;
