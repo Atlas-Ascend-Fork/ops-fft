@@ -11,7 +11,8 @@
 /*!
  * \file fft1_d_c2c_mix.cpp
  * \brief Ascend950 C2C mixed-radix Stockham FFT host code (ported from fft_c2c_arch35_mix_multi_core).
- * Handles N>256 radix-mix (factors in {2,3,5,7,11,13,17,19}). dft/tw layout matches original exactly.
+ * Handles non-power-of-2 n (radix==mix, factors in {2,3,5,7,11,13,17,19}) routed by
+ * fft1_d_exec_api.cpp (issue #410). dft/tw layout matches original exactly.
  */
 
 #include "../../fft1_d.h"

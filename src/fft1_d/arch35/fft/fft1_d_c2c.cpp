@@ -10,8 +10,9 @@
 
 /*!
  * \file fft1_d_c2c.cpp
- * \brief Ascend950 C2C Stockham mixed-radix FFT host code
- * Handles N > 256 with mixed radix (2,3,5,7,11,13,17,19)
+ * \brief Ascend950 C2C Stockham radix-2 FFT host code
+ * Handles power-of-2 n (n > 1) routed by fft1_d_exec_api.cpp (issue #410);
+ * mixed-radix n (non-power-of-2) is handled by fft1_d_c2c_mix.cpp
  */
 
 #include "../../fft1_d.h"
