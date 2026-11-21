@@ -27,6 +27,9 @@ configs = {
     "r2c_n2048": {"atol": 1e-2, "rtol": 1e-3},
     "r2c_n4096": {"atol": 1e-2, "rtol": 1e-3},
     "r2c_n2100": {"atol": 1e-2, "rtol": 1e-3},
+    # issue #408: odd-n FastDFT coverage (same tolerance family as r2c_n2048/n2100)
+    "r2c_n999": {"atol": 1e-2, "rtol": 1e-3},
+    "r2c_n1023": {"atol": 1e-2, "rtol": 1e-3},
     "r2c_n5040": {"atol": 5e-2, "rtol": 1e-2},
     "r2c_n25200": {"atol": 2e-1, "rtol": 1e-2},
     "r2c_fft_n1536": {"atol": 1e-2, "rtol": 1e-3},

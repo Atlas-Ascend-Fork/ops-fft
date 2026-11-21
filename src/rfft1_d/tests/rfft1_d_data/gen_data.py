@@ -33,6 +33,10 @@ configs = [
     {"name": "r2c_n2048", "n": 2048, "batch": 1},
     {"name": "r2c_n4096", "n": 4096, "batch": 1},
     {"name": "r2c_n2100", "n": 2100, "batch": 1},
+    # issue #408: odd-n FastDFT coverage (1<=n<=1024 lower segment; 999 hits
+    # the n%16 in 1..8 matrix branch, 1023 the zero-padded branch)
+    {"name": "r2c_n999", "n": 999, "batch": 1},
+    {"name": "r2c_n1023", "n": 1023, "batch": 1},
     {"name": "r2c_n5040", "n": 5040, "batch": 1},
     {"name": "r2c_n25200", "n": 25200, "batch": 1},
     {"name": "r2c_fft_n1536", "n": 1536, "batch": 4},
