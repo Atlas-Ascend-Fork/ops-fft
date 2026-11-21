@@ -118,7 +118,8 @@ extern std::vector<std::string> g_failed_cases;
         } \
     } while(0)
 
-// 精确数组比较宏（无容差）
+// 精确数组比较宏（无容差）——真实数据比对由 compare_data.py 承担（issue #400），
+// 本宏仅供宏防护自检用例（fft1_d_test_arch32.cpp）使用，勿在业务用例中新增调用
 // 防护口径对齐 TEST_ASSERT_ARRAY_NEAR（issue #326，同 #247 修复模式）：先校验两容器
 // size 一致（不一致直接判失败并打印两侧 size），再以 min(length, size) 钳制比较长度，
 // length 为调用方传入值，与实际 size() 脱节时不再越界读；length 小于实际 size()
@@ -153,7 +154,9 @@ extern std::vector<std::string> g_failed_cases;
         TEST_ASSERT((local_stats), all_match, error_msg); \
     } while(0)
 
-// 容差数组比较宏（有限浮点数，带容差）；NaN/Inf 不作为有效比较结果
+// 容差数组比较宏（有限浮点数，带容差）；NaN/Inf 不作为有效比较结果——真实数据
+// 比对由 compare_data.py 承担（issue #400），本宏仅供宏防护自检用例
+// （fft1_d_test_arch32.cpp）使用，勿在业务用例中新增调用；
 // 循环上界取 length 与 size() 的较小者（issue #247）：length 为调用方传入值，
 // 与实际 size() 脱节时不再越界读；length 小于实际 size() 的少比情形打印告警
 // （issue #386），避免尾部元素被静默跳过
@@ -492,7 +495,8 @@ inline void RunBatchTests(aclrtStream stream, TestStats& stats,
     for (const auto& tc : cases) {
         std::cout << "[RUN] " << tc.name << std::endl;
         if (!npu_success[tc.name]) {
-            TEST_CASE_FAIL_DETAIL(stats, tc.name, "NPU execution failed");
+            // 失败原因见上方 run_func 各失败分支的 [ERROR] 诊断输出（issue #400）
+            TEST_CASE_FAIL_DETAIL(stats, tc.name, "NPU execution failed (see [ERROR] diagnostics above)");
             continue;
         }
         auto it = compare_results.find(tc.name);

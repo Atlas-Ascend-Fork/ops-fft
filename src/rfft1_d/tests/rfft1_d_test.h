@@ -32,10 +32,18 @@ inline bool run_r2c_case(aclrtStream stream, const R2CTestCase& tc) {
     std::string output_file = data_dir + "/" + tc.name + "_output.bin";
 
     std::vector<float> input_flat;
-    if (!OpsFftTest::ReadFile(input_file, input_flat) || input_flat.empty()) return false;
+    // 失败分支诊断输出（issue #400）：区分文件缺失/尺寸不符/入口调用失败，不再静默 return false
+    if (!OpsFftTest::ReadFile(input_file, input_flat) || input_flat.empty()) {
+        std::cerr << "  [ERROR] " << tc.name << ": input file missing or empty: " << input_file << std::endl;
+        return false;
+    }
 
     uint32_t total_input = tc.n * tc.batch;
-    if (input_flat.size() != total_input) return false;
+    if (input_flat.size() != total_input) {
+        std::cerr << "  [ERROR] " << tc.name << ": input size mismatch: got " << input_flat.size()
+                  << ", expected " << total_input << std::endl;
+        return false;
+    }
 
     uint32_t output_size = (tc.n / 2 + 1) * tc.batch;
     std::vector<aclfftComplex> output(output_size);
@@ -48,16 +56,24 @@ inline bool run_r2c_case(aclrtStream stream, const R2CTestCase& tc) {
 #if defined(OPS_FFT_TEST_ARCH32_DIRECT_ENTRY)
     if (tc.direct_entry == 1) {
         if (aclfftRfft1DR2CFft32(input_flat.data(), reinterpret_cast<float*>(output.data()), tc.n, tc.batch, 1,
-                                 stream) != ACL_SUCCESS)
+                                 stream) != ACL_SUCCESS) {
+            std::cerr << "  [ERROR] " << tc.name << ": aclfftRfft1DR2CFft32 direct entry failed" << std::endl;
             return false;
+        }
     } else
 #endif
     {
         aclfftHandle plan;
-        if (aclfftPlan1d(&plan, tc.n, ACLFFT_R2C, tc.batch, ACLFFT_HORIZONTAL) != ACLFFT_SUCCESS) return false;
+        if (aclfftPlan1d(&plan, tc.n, ACLFFT_R2C, tc.batch, ACLFFT_HORIZONTAL) != ACLFFT_SUCCESS) {
+            std::cerr << "  [ERROR] " << tc.name << ": aclfftPlan1d failed" << std::endl;
+            return false;
+        }
         auto res = aclfftExecR2C(plan, input_flat.data(), output.data());
         aclfftDestroy(plan);
-        if (res != ACLFFT_SUCCESS) return false;
+        if (res != ACLFFT_SUCCESS) {
+            std::cerr << "  [ERROR] " << tc.name << ": aclfftExecR2C failed, ret=" << res << std::endl;
+            return false;
+        }
     }
 
     std::vector<float> output_flat(output_size * 2);
@@ -67,6 +83,7 @@ inline bool run_r2c_case(aclrtStream stream, const R2CTestCase& tc) {
     }
     // 写盘失败按用例失败处理（issue #249）：环境问题不再伪装成比对失败/假通过
     if (!OpsFftTest::WriteFile(output_file, output_flat)) {
+        std::cerr << "  [ERROR] " << tc.name << ": output file write failed: " << output_file << std::endl;
         return false;
     }
     return true;
