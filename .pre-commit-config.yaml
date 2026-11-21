@@ -33,3 +33,12 @@ repos:
           - --extra-index-url=https://download.pytorch.org/whl/cpu
         pass_filenames: false
         files: ^(src/.*/(compare_data|test_helper)\.py|tests/(host|python)/.*\.py)$
+
+  # OAT 合规性检查 (Open Source Audit Tool) — compliance 远程 Python hook
+  - repo: https://gitcode.com/HiAgent/compliance
+    rev: v1.0.6
+    hooks:
+      - id: oat-check
+        pass_filenames: true
+        stages: [pre-commit]
+        verbose: true

@@ -72,3 +72,7 @@ version.info
 
 .gitcode
 .claude
+
+# OAT 合规检查(compliance 远程钩子)将扫描摘要与聚合文件写入 oat_reports/,
+# 预置忽略避免产物弄脏工作树
+oat_reports/

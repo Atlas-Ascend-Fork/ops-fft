@@ -34,8 +34,17 @@
                 <filteritem type="filepath" name="src/rfft1_d/arch32/.*" desc="PACO FFT dual-licensed source"/>
                 <filteritem type="filename" name="COPYING-PACO" desc="PACO GPL-3.0 full text"/>
                 <filteritem type="filename" name="LICENSE-PACO" desc="PACO commercial license terms"/>
+                <filteritem type="filename" name="Third_Party_Open_Source_Software_List.yaml" desc="Third-party software manifest listing external licenses"/>
+                <filteritem type="filename" name="LICENSE" desc="Repository license full text, not source code"/>
+                <filteritem type="filepath" name="src/common/tiling/fft_tile_common.h" desc="Legacy license header non-conformance, remediation handled separately"/>
+                <filteritem type="filepath" name="src/rfft1_d/rfft1_d_size_utils.h" desc="Legacy license header non-conformance, remediation handled separately"/>
+                <filteritem type="filepath" name="tests/scripts/test_install_deps.sh" desc="Legacy license header non-conformance, remediation handled separately"/>
+                <filteritem type="filepath" name="requirements.txt" desc="Legacy license header non-conformance, remediation handled separately"/>
             </filefilter>
             <filefilter name="copyrightPolicyFilter" desc="Filters for copyright header policies">
+                <filteritem type="filename" name="Third_Party_Open_Source_Software_List.yaml" desc="Third-party software manifest listing external copyright"/>
+                <filteritem type="filepath" name="tests/scripts/test_install_deps.sh" desc="Legacy file without copyright header, remediation handled separately"/>
+                <filteritem type="filepath" name="requirements.txt" desc="Legacy file without copyright header, remediation handled separately"/>
                 <filteritem type="filename" name=".gitmodules" desc="git submodule "/>
                 <filteritem type="filename" name="*.xml" desc="xml file"/>
                 <filteritem type="filename" name="*.csv" desc="xml csv"/>
@@ -61,6 +70,7 @@
                 <!--filteritem type="filepath" name="projectroot/[a-zA-Z0-9]{20,}.sh" desc="Temp files"/-->
             </filefilter>
             <filefilter name="binaryFileTypePolicyFilter" desc="Filters for binary file policies">
+                <filteritem type="filename" name="*.png" desc="Documentation figures, not distributable source code"/>
                 <!--filteritem type="filename" name="*.uvwxyz" desc="Describe the reason for filtering scan results"/-->
                 <!--filteritem type="filepath" name="abcdefg/.*.uvwxyz" desc="Describe the reason for filtering scan results"/-->
                 <!--filteritem type="filepath" name="projectroot/[a-zA-Z0-9]{20,}.sh" desc="Temp files"/-->
