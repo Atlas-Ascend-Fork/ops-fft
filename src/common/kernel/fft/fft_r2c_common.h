@@ -332,7 +332,7 @@ __aicore__ __inline__ void common_fft_r2c_mix_even_vector_by_batch(
         AscendC::CrossCoreWaitFlag(1);
 
         AscendC::PipeBarrier<PIPE_ALL>();
-        R2C_even(c2c_output_gm_tensor.GetPhyAddr(0), input_index_gm_tensor.GetPhyAddr(0), a_gm_tensor.GetPhyAddr(0), gm_b, output_index_gm_tensor.GetPhyAddr(0), now_output_gm_tensor.GetPhyAddr(0), tiling_data.fftN * 2, batch_actual, 0, batch_actual);
+        R2C_even(c2c_output_gm_tensor.GetPhyAddr(0), input_index_gm_tensor.GetPhyAddr(0), a_gm_tensor.GetPhyAddr(0), b_gm_tensor.GetPhyAddr(0), output_index_gm_tensor.GetPhyAddr(0), now_output_gm_tensor.GetPhyAddr(0), tiling_data.fftN * 2, batch_actual, 0, batch_actual);
 
         AscendC::CrossCoreSetFlag<0, PIPE_MTE3>(1);
         AscendC::CrossCoreWaitFlag(1);
