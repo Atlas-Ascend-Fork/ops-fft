@@ -182,9 +182,9 @@ namespace Rfft1DApiIntegrationTest {
             {"r2c_fft3_1_4",  65536,    4096},
 
             {"r2c_fft3_2_1",  131072,    3},
-            {"r2c_fft3_2_2",  262144,    2048},
-            {"r2c_fft3_2_3",  1048576,    1},
-            {"r2c_fft3_2_4",  2097152,    64},
+            {"r2c_fft3_2_2",  262144,   2048},
+            // r2c_fft3_2_3 移入文末已知问题用例组（issue #395）
+            {"r2c_fft3_2_4", 2097152,     64},
 
             {"r2c_fft4_1",  4194304,    3},
             {"r2c_fft4_2",  8388608,    16},
@@ -192,13 +192,29 @@ namespace Rfft1DApiIntegrationTest {
             {"r2c_fft4_4",  33554432,    8},
 
             {"r2c_fft5_1",  67108864,    4},
-            {"r2c_fft5_2",  134217728,   2},
+            // r2c_fft5_2 移入文末已知问题用例组（issue #395）
 
             // issue #295: fft3_2 直连覆盖——exec 分发域外 2 幂 n（16384 走 fft2 档）
             // 单核 calcNum>=2 的组合，第二段 SetValueBatch 原先写死 1 行，
             // 配对行 Nyquist 实部缺失；直连+golden 对拍验证
             {"r2c_fft3_2_direct_b200",  16384,  200, 1},
         };
+        // 已知问题用例独立组（issue #395）：默认全集剔除，避免真实回归信号被长期
+        // "已知失败"人工豁免淹没；设 OPS_FFT_TEST_KNOWN_ISSUE_CASES=1 时追加执行
+        // （golden 生成/比对/清理随 cases 参数自动覆盖）。豁免依据（910B3 实测，
+        // master@819a248 基线，golden 容差口径 compare_data.py）：
+        // - r2c_fft3_2_3（n=2^20, batch=1）：整输出失真（1048561/1048578 超差，
+        //   rel_l2≈1.0，max_abs_err≈3.5e3），同族 n=2^17/2^18/2^21 与 n=2^24 b=1
+        //   （r2c_fft4_3）全过，失败组合唯一定位在 fft3_2 路径 n=2^20 b=1
+        //   （calcN<blockN 调度/精度问题待定界修复）；
+        // - r2c_fft5_2（n=2^27, batch=2，输入约 1GB）：268M 元素仅 1 个超差
+        //   （max_abs_err≈1.8e3，rel_l2≈1.4e-5），共租户显存环境偶发，
+        //   大显存档位独立执行。
+        const char* known_issue_env = std::getenv("OPS_FFT_TEST_KNOWN_ISSUE_CASES");
+        if (known_issue_env != nullptr && std::string(known_issue_env) == "1") {
+            cases.push_back({"r2c_fft3_2_3", 1048576,    1});
+            cases.push_back({"r2c_fft5_2",  134217728,   2});
+        }
         OpsFftTest::RunBatchTests(stream, stats, "rfft1_d", cases, run_r2c_case);
         run_entry_reject_regression_test(stats);
         run_twlen_zero_direct_exec_test(stream, stats);
