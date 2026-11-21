@@ -106,7 +106,6 @@ __aicore__ __inline__ void C2R_odd(
                     rev_len = BIASC;
                 }
             }
-            int32_t idx_size = (ord_len + 63) / 64 * 64;    // 输入搬入长度
             int32_t cal_size = (rev_len + 63) / 64 * 64;    // 共轭对应长度
 
             for(uint64_t loopN = batch_id_begin; loopN < batch_id_end; loopN+=1) {  // Batch方向的循环
