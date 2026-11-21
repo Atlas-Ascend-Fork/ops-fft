@@ -216,31 +216,35 @@ __aicore__ __inline__ void C2R_even(
         for(uint64_t loop = 0; loop < repeat_times; loop++) {       // 序列方向的循环
 
             int64_t offset_loopc = loop * BIASC;      // 已经处理过的长度
-            int actual_n = N + 2;
+            int in_len = N + 2;                             // N+2 基输入长度（含 Nyquist 占位）
+            int chunk_in = in_len;                          // 本 chunk 系数表（A/B 矩阵）搬入长度（issue #404 命名拆分）
             int reverse_offset = 0;
 
             if (repeat_times != 1) {                        // 若N-2长度大于4096则循环
-                actual_n = (loop + 1) * BIASC <= (N + 2) ? BIASC : ((N + 2) - loop * BIASC);
+                chunk_in = (loop + 1) * BIASC <= (N + 2) ? BIASC : ((N + 2) - loop * BIASC);
             }
 
-            if (repeat_times != 1 && actual_n != BIASC) {   // 需要读到对应的reverse数组
+            if (repeat_times != 1 && chunk_in != BIASC) {   // 需要读到对应的reverse数组
                 reverse_offset = index_size;
             }
 
             if (N == 4096) {
-                actual_n = N;           // 4096长度需要特殊处理
+                // 4096长度需要特殊处理：N+2 基输入长度恰跨 BIASC=4096 分块边界 2 个元素，
+                // 系数表搬入长度按 N（=BIASC）整块口径覆盖 chunk 截断结果，两轮分块均保持
+                // 整块搬运路径、reverse_offset 不触发（命名拆分见 issue #404，逻辑不变）
+                chunk_in = N;
             }
             AscendC::DataCopy(reverse_index_ub_tensor, input_index_gm_tensor[reverse_offset], AscendC::DataCopyParams(1, lenBurstIndex, 0, 0));   // 搬入2048个数
             AscendC::PipeBarrier<PIPE_MTE2>();
 
-            AscendC::DataCopyPad(MatrixA_Real_ub_tensor, a_gm_tensor[offset_loopc / 2], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));      // 搬对应的N-2个数进来
+            AscendC::DataCopyPad(MatrixA_Real_ub_tensor, a_gm_tensor[offset_loopc / 2], AscendC::DataCopyExtParams(1, (chunk_in / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));      // 搬对应的N-2个数进来
             AscendC::PipeBarrier<PIPE_MTE2>();
-            AscendC::DataCopyPad(MatrixA_Imag_ub_tensor, a_gm_tensor[offset_loopc / 2 + N / 2 + 1], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));       // 搬对应的N-2个数进来, 虚部表起始偏移含 Nyquist 端点占位（issue #322，对齐 host tableStride 布局）
+            AscendC::DataCopyPad(MatrixA_Imag_ub_tensor, a_gm_tensor[offset_loopc / 2 + N / 2 + 1], AscendC::DataCopyExtParams(1, (chunk_in / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));       // 搬对应的N-2个数进来, 虚部表起始偏移含 Nyquist 端点占位（issue #322，对齐 host tableStride 布局）
             AscendC::PipeBarrier<PIPE_MTE2>();
 
-            AscendC::DataCopyPad(MatrixB_Real_ub_tensor, b_gm_tensor[offset_loopc / 2], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));
+            AscendC::DataCopyPad(MatrixB_Real_ub_tensor, b_gm_tensor[offset_loopc / 2], AscendC::DataCopyExtParams(1, (chunk_in / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));
             AscendC::PipeBarrier<PIPE_MTE2>();      // 搬对应的N-2个数进来
-            AscendC::DataCopyPad(MatrixB_Imag_ub_tensor, b_gm_tensor[offset_loopc / 2 + N / 2 + 1], AscendC::DataCopyExtParams(1, (actual_n / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));      // 搬对应的N-2个数进来, 同 A 表（issue #322）
+            AscendC::DataCopyPad(MatrixB_Imag_ub_tensor, b_gm_tensor[offset_loopc / 2 + N / 2 + 1], AscendC::DataCopyExtParams(1, (chunk_in / 2) * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));      // 搬对应的N-2个数进来, 同 A 表（issue #322）
             AscendC::PipeBarrier<PIPE_MTE2>();
 
             for(uint64_t loopN = batch_id_begin; loopN < batch_id_end; loopN+=1) {  // Batch方向的循环
@@ -271,9 +275,9 @@ __aicore__ __inline__ void C2R_even(
 
                 AscendC::WaitFlag<AscendC::HardEvent::V_MTE2>(event_id);
                 // **********搬入***************
-                int actual_n = N + 2;
-                actual_n = actual_n < BIASC ? actual_n : ((loop + 1) * BIASC <= actual_n ? BIASC : (actual_n - loop * BIASC));
-                AscendC::DataCopyPad(buf0_ub_tensor, input_gm_tensor[offset + offset_loopc], AscendC::DataCopyExtParams(1, actual_n * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));
+                int batch_in = in_len;                  // 单批输入搬入长度（N+2 基按 chunk 截断，无 4096 特判，与外层 chunk_in 区分，issue #404）
+                batch_in = batch_in < BIASC ? batch_in : ((loop + 1) * BIASC <= batch_in ? BIASC : (batch_in - loop * BIASC));
+                AscendC::DataCopyPad(buf0_ub_tensor, input_gm_tensor[offset + offset_loopc], AscendC::DataCopyExtParams(1, batch_in * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));
                 AscendC::SetFlag<AscendC::HardEvent::MTE2_V>(event_id);
                 AscendC::WaitFlag<AscendC::HardEvent::MTE2_V>(event_id);
                 AscendC::WaitFlag<AscendC::HardEvent::MTE3_V>(event_id);
@@ -286,10 +290,10 @@ __aicore__ __inline__ void C2R_even(
                 }
                 AscendC::PipeBarrier<PIPE_V>();
                 if (loop == repeat_times - 1 && (N % BIASC != 0)) {
-                    int setzero_offset = actual_n / 64;
-                    int remain_len = actual_n - (setzero_offset) * 64;
+                    int setzero_offset = batch_in / 64;
+                    int remain_len = batch_in - (setzero_offset) * 64;
                     int mask_offset = remain_len - 1;
-                    if (actual_n % 64 == 0) {
+                    if (batch_in % 64 == 0) {
                         set_vector_mask(0x0, 0x8000000000000000);
                         AscendC::Sub<float, false>(buf0_ub_tensor[(setzero_offset - 1) * 64], buf0_ub_tensor[(setzero_offset - 1) * 64], buf0_ub_tensor[(setzero_offset - 1) * 64], AscendC::MASK_PLACEHOLDER, 1, {1, 1, 1, 8, 8, 8});
                     }
@@ -342,7 +346,7 @@ __aicore__ __inline__ void C2R_even(
                     int64_t offset_loopc_rev = (N + 2) - offset_block;
                     AscendC::SetFlag<AscendC::HardEvent::V_MTE2>(event_id);
                     AscendC::WaitFlag<AscendC::HardEvent::V_MTE2>(event_id);
-                    AscendC::DataCopyPad(buf0_ub_tensor, input_gm_tensor[offset + offset_loopc_rev], AscendC::DataCopyExtParams(1, actual_n * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));
+                    AscendC::DataCopyPad(buf0_ub_tensor, input_gm_tensor[offset + offset_loopc_rev], AscendC::DataCopyExtParams(1, batch_in * sizeof(float), 0, 0, 0), AscendC::DataCopyPadExtParams<float>(false, 0, 0, 0));
 
                     AscendC::SetFlag<AscendC::HardEvent::MTE2_V>(event_id);
                     AscendC::WaitFlag<AscendC::HardEvent::MTE2_V>(event_id);
@@ -429,10 +433,10 @@ __aicore__ __inline__ void C2R_even(
                 AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(event_id);
                 AscendC::SetFlag<AscendC::HardEvent::V_MTE2>(event_id);
                 // **********搬出***************
-                actual_n = N;
-                actual_n = actual_n < BIASC ? actual_n : ((loop + 1) * BIASC <= actual_n ? BIASC : (actual_n - loop * BIASC));
-                AscendC::DataCopyPad(output_gm_tensor[offset_out / 2 + offset_loopc / 2], buf1_ub_tensor, AscendC::DataCopyExtParams(1, actual_n / 2 * sizeof(float), 0, 0, 0));
-                AscendC::DataCopyPad(output_gm_tensor[offset_out / 2 + offset_loopc / 2 + out_imag_real_offset], buf2_ub_tensor, AscendC::DataCopyExtParams(1, actual_n / 2 * sizeof(float), 0, 0, 0));
+                int out_len = N;                        // N 基输出长度（与输入 N+2 基区分，原 actual_n 搬出阶段复用处，issue #404 拆分）
+                int chunk_out = out_len < BIASC ? out_len : ((loop + 1) * BIASC <= out_len ? BIASC : (out_len - loop * BIASC));
+                AscendC::DataCopyPad(output_gm_tensor[offset_out / 2 + offset_loopc / 2], buf1_ub_tensor, AscendC::DataCopyExtParams(1, chunk_out / 2 * sizeof(float), 0, 0, 0));
+                AscendC::DataCopyPad(output_gm_tensor[offset_out / 2 + offset_loopc / 2 + out_imag_real_offset], buf2_ub_tensor, AscendC::DataCopyExtParams(1, chunk_out / 2 * sizeof(float), 0, 0, 0));
                 AscendC::SetFlag<AscendC::HardEvent::MTE3_V>(event_id);
                 ping = 1 - ping;
             }
