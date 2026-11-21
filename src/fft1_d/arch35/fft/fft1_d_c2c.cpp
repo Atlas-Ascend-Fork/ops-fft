@@ -88,7 +88,6 @@ static aclError SetTilingData(
     tiling.isInverse = isInverse;
 
     int64_t tempN = fftN;
-    int64_t tempBatch = batches;
     int64_t dftOff = 0;
     int64_t twOff = 0;
     int32_t stageCount = 0;
@@ -104,11 +103,9 @@ static aclError SetTilingData(
 
         tiling.radix_arr[stageCount] = radix;
         tiling.M_arr[stageCount] = tempN / radix;
-        tiling.currentBatch_arr[stageCount] = tempBatch;
         tiling.dft_offset_arr[stageCount] = dftOff;
         tiling.tw_offset_arr[stageCount] = twOff;
 
-        tempBatch *= radix;
         dftOff += 2 * radix * radix;
         twOff += 2 * radix * tiling.M_arr[stageCount];
         tempN = tiling.M_arr[stageCount];

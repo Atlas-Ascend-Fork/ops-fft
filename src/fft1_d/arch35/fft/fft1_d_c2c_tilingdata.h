@@ -26,7 +26,6 @@ struct Fft1DC2CTilingData {
     int64_t M_arr[MAX_FFT_STAGES_TILING];
     int64_t dft_offset_arr[MAX_FFT_STAGES_TILING];
     int64_t tw_offset_arr[MAX_FFT_STAGES_TILING];
-    int64_t currentBatch_arr[MAX_FFT_STAGES_TILING];
 };
 
 #endif

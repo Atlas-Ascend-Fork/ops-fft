@@ -153,13 +153,13 @@ __simt_vf__ LAUNCH_BOUND(VF_MAX_THREAD_NUM) __aicore__ void FftC2CCopyOut(
     __gm__ float * __restrict__ gm_output,
     int64_t batchSize,
     int64_t fftN,
-    int64_t wsOffset,
-    int32_t isInverse)
+    int64_t wsOffset)
 {
     int64_t totalComplex = batchSize * fftN;
     int64_t tid = static_cast<int64_t>(Simt::GetThreadIdx<0>());
     int64_t stride = static_cast<int64_t>(Simt::GetThreadNum<0>());
     int64_t wsFloatOffset = wsOffset / sizeof(float);
+    // 归一化由矩阵内烘焙符号承担、无 1/N 缩放：正/逆变换 CopyOut 均不做方向相关缩放（issue #399）
     float norm = 1.0f;
 
     for (int64_t idx = tid; idx < totalComplex; idx += stride) {
@@ -194,7 +194,6 @@ private:
     int64_t batchSize_;
     int64_t fftN_;
     int32_t radixListLen_;
-    int32_t isInverse_;
     int64_t workspaceOffsets_[5];
     int64_t localWorkspaceOffsets_[2];
 
@@ -202,7 +201,6 @@ private:
     __gm__ int64_t * __restrict__ gm_M_arr_;
     __gm__ int64_t * __restrict__ gm_dft_offset_arr_;
     __gm__ int64_t * __restrict__ gm_tw_offset_arr_;
-    __gm__ int64_t * __restrict__ gm_currentBatch_arr_;
 
     int64_t blockIdx_;
     int64_t blockNum_;
@@ -224,7 +222,8 @@ __aicore__ inline void FftC2CKernelMultiCore::Init(
     batchSize_ = (*(__gm__ int64_t *)((__gm__ uint8_t *)tiling_buf));
     fftN_ = (*(__gm__ int64_t *)((__gm__ uint8_t *)tiling_buf + 8));
     radixListLen_ = (*(__gm__ int32_t *)((__gm__ uint8_t *)tiling_buf + 16));
-    isInverse_ = (*(__gm__ int32_t *)((__gm__ uint8_t *)tiling_buf + 20));
+    // tiling 偏移 20 为 isInverse（host 侧写入、tiling 布局保持不变）；矩阵符号
+    // 已按方向烘焙、CopyOut 无方向相关缩放，kernel 不再读取该字段（issue #399）
 
     for (int32_t i = 0; i < 5; i++) {
         workspaceOffsets_[i] = (*(__gm__ int64_t *)((__gm__ uint8_t *)tiling_buf + 24 + 8 * i));
@@ -235,7 +234,6 @@ __aicore__ inline void FftC2CKernelMultiCore::Init(
     gm_M_arr_ = (__gm__ int64_t *)((__gm__ uint8_t *)tiling_buf + baseOffset + MAX_FFT_STAGES * 4);
     gm_dft_offset_arr_ = (__gm__ int64_t *)((__gm__ uint8_t *)tiling_buf + baseOffset + MAX_FFT_STAGES * 4 + MAX_FFT_STAGES * 8);
     gm_tw_offset_arr_ = (__gm__ int64_t *)((__gm__ uint8_t *)tiling_buf + baseOffset + MAX_FFT_STAGES * 4 + MAX_FFT_STAGES * 8 * 2);
-    gm_currentBatch_arr_ = (__gm__ int64_t *)((__gm__ uint8_t *)tiling_buf + baseOffset + MAX_FFT_STAGES * 4 + MAX_FFT_STAGES * 8 * 3);
 
     blockIdx_ = static_cast<int64_t>(GetBlockIdx());
     blockNum_ = static_cast<int64_t>(GetBlockNum());
@@ -346,8 +344,7 @@ __aicore__ inline void FftC2CKernelMultiCore::Process()
         gm_output_core_,
         localBatchSize_,
         fftN_,
-        finalWsOffset,
-        isInverse_);
+        finalWsOffset);
 
     return;
 }
