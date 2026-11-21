@@ -153,8 +153,6 @@ __aicore__ __inline__ __attribute__((always_inline)) void stock_fft_mix_aic(
 
             get_tile(N1, (N2 > 1) ? N2 : N0, step_index, step_len, tile_M0, tile_N0, tile_K0);
 
-            int64_t N2_padding = ROUND(N2, tile_N0);
-
             if (N2 > 1) {
                 int64_t ldb = N2;
                 int64_t ldc = N2;
@@ -271,8 +269,6 @@ stock_fft_mix_aiv(__gm__ float *__restrict__ gm_input, __gm__ float *__restrict_
 
                 get_tile(N1, (N2 > 1) ? N2 : N0, step_index, step_len, tile_M0, tile_N0, tile_K0);
             }
-
-            int64_t N2_padding = ROUND(N2, tile_N0);
 
             if (N2 > 1) {
                 matrix_dot_sync(nullptr, now_tw_matrix_array, gm_tmp_output, gm_workspace_sync, gm_radix_list, gm_auxil,
@@ -416,8 +412,6 @@ __aicore__ __inline__  __attribute__((always_inline)) void stock_fft_c2r_mix_eve
                 );
             }
 
-            int64_t N2_padding = ROUND(N2, tile_N0);
-
             if (N2 > 1) {
                 matrix_dot_sync(nullptr, now_tw_matrix_array, gm_tmp_output, gm_workspace_sync, gm_radix_list, gm_auxil, batch_actual, N0, N1, N2, tile_M0, tile_N0, tile_K0, step_index, step_len, fftDirection, seq357);
 
@@ -560,8 +554,6 @@ __aicore__ __inline__  __attribute__((always_inline)) void stock_fft_r2c_mix_eve
                     tile_K0
                 );
             }
-
-            int64_t N2_padding = ROUND(N2, tile_N0);
 
             if (N2 > 1) {
                 matrix_dot_sync(nullptr, now_tw_matrix_array, gm_tmp_output, gm_workspace_sync, gm_radix_list, gm_auxil, batch_actual, N0, N1, N2, tile_M0, tile_N0, tile_K0, step_index, step_len, fftDirection, seq357);
