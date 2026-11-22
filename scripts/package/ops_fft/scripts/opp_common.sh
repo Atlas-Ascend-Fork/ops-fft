@@ -33,7 +33,7 @@ getdate() {
 
 logandprint() {
   local is_error_level=$(echo "$1" | grep -E 'ERROR|WARN|INFO')
-  if [ "${is_quiet}" != "y" ] || [ "${is_error_level}" != "" ]; then
+  if [ "${IS_QUIET:-${is_quiet:-n}}" != "y" ] || [ "${is_error_level}" != "" ]; then
     echo "[OpsFft] [$(getdate)] ""$1"
   fi
   if [ -d "${_LOG_PATH}" ]; then
