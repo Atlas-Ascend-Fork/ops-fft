@@ -30,14 +30,18 @@ static int32_t CalcBatchNumsPerLoop(int32_t x, int32_t y)
 
 static std::vector<float> InitPQMatrix(int64_t fftN, bool forward, bool isP)
 {
+    // G.EXP.22-CPP: 除数/模数不得为 0（调用点已拒绝 fftX/fftY==0）。
+    if (fftN == 0) {
+        return {};
+    }
     int64_t inSize = 2 * fftN;
     int64_t outSize = 2 * fftN;
 
     std::vector<double> cosTable(fftN);
     std::vector<double> sinTable(fftN);
     for (int i = 0; i < fftN; i++) {
-        cosTable[i] = cos(K_2PI * i / (fftN ? fftN : 1));
-        sinTable[i] = sin(K_2PI * i / (fftN ? fftN : 1));
+        cosTable[i] = cos(K_2PI * i / fftN);
+        sinTable[i] = sin(K_2PI * i / fftN);
     }
 
     std::vector<float> pqMatrix(outSize * inSize, 0.0f);
@@ -45,15 +49,15 @@ static std::vector<float> InitPQMatrix(int64_t fftN, bool forward, bool isP)
     for (int i = 0; i < fftN; i++) {
         for (int j = 0; j < fftN; j++) {
             if (isP) {
-                pqMatrix[(2 * i) * (2 * fftN) + j] = cosTable[(i * j) % (fftN ? fftN : 1)];
-                pqMatrix[(2 * i + 1) * (2 * fftN) + j] = (forward ? -1.0f : 1.0f) * sinTable[(i * j) % (fftN ? fftN : 1)];
-                pqMatrix[(2 * i) * (2 * fftN) + j + fftN] = (forward ? 1.0f : -1.0f) * sinTable[(i * j) % (fftN ? fftN : 1)];
-                pqMatrix[(2 * i + 1) * (2 * fftN) + j + fftN] = cosTable[(i * j) % (fftN ? fftN : 1)];
+                pqMatrix[(2 * i) * (2 * fftN) + j] = cosTable[(i * j) % fftN];
+                pqMatrix[(2 * i + 1) * (2 * fftN) + j] = (forward ? -1.0f : 1.0f) * sinTable[(i * j) % fftN];
+                pqMatrix[(2 * i) * (2 * fftN) + j + fftN] = (forward ? 1.0f : -1.0f) * sinTable[(i * j) % fftN];
+                pqMatrix[(2 * i + 1) * (2 * fftN) + j + fftN] = cosTable[(i * j) % fftN];
             } else {
-                pqMatrix[j * (2 * fftN) + (2 * i)] = cosTable[(i * j) % (fftN ? fftN : 1)];
-                pqMatrix[j * (2 * fftN) + (2 * i + 1)] = (forward ? -1.0f : 1.0f) * sinTable[(i * j) % (fftN ? fftN : 1)];
-                pqMatrix[(j + fftN) * (2 * fftN) + (2 * i)] = (forward ? 1.0f : -1.0f) * sinTable[(i * j) % (fftN ? fftN : 1)];
-                pqMatrix[(j + fftN) * (2 * fftN) + (2 * i + 1)] = cosTable[(i * j) % (fftN ? fftN : 1)];
+                pqMatrix[j * (2 * fftN) + (2 * i)] = cosTable[(i * j) % fftN];
+                pqMatrix[j * (2 * fftN) + (2 * i + 1)] = (forward ? -1.0f : 1.0f) * sinTable[(i * j) % fftN];
+                pqMatrix[(j + fftN) * (2 * fftN) + (2 * i)] = (forward ? 1.0f : -1.0f) * sinTable[(i * j) % fftN];
+                pqMatrix[(j + fftN) * (2 * fftN) + (2 * i + 1)] = cosTable[(i * j) % fftN];
             }
         }
     }
@@ -87,6 +91,13 @@ extern "C" aclError aclfftFft2DDd(float *x, float *y, uint32_t fftX, uint32_t ff
     // 与同族 1D 直调入口的防护口径保持一致
     if (batches > static_cast<uint32_t>(std::numeric_limits<int32_t>::max())) {
         std::cerr << "[ops-fft] aclfftFft2DDd: batches=" << batches << " exceeds INT32_MAX" << std::endl;
+        return ACL_ERROR_INVALID_PARAM;
+    }
+    // fftX/fftY==0 显式拒绝（issue #422）：原实现仅靠 CalcBatchNumsPerLoop 返回 -1
+    // 偶然兜底，属巧合而非设计；与 batches==0 校验同口径，使 0 维输入不变式显式化
+    if (fftX == 0 || fftY == 0) {
+        std::cerr << "[ops-fft] aclfftFft2DDd: fftX/fftY=0 is not supported (fftX=" << fftX
+                  << ", fftY=" << fftY << ")" << std::endl;
         return ACL_ERROR_INVALID_PARAM;
     }
     auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();

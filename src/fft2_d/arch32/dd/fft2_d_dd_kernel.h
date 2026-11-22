@@ -30,6 +30,10 @@ const int16_t SYNC_ALL_CORE_FLAG_ID = 0;
 const int16_t SYNC_SINGLE_VC_FLAG_ID = 1;
 const int16_t SYNC_SINGLE_CV_FLAG_ID = 2;
 
+// L2 cache 大循环阈值：VEC/CUBE 两分支共用同一编号空间
+// （big_loop_idx * L2_CACHE_LOOP_NUM 偏移需两侧一致），调整前必须同步对账两侧分段逻辑。
+const int32_t L2_CACHE_LOOP_NUM = 500;
+
 #ifdef __DAV_C220_VEC__
 
 const uint64_t BLOCK_SIZE = 32 / sizeof(float);
@@ -1745,9 +1749,8 @@ extern "C" __global__ __aicore__ void dd(
 
     const int32_t loop_count = CeilDiv<int64_t>(batch_size, batch_nums_per_loop);
     const int32_t batch_remain = batch_size % batch_nums_per_loop;
-    const int32_t l2_cache_loop_num = 500;
-    const int32_t big_loop_count = CeilDiv<int64_t>(loop_count, l2_cache_loop_num);
-    const int32_t big_loop_remain = loop_count % l2_cache_loop_num;
+    const int32_t big_loop_count = CeilDiv<int64_t>(loop_count, L2_CACHE_LOOP_NUM);
+    const int32_t big_loop_remain = loop_count % L2_CACHE_LOOP_NUM;
 
     uint64_t flag_id = SYNC_ALL_CORE_FLAG_ID;
 
@@ -1757,7 +1760,7 @@ extern "C" __global__ __aicore__ void dd(
     AscendC::GlobalTensor<float> input_current_gm_tensor;
     AscendC::GlobalTensor<float> output_current_gm_tensor;
 
-    if (loop_count <= l2_cache_loop_num) {
+    if (loop_count <= L2_CACHE_LOOP_NUM) {
         for (int32_t loop_idx = 0; loop_idx < loop_count; loop_idx  ++){
             if ((loop_idx % AscendC::GetBlockNum()) != (AscendC::GetBlockIdx() / 2)) {
                 continue;
@@ -1791,7 +1794,7 @@ extern "C" __global__ __aicore__ void dd(
             if ((big_loop_idx == big_loop_count - 1) && (big_loop_remain > 0)){
                 current_loop_nums = big_loop_remain;
             }else {
-                current_loop_nums = l2_cache_loop_num;
+                current_loop_nums = L2_CACHE_LOOP_NUM;
             }
 
             for (int32_t loop_idx = 0; loop_idx < current_loop_nums; loop_idx  ++){
@@ -1804,7 +1807,7 @@ extern "C" __global__ __aicore__ void dd(
                 current_batch_nums = batch_nums_per_loop;
             }
 
-            input_current_gm_tensor.SetGlobalBuffer(gm_input + (big_loop_idx * l2_cache_loop_num + loop_idx) * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
+            input_current_gm_tensor.SetGlobalBuffer(gm_input + (big_loop_idx * L2_CACHE_LOOP_NUM + loop_idx) * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
             output_current_gm_tensor.SetGlobalBuffer(gm_output + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
 
             if (current_batch_nums == 1) {
@@ -1822,7 +1825,7 @@ extern "C" __global__ __aicore__ void dd(
         }
         }
         //再执行第一轮大循环
-        for (int32_t loop_idx = 0; loop_idx < l2_cache_loop_num; loop_idx  ++){
+        for (int32_t loop_idx = 0; loop_idx < L2_CACHE_LOOP_NUM; loop_idx  ++){
             if ((loop_idx % AscendC::GetBlockNum()) != (AscendC::GetBlockIdx() / 2)) {
                 continue;
             }
@@ -1866,9 +1869,8 @@ extern "C" __global__ __aicore__ void dd(
 
     const int32_t loop_count = CeilDiv<int64_t>(batch_size, batch_nums_per_loop);
     const int32_t batch_remain = batch_size % batch_nums_per_loop;
-    const int32_t l2_cache_loop_num = 500;
-    const int32_t big_loop_count = CeilDiv<int64_t>(loop_count, l2_cache_loop_num);
-    const int32_t big_loop_remain = loop_count % l2_cache_loop_num;
+    const int32_t big_loop_count = CeilDiv<int64_t>(loop_count, L2_CACHE_LOOP_NUM);
+    const int32_t big_loop_remain = loop_count % L2_CACHE_LOOP_NUM;
 
     uint64_t flag_id;
 
@@ -1883,7 +1885,7 @@ extern "C" __global__ __aicore__ void dd(
     int32_t current_batch_nums;
     int32_t active_SpRI_flag;
     int32_t current_loop_nums;
-    if (loop_count <= l2_cache_loop_num) {
+    if (loop_count <= L2_CACHE_LOOP_NUM) {
         for (int32_t loop_idx = 0; loop_idx < loop_count; loop_idx  ++){
             if (loop_idx % AscendC::GetBlockNum() != AscendC::GetBlockIdx()) {
                 continue;
@@ -1952,7 +1954,7 @@ extern "C" __global__ __aicore__ void dd(
             if ((big_loop_idx == big_loop_count - 1) && (big_loop_remain > 0)){
                 current_loop_nums = big_loop_remain;
             }else {
-                current_loop_nums = l2_cache_loop_num;
+                current_loop_nums = L2_CACHE_LOOP_NUM;
             }
 
             for (int32_t loop_idx = 0; loop_idx < current_loop_nums; loop_idx  ++){
@@ -2005,7 +2007,7 @@ extern "C" __global__ __aicore__ void dd(
             }
 
             workspace_current_gm_tensor.SetGlobalBuffer(gm_workspace + loop_idx * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
-            output_current_gm_tensor.SetGlobalBuffer(gm_output + (big_loop_idx * l2_cache_loop_num + loop_idx) * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
+            output_current_gm_tensor.SetGlobalBuffer(gm_output + (big_loop_idx * L2_CACHE_LOOP_NUM + loop_idx) * batch_nums_per_loop * (dft_xlength * dft_ylength * COMPLEX_DOUBLE));
 
             if (dft_xlength == 128 && dft_ylength == 128) { // shape(128,128)无法做优化
                 active_SpRI_flag = 0;
@@ -2018,7 +2020,7 @@ extern "C" __global__ __aicore__ void dd(
         }
         }
         //再执行第一轮大循环
-         for (int32_t loop_idx = 0; loop_idx < l2_cache_loop_num; loop_idx  ++){
+         for (int32_t loop_idx = 0; loop_idx < L2_CACHE_LOOP_NUM; loop_idx  ++){
             if (loop_idx % AscendC::GetBlockNum() != AscendC::GetBlockIdx()) {
                 continue;
             }
@@ -2057,7 +2059,7 @@ extern "C" __global__ __aicore__ void dd(
         AscendC::SetFlag<AscendC::HardEvent::FIX_MTE2>(EVENT_ID0);
         AscendC::WaitFlag<AscendC::HardEvent::FIX_MTE2>(EVENT_ID0);
 
-        for (int32_t loop_idx = 0; loop_idx < l2_cache_loop_num; loop_idx  ++){
+        for (int32_t loop_idx = 0; loop_idx < L2_CACHE_LOOP_NUM; loop_idx  ++){
             if (loop_idx % AscendC::GetBlockNum() != AscendC::GetBlockIdx()) {
                 continue;
             }
