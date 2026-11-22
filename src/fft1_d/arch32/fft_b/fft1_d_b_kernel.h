@@ -22,11 +22,15 @@ constexpr int32_t L0AB_PINGPONG_BUFFER_LEN = 32 * 1024 / sizeof(float);
 constexpr int32_t L1_PINGPONG_BUFFER_LEN = 256 * 1024 / sizeof(float);
 constexpr uint8_t INNER_GROUP_CV_SYNC_MODE = 2;
 // fft_batch 合并数基准（issue #382）：n=8192 时合并 64 个 fft_batch，fft_n 更大时
-// 按 fft_n / 8192 反比递减
+// 按 fft_n / FFT_B_MERGE_N_BASE 反比递减
 constexpr int32_t FFT_B_BATCH_GROUP_BASE = 64;
 // bulk 分桶预算（issue #382）：batch_size_bulk = 该预算 / (fft_n / 256)，
 // 使单个 bulk 覆盖的元素量恒为预算 * 256 点
 constexpr int32_t FFT_B_BULK_SUBBLOCK_BUDGET = 12288;
+// fft_batch 合并数阈值（issue #423）：fft_n 达到该值时 fft_batch_actual 固定为 1，
+// 更小时按 FFT_B_BATCH_GROUP_BASE / (fft_n / 阈值) 反比递减；与选核、repeat 次数、
+// 预取开关共享同一编号空间，调参必须同步对账
+constexpr int32_t FFT_B_MERGE_N_BASE = 8192;
 
 __aicore__ __inline__ void loop_tiling(int32_t batch_size, int32_t &loop_per_block, int32_t &loop_idx)
 {
@@ -79,7 +83,7 @@ __aicore__ __inline__ void step_ppmatmul_0_1(__gm__ float *__restrict__ gm_a, __
     int32_t M0 = 128;
     int32_t N0 = 128;
     int32_t K0 = 128;
-    if (M <= 64 && fft_n < 8192) {
+    if (M <= 64 && fft_n < FFT_B_MERGE_N_BASE) {
         M0 = 64;
         N0 = 256;
         K0 = 64;
@@ -103,7 +107,7 @@ __aicore__ __inline__ void step_ppmatmul_0_1(__gm__ float *__restrict__ gm_a, __
     int32_t batch_id = batch_id_begin;
     int32_t batch_end = batch_id_end;
     int32_t N_init = N;
-    int32_t batch_num = fft_n >= 8192 ? 1 : min(192 * 64 / fft_n, min(N0 / N_init, batch_size));
+    int32_t batch_num = fft_n >= FFT_B_MERGE_N_BASE ? 1 : min(192 * 64 / fft_n, min(N0 / N_init, batch_size));
 
     SET_FLAG(MTE1, MTE2, EVENT_ID0);
     SET_FLAG(MTE1, MTE2, EVENT_ID1);
@@ -115,7 +119,7 @@ __aicore__ __inline__ void step_ppmatmul_0_1(__gm__ float *__restrict__ gm_a, __
     for (; batch_id < batch_end; batch_id += batch_num) {  // 一个核处理batch_num_sum个batch，一次处理batch_num个batch
         int32_t batch_actual = ((batch_id + batch_num) >= batch_end) ? (batch_end - batch_id) : batch_num;
         int32_t fft_multibatch = 1;
-        if (fft_n == 8192 || fft_n == 16384) {
+        if (fft_n == FFT_B_MERGE_N_BASE || fft_n == 16384) {
             fft_multibatch = 2;
         }
         N = N_init * batch_actual * fft_multibatch;
@@ -423,7 +427,7 @@ __aicore__ __inline__ void step_ppmatmul_2itercount_last_iter(__gm__ float *__re
     int32_t M0 = 64;
     int32_t N0 = 256;
     int32_t K0 = 64;
-    if (M <= 64 && fft_n < 8192) {
+    if (M <= 64 && fft_n < FFT_B_MERGE_N_BASE) {
         M0 = 64;
         N0 = 256;
         K0 = 64;
@@ -447,8 +451,8 @@ __aicore__ __inline__ void step_ppmatmul_2itercount_last_iter(__gm__ float *__re
     int32_t batch_id = batch_id_begin;
     int32_t batch_end = min(batch_id_end, batch_id + batch_size);
     int32_t N_init = N;
-    int32_t batch_num = fft_n >= 8192 ? 1 : min(192 * 64 / fft_n, N0 / N_init);
-    int32_t fft_batch_actual = fft_n >= 8192 ? FFT_B_BATCH_GROUP_BASE / (fft_n / 8192) : 1;
+    int32_t batch_num = fft_n >= FFT_B_MERGE_N_BASE ? 1 : min(192 * 64 / fft_n, N0 / N_init);
+    int32_t fft_batch_actual = fft_n >= FFT_B_MERGE_N_BASE ? FFT_B_BATCH_GROUP_BASE / (fft_n / FFT_B_MERGE_N_BASE) : 1;
 
     // M:128 K:128 N:2
     SET_FLAG(MTE1, MTE2, EVENT_ID0);
@@ -780,11 +784,11 @@ __aicore__ __inline__ void step_reduce(__gm__ float *__restrict__ gm_input, __gm
 
     // 计算每个核要处理的batch数量
     int32_t batch_id = batch_id_begin;
-    int32_t batch_end = N >= 8192 ? min(batch_id_end, batch_id + batch_size) : batch_id_end;
+    int32_t batch_end = N >= FFT_B_MERGE_N_BASE ? min(batch_id_end, batch_id + batch_size) : batch_id_end;
     int32_t batch_num =
-        N >= 8192 ? 1 : min(max_repeat_count * 64 / N, min(N0 / N_radix, batch_size));  // 一次迭代处理的batch数量
+        N >= FFT_B_MERGE_N_BASE ? 1 : min(max_repeat_count * 64 / N, min(N0 / N_radix, batch_size));  // 一次迭代处理的batch数量
 
-    max_repeat_count = N >= 8192 ? 192 : batch_num * N / 64;
+    max_repeat_count = N >= FFT_B_MERGE_N_BASE ? 192 : batch_num * N / 64;
 
     int32_t ping_flag = 1;
 
@@ -794,7 +798,7 @@ __aicore__ __inline__ void step_reduce(__gm__ float *__restrict__ gm_input, __gm
     for (; batch_id < batch_end; batch_id += batch_num) {  // 一个核处理batch_num_sum个batch，一次处理batch_num个batch
         int32_t batch_actual = ((batch_id + batch_num) >= batch_end) ? (batch_end - batch_id) : batch_num;
         int32_t all_repeats = batch_actual * N / 64;
-        int32_t repeat = N >= 8192 ? 192 : batch_num * N / 64;
+        int32_t repeat = N >= FFT_B_MERGE_N_BASE ? 192 : batch_num * N / 64;
         int32_t loop = (all_repeats + max_repeat_count - 1) / max_repeat_count;
 
         for (int32_t i = 0; i < loop; ++i) {
@@ -811,7 +815,7 @@ __aicore__ __inline__ void step_reduce(__gm__ float *__restrict__ gm_input, __gm
 
             WAIT_FLAG(MTE3, MTE2, event_id);
 
-            if (N < 8192) {
+            if (N < FFT_B_MERGE_N_BASE) {
                 for (int32_t j = 0; j < batch_actual; ++j) {
                     AscendC::DataCopy(
                         complex_buf_tensor[j * N_radix * 2],
@@ -864,7 +868,7 @@ __aicore__ __inline__ void step_reduce(__gm__ float *__restrict__ gm_input, __gm
             SET_FLAG(V, MTE3, event_id);
             WAIT_FLAG(V, MTE3, event_id);
 
-            if (N < 8192) {
+            if (N < FFT_B_MERGE_N_BASE) {
                 AscendC::DataCopy(
                     gm_output_tensor[batch_id * N * 2 + aiv_id * N / 2 * batch_actual + i * max_repeat_count * 64 * 2],
                     real_buf_tensor,
@@ -1725,7 +1729,7 @@ __aicore__ __inline__ void step_complex_mul_0_1(__gm__ float *__restrict__ input
     int32_t trans_b = 0;
     int32_t M0 = 128;
     int32_t N0 = 128;
-    if (row <= 64 && fftN < 8192) {  // 多Batch合并,小radix时扩大矩阵
+    if (row <= 64 && fftN < FFT_B_MERGE_N_BASE) {  // 多Batch合并,小radix时扩大矩阵
         M0 = 64;
         N0 = 256;
     } else {
@@ -1749,8 +1753,8 @@ __aicore__ __inline__ void step_complex_mul_0_1(__gm__ float *__restrict__ input
     int32_t batch_id = batch_id_begin;
     int32_t batch_end = min(batch_id_end, batch_id + batch_size);
 
-    int32_t batch_num = fftN >= 8192 ? 1 : min(192 * 64 / fftN, min(N0 / N_radix, batch_size));
-    int32_t fft_batch_actual = fftN >= 8192 ? 2 : 1;
+    int32_t batch_num = fftN >= FFT_B_MERGE_N_BASE ? 1 : min(192 * 64 / fftN, min(N0 / N_radix, batch_size));
+    int32_t fft_batch_actual = fftN >= FFT_B_MERGE_N_BASE ? 2 : 1;
 
     // t_matrix矩阵的提前读入, 读多份
     if (fftN <= 16384) {  // t_matrix矩阵的提前读入, 读多份
@@ -1817,7 +1821,7 @@ __aicore__ __inline__ void step_complex_mul_0_1(__gm__ float *__restrict__ input
                                 0 // dstStride
                             )
                         );
-                    } else if (fftN <= 8192) {
+                    } else if (fftN <= FFT_B_MERGE_N_BASE) {
                         for (int32_t i = 0; i < batch_actual; i++) {
                             AscendC::DataCopy(
                                 input1_ub_tensor[i * fftN / fft_batch_actual],
@@ -1909,7 +1913,7 @@ __aicore__ __inline__ void step_complex_mul_0_1(__gm__ float *__restrict__ input
                     WAIT_FLAG(V, MTE3, event_id);
                     SET_FLAG(V, MTE2, event_id);
 
-                    if (fftN < 8192) {
+                    if (fftN < FFT_B_MERGE_N_BASE) {
                         AscendC::DataCopy(
                             output_tensor[batch_id * fftN * 2 + aiv_id * fftN],
                             output_ub_tensor,
@@ -1920,7 +1924,7 @@ __aicore__ __inline__ void step_complex_mul_0_1(__gm__ float *__restrict__ input
                                 fftN / 8 // dstStride
                             )
                         );
-                    } else if (fftN == 8192) {
+                    } else if (fftN == FFT_B_MERGE_N_BASE) {
                         for (int32_t zz = 0; zz < fft_batch_actual; zz++) {  // 8192 由于有fft_batch级的合并 搬运特殊
                             AscendC::DataCopy(
                                 output_tensor[batch_id * fftN * 2 + aiv_id * 64 * 64 * 2 + zz * 64 * 2],
@@ -2043,7 +2047,7 @@ __aicore__ __inline__ void step_2iter_count_gather_real_imag(__gm__ float *__res
         gm_index_tensor,
         AscendC::DataCopyParams(
             1, // blockCount
-            8192 / 8, // blockLen
+            FFT_B_MERGE_N_BASE / 8, // blockLen
             0, // srcStride
             0 // dstStride
         )
@@ -2056,8 +2060,8 @@ __aicore__ __inline__ void step_2iter_count_gather_real_imag(__gm__ float *__res
 
     int32_t batch_id = batch_id_begin;
     int32_t batch_end = min(batch_id_end, batch_id + batch_size);
-    int32_t batch_num = fftN >= 8192 ? 1 : min(192 * 64 / fftN, N0 / N_radix);
-    int32_t fft_batch_actual = fftN >= 8192 ? FFT_B_BATCH_GROUP_BASE / (fftN / 8192) : 1;
+    int32_t batch_num = fftN >= FFT_B_MERGE_N_BASE ? 1 : min(192 * 64 / fftN, N0 / N_radix);
+    int32_t fft_batch_actual = fftN >= FFT_B_MERGE_N_BASE ? FFT_B_BATCH_GROUP_BASE / (fftN / FFT_B_MERGE_N_BASE) : 1;
 
     SET_FLAG(V, MTE2, EVENT_ID0);
     SET_FLAG(V, MTE2, EVENT_ID1);
@@ -2088,7 +2092,7 @@ __aicore__ __inline__ void step_2iter_count_gather_real_imag(__gm__ float *__res
 
                     WAIT_FLAG(V, MTE2, event_id);
 
-                    if (fftN >= 8192) {
+                    if (fftN >= FFT_B_MERGE_N_BASE) {
                         AscendC::DataCopy(
                             input_ub_tensor,
                             gm_input_tensor[offset_c + aiv_id * 64 * 64],
@@ -2129,7 +2133,7 @@ __aicore__ __inline__ void step_2iter_count_gather_real_imag(__gm__ float *__res
                     WAIT_FLAG(V, MTE3, event_id);
                     SET_FLAG(V, MTE2, event_id);
 
-                    if (fftN == 8192) {
+                    if (fftN == FFT_B_MERGE_N_BASE) {
                         AscendC::DataCopy(
                             gm_output_tensor[batch_id * fftN * 2 + fft_batch_id * 128 * 128 + aiv_id * 128 * 64],
                             output_ub_tensor,
@@ -2295,7 +2299,7 @@ extern "C" __global__ __aicore__ void fft_b(__gm__ uint8_t *__restrict__ ffts_ad
                 M = tiling_para[4 + it] * 2;
                 K = M;
                 N = tiling_para[4];
-                if (fft_n == 8192) {
+                if (fft_n == FFT_B_MERGE_N_BASE) {
                     N = 2;
                 }
                 if (fft_n == 16384) {
@@ -2389,9 +2393,9 @@ extern "C" __global__ __aicore__ void fft_b(__gm__ uint8_t *__restrict__ ffts_ad
         int32_t fft_batch_size = 1;
 
         // SeparateRIwithRadix2过程把虚实分离的结果放入gm_output中
-        if (fft_n != 8192 && fft_n != 16384) {
+        if (fft_n != FFT_B_MERGE_N_BASE && fft_n != 16384) {
             step_reduce(gm_input, gm_output, inner_batch, fft_n, fft_n / tilingPara4, batch_start, batch_end);
-        } else if (fft_n == 8192) {
+        } else if (fft_n == FFT_B_MERGE_N_BASE) {
             SeparateRIwithRadix2(gm_input, gm_t_matrix, gm_output, fftDirection, inner_batch, fft_n, 4, fft_n / 2, 64,
                                  batch_start, batch_end);
             t_matrix_step += fft_n * 2;
@@ -2440,7 +2444,7 @@ extern "C" __global__ __aicore__ void fft_b(__gm__ uint8_t *__restrict__ ffts_ad
                 // 两次fft迭代的最后一次的就算过程
                 row = tiling_para[4 + it] * 2;
                 col = tiling_para[4];
-                if (fft_n == 8192) {
+                if (fft_n == FFT_B_MERGE_N_BASE) {
                     col = 2;
                 }
                 if (fft_n == 16384) {
