@@ -23,6 +23,10 @@ static constexpr int THRESHOLD_K = 32768;
 
 static std::vector<float> GenerateDftMatrixC2R(int64_t fftN, bool isForward)
 {
+    // G.EXP.22-CPP：除数/模数不得为 0；n==0 已被入口显式拒绝（issue #432，对齐 !231 fft2_d 口径）
+    if (fftN == 0) {
+        return {};
+    }
     int64_t outSize = fftN;
     int64_t inSize = (fftN / 2 + 1) * 2;
     std::vector<float> dftMatrix(inSize * outSize, 0.0f);
@@ -30,20 +34,20 @@ static std::vector<float> GenerateDftMatrixC2R(int64_t fftN, bool isForward)
     std::vector<float> cosTable(fftN);
     std::vector<float> sinTable(fftN);
     for (int64_t i = 0; i < fftN; i++) {
-        cosTable[i] = static_cast<float>(cos(K_2PI * i / (fftN ? fftN : 1)));
-        sinTable[i] = static_cast<float>(sin(K_2PI * i / (fftN ? fftN : 1)));
+        cosTable[i] = static_cast<float>(cos(K_2PI * i / fftN));
+        sinTable[i] = static_cast<float>(sin(K_2PI * i / fftN));
     }
 
     for (int64_t i = 0; i < fftN; i++) {
         for (int64_t j = 0; j < fftN; j++) {
             if (i < (fftN / 2 + 1)) {
-                dftMatrix[(2 * i) * outSize + j] = cosTable[(i * j) % (fftN ? fftN : 1)];
+                dftMatrix[(2 * i) * outSize + j] = cosTable[(i * j) % fftN];
                 dftMatrix[(2 * i + 1) * outSize + j] =
-                    (isForward ? 1.0f : -1.0f) * sinTable[(i * j) % (fftN ? fftN : 1)];
+                    (isForward ? 1.0f : -1.0f) * sinTable[(i * j) % fftN];
             } else {
-                dftMatrix[(2 * (fftN - i)) * outSize + j] += cosTable[(i * j) % (fftN ? fftN : 1)];
+                dftMatrix[(2 * (fftN - i)) * outSize + j] += cosTable[(i * j) % fftN];
                 dftMatrix[(2 * (fftN - i) + 1) * outSize + j] +=
-                    (isForward ? -1.0f : 1.0f) * sinTable[(i * j) % (fftN ? fftN : 1)];
+                    (isForward ? -1.0f : 1.0f) * sinTable[(i * j) % fftN];
             }
         }
     }

@@ -67,13 +67,17 @@ static std::vector<float> GenerateTwiddleFactorsHost(int32_t radix, int64_t M)
 
 static std::vector<float> GenerateTwPostProcess(int64_t fftN)
 {
+    // G.EXP.22-CPP：除数不得为 0；n==0 已被入口显式拒绝（issue #432，对齐 !231 fft2_d 口径）
+    if (fftN == 0) {
+        return {};
+    }
     int64_t D = fftN / 2 + 1;
     std::vector<float> twPost(2 * D, 0.0f);
     constexpr double K_2PI = 2.0 * K_PI;
     double sign = -1.0;
 
     for (int64_t k = 0; k < D; k++) {
-        double angle = sign * K_2PI * k / (fftN ? fftN : 1);
+        double angle = sign * K_2PI * k / fftN;
         twPost[k * 2] = static_cast<float>(cos(angle));
         twPost[k * 2 + 1] = static_cast<float>(sin(angle));
     }

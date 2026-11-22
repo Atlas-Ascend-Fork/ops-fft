@@ -23,13 +23,17 @@ static constexpr int THRESHOLD_K = 32768;
 
 static std::vector<float> GenerateDftMatrixR2C(int64_t fftN)
 {
+    // G.EXP.22-CPP：除数不得为 0；n==0 已被入口显式拒绝（issue #432，对齐 !231 fft2_d 口径）
+    if (fftN == 0) {
+        return {};
+    }
     int64_t M = fftN;
     int64_t N = (fftN / 2 + 1) * MUL_DIV_TWO;
     std::vector<float> dftMatrix(M * N, 0.0f);
 
     for (int64_t i = 0; i < M; i++) {
         for (int64_t j = 0; j < fftN / 2 + 1; j++) {
-            double angle = -2.0 * K_PI * i * j / (fftN ? fftN : 1);
+            double angle = -2.0 * K_PI * i * j / fftN;
             dftMatrix[i * N + 2 * j] = static_cast<float>(cos(angle));
             dftMatrix[i * N + 2 * j + 1] = static_cast<float>(sin(angle));
         }
