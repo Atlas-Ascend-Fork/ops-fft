@@ -378,9 +378,6 @@ __aicore__ __inline__ __attribute__((always_inline)) void matrix_dot_kernel(
             bool is_sync = (next_tile_N0 - next_N2) >= 8;
 
             for (int32_t j = 0; j < batch_actual; j++) {
-                int64_t batch_idx = (batch_len_idx * batch_len + j) / N0;
-                int64_t N0_idx = (batch_len_idx * batch_len + j) % N0;
-
                 int64_t data_out_index = (batch_len_idx * batch_len + j) * N1 * N2_2_padding_add_16 +
                                          (out_N1_idx * tile_M0 / 2 + tile_N1_idx / 2) * N2_2_padding_add_16;
 
