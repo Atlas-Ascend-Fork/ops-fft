@@ -38,7 +38,7 @@ constexpr int K_N_FFT_32768 = 32768;
     do { \
         ACLFFT_CHECK_PARAM((impl) != nullptr && (idata) != nullptr && (odata) != nullptr, ACLFFT_INVALID_VALUE); \
         ACLFFT_CHECK_PARAM((impl)->rank == 1, ACLFFT_INVALID_VALUE); \
-        ACLFFT_CHECK_PARAM((impl)->is_initialized, ACLFFT_INVALID_VALUE); \
+        ACLFFT_CHECK_PARAM((impl)->is_initialized, ACLFFT_INVALID_PLAN); \
         if ((impl)->stride[0] > 1) { \
             std::cerr << "[ops-fft] " << tag << ": VERTICAL layout (stride=" << (impl)->stride[0] \
                       << ") is not supported" << std::endl; \
@@ -56,7 +56,7 @@ constexpr int K_N_FFT_32768 = 32768;
         if ((impl)->type != (expectedType)) { \
             std::cerr << "[ops-fft] " << tag << ": plan type=" << static_cast<int>((impl)->type) \
                       << " does not match expected " << static_cast<int>(expectedType) << std::endl; \
-            return ACLFFT_INVALID_VALUE; \
+            return ACLFFT_INVALID_TYPE; \
         } \
     } while (0)
 
