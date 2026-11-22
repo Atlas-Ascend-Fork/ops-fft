@@ -15,7 +15,9 @@
 
 /**
  * @file fft1_d_c2c_kernel.h
- * @brief Ascend950 C2C Stockham mixed-radix FFT kernel (SIMT/VF)
+ * @brief Ascend950 C2C Stockham radix-2 FFT kernel (SIMT/VF)
+ * Handles power-of-2 n (n > 1) routed by fft1_d_exec_api.cpp;
+ * mixed-radix n is handled by fft1_d_c2c_mix_kernel.h
  */
 
 #include "kernel_operator.h"
