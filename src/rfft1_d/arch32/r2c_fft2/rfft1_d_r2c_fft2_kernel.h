@@ -43,6 +43,9 @@ namespace Rfft1DR2CFft2Kernel {
 
 using namespace::AscendC;
 
+// 单次 LoadTwiddle 搬入 UB 的最大 twiddle 元素数，5 段分块循环共用
+constexpr int32_t TWIDDLE_TILE = 4096;
+
 using Rfft1DR2CCommonKernel::CMatmulCustom;
 
 template<typename T>
@@ -115,7 +118,7 @@ __aicore__ inline void WarmupFft2Twiddle(
     int warmupIter, int32_t batch, int blockNum, int pairCubeIdx, int blockIdx,
     GlobalTensor<float> &workGlobal, GlobalTensor<float> &workGlobal2)
 {
-    if (N <= 4096) opMul.LoadTwiddle(twiddleGlobal, twiddleGlobal[N], N);
+    if (N <= TWIDDLE_TILE) opMul.LoadTwiddle(twiddleGlobal, twiddleGlobal[N], N);
     CrossCoreWaitFlag(0x0);
 
     int o = i / blockN % (warmupIter + 2) * blockN;
@@ -124,25 +127,25 @@ __aicore__ inline void WarmupFft2Twiddle(
     int remainderNum = calcN % blockNum;
     int startIdx = pairCubeIdx * averageNum + min(pairCubeIdx, remainderNum);
     int calcNum = averageNum + (pairCubeIdx < remainderNum);
-    for (int offset = 0; offset < N; offset += 4096) {
-        int calcLen = min(4096, (int)N - offset);
-        if (N > 4096) opMul.LoadTwiddle(twiddleGlobal[offset], twiddleGlobal[offset + N], calcLen);
+    for (int offset = 0; offset < N; offset += TWIDDLE_TILE) {
+        int calcLen = min(TWIDDLE_TILE, (int)N - offset);
+        if (N > TWIDDLE_TILE) opMul.LoadTwiddle(twiddleGlobal[offset], twiddleGlobal[offset + N], calcLen);
         for (int j = i + startIdx + (blockIdx &1); j < i + startIdx + calcNum; j += 2) {
             opMul.Process((j - i + o) * N + offset, (j - i + o) * N + offset, calcLen);
         }
-        if (N > 4096) opMul.FreeTwiddle();
+        if (N > TWIDDLE_TILE) opMul.FreeTwiddle();
     }
     if (batch &1 &&calcN < blockN &&blockIdx == blockNum * 2 - 1) {
         opMul.SetMatrix(workGlobal, workGlobal2, workGlobal, workGlobal2);
-        for (int offset = 0; offset < N; offset += 4096) {
-            int calcLen = min(4096, (int)N - offset);
-            if (N > 4096) opMul.LoadTwiddle(twiddleGlobal[offset], twiddleGlobal[offset + N], calcLen);
+        for (int offset = 0; offset < N; offset += TWIDDLE_TILE) {
+            int calcLen = min(TWIDDLE_TILE, (int)N - offset);
+            if (N > TWIDDLE_TILE) opMul.LoadTwiddle(twiddleGlobal[offset], twiddleGlobal[offset + N], calcLen);
             opMul.Process((calcN + o) * N + offset, offset, calcLen);
-            if (N > 4096) opMul.FreeTwiddle();
+            if (N > TWIDDLE_TILE) opMul.FreeTwiddle();
         }
     }
     CrossCoreSetFlag<0x2, PIPE_MTE3>(0x1);
-    if (N <= 4096) opMul.FreeTwiddle();
+    if (N <= TWIDDLE_TILE) opMul.FreeTwiddle();
 }
 
 #endif
@@ -155,21 +158,21 @@ __aicore__ inline void AdvanceFft2TwiddleTail(
 {
     if (batch / 2 - nextI >= blockN || nextI / blockN < warmupIter + 2) {
         opMul.SetMatrix(workGlobal, workGlobal2, workGlobal, workGlobal2);
-        for (int offset = 0; offset < N; offset += 4096) {
-            int calcLen = min(4096, (int)N - offset);
-            if (N > 4096) opMul.LoadTwiddle(twiddleGlobal[offset], twiddleGlobal[offset + N], calcLen);
+        for (int offset = 0; offset < N; offset += TWIDDLE_TILE) {
+            int calcLen = min(TWIDDLE_TILE, (int)N - offset);
+            if (N > TWIDDLE_TILE) opMul.LoadTwiddle(twiddleGlobal[offset], twiddleGlobal[offset + N], calcLen);
             opMul.Process((calcN + o) * N + offset, offset, calcLen);
-            if (N > 4096) opMul.FreeTwiddle();
+            if (N > TWIDDLE_TILE) opMul.FreeTwiddle();
         }
     } else {
         auto workGlobalTmp = workGlobal[o * N + (blockN / blockNum * pairCubeIdx) * N];
         opMul.SetMatrix(workGlobalTmp, workGlobal2, workGlobalTmp, workGlobal2);
         int j = batch / 2;
-        for (int offset = 0; offset < N; offset += 4096) {
-            int calcLen = min(4096, (int)N - offset);
-            if (N > 4096) opMul.LoadTwiddle(twiddleGlobal[offset], twiddleGlobal[offset + N], calcLen);
+        for (int offset = 0; offset < N; offset += TWIDDLE_TILE) {
+            int calcLen = min(TWIDDLE_TILE, (int)N - offset);
+            if (N > TWIDDLE_TILE) opMul.LoadTwiddle(twiddleGlobal[offset], twiddleGlobal[offset + N], calcLen);
             opMul.Process(calcNum * N + offset, offset, calcLen);
-            if (N > 4096) opMul.FreeTwiddle();
+            if (N > TWIDDLE_TILE) opMul.FreeTwiddle();
         }
     }
 }
@@ -182,7 +185,7 @@ __aicore__ inline void AdvanceFft2Twiddle(
     int warmupIter, int32_t batch, int blockNum, int pairCubeIdx, GlobalTensor<float> &workGlobal,
     int halfBatchCeil, int blockIdx, GlobalTensor<float> &workGlobal2)
 {
-    if (N <= 4096) opMul.LoadTwiddle(twiddleGlobal, twiddleGlobal[N], N);
+    if (N <= TWIDDLE_TILE) opMul.LoadTwiddle(twiddleGlobal, twiddleGlobal[N], N);
     CrossCoreWaitFlag(0x0);
     int nextI = i + blockN * warmupIter;
     int o = nextI / blockN % (warmupIter + 2) * blockN;
@@ -196,9 +199,9 @@ __aicore__ inline void AdvanceFft2Twiddle(
         auto workGlobalTmp = workGlobal[o * N + (blockN / blockNum * pairCubeIdx) * N];
         opMul.SetMatrix(workGlobalTmp, workGlobalTmp[N * halfBatchCeil], workGlobalTmp, workGlobalTmp[N * halfBatchCeil]);
     }
-    for (int offset = 0; offset < N; offset += 4096) {
-        int calcLen = min(4096, (int)N - offset);
-        if (N > 4096) opMul.LoadTwiddle(twiddleGlobal[offset], twiddleGlobal[offset + N], calcLen);
+    for (int offset = 0; offset < N; offset += TWIDDLE_TILE) {
+        int calcLen = min(TWIDDLE_TILE, (int)N - offset);
+        if (N > TWIDDLE_TILE) opMul.LoadTwiddle(twiddleGlobal[offset], twiddleGlobal[offset + N], calcLen);
         for (int j = nextI + startIdx + (blockIdx &1); j < nextI + startIdx + calcNum; j += 2) {
             if (batch / 2 - nextI >= blockN || nextI / blockN < warmupIter + 2) {
                 opMul.Process((j - nextI + o) * N + offset, (j - nextI + o) * N + offset, calcLen);
@@ -207,14 +210,14 @@ __aicore__ inline void AdvanceFft2Twiddle(
                 opMul.Process(t * N + offset, t * N + offset, calcLen);
             }
         }
-        if (N > 4096) opMul.FreeTwiddle();
+        if (N > TWIDDLE_TILE) opMul.FreeTwiddle();
     }
     if (batch &1 &&calcN < blockN &&blockIdx == blockNum * 2 - 1) {
         AdvanceFft2TwiddleTail(batch, nextI, blockN, warmupIter, opMul, workGlobal, workGlobal2, N, twiddleGlobal,
             calcN, o, blockNum, pairCubeIdx, calcNum);
     }
     CrossCoreSetFlag<0x2, PIPE_MTE3>(0x1);
-    if (N <= 4096) opMul.FreeTwiddle();
+    if (N <= TWIDDLE_TILE) opMul.FreeTwiddle();
 }
 
 #endif
@@ -425,7 +428,7 @@ extern "C" __global__ __aicore__ void fft2_r2c(
     }
 
     int blockN;
-    if (N <= 4096) {
+    if (N <= TWIDDLE_TILE) {
         blockN = 1310720 / N;
     } else {
         blockN = 2621440 / N;
