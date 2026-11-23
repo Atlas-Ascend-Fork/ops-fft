@@ -56,8 +56,8 @@ __aicore__ __inline__ void R2C_odd(
 
         // 开多核
         AsdopsBuffer<ArchType::ASCEND_V220> buf;
-        AscendC::LocalTensor<float> UB_INPUT1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(0 * 8192);
-        AscendC::LocalTensor<float> UB_INPUT2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(8 * 8192);
+        AscendC::LocalTensor<float> UB_INPUT1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(0 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> UB_INPUT2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(8 * UB_VEC_SIZE);
 
         AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(EVENT_ID0);
         AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(EVENT_ID1);
@@ -154,28 +154,28 @@ __aicore__ __inline__ void C2R_even(
         uint64_t ping = 1;
         // 开多核
         AsdopsBuffer<ArchType::ASCEND_V220> buf;
-        AscendC::LocalTensor<float> UB_INPUT1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(0 * 8192);
-        AscendC::LocalTensor<float> UB_INPUT_R1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(2 * 8192);
-        AscendC::LocalTensor<float> UB_INPUT_I1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(3 * 8192);
-        AscendC::LocalTensor<float> UB_INPUT_R1_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(4 * 8192);
-        AscendC::LocalTensor<float> UB_INPUT_I1_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(5 * 8192);
-        AscendC::LocalTensor<float> tvub1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(6 * 8192);
-        AscendC::LocalTensor<float> tvub2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(7 * 8192);
+        AscendC::LocalTensor<float> UB_INPUT1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(0 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> UB_INPUT_R1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(2 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> UB_INPUT_I1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(3 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> UB_INPUT_R1_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(4 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> UB_INPUT_I1_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(5 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> tvub1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(6 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> tvub2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(7 * UB_VEC_SIZE);
 
-        AscendC::LocalTensor<float> UB_INPUT2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(8 * 8192);
-        AscendC::LocalTensor<float> UB_INPUT_R2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(10 * 8192);
-        AscendC::LocalTensor<float> UB_INPUT_I2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(11 * 8192);
-        AscendC::LocalTensor<float> UB_INPUT_R2_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(12 * 8192);
-        AscendC::LocalTensor<float> UB_INPUT_I2_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(13 * 8192);
-        AscendC::LocalTensor<float> tvub3_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(14 * 8192);
-        AscendC::LocalTensor<float> tvub4_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(15 * 8192);
+        AscendC::LocalTensor<float> UB_INPUT2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(8 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> UB_INPUT_R2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(10 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> UB_INPUT_I2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(11 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> UB_INPUT_R2_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(12 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> UB_INPUT_I2_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(13 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> tvub3_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(14 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> tvub4_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(15 * UB_VEC_SIZE);
 
-        AscendC::LocalTensor<float> MatrixA_Real_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(16 * 8192);
-        AscendC::LocalTensor<float> MatrixA_Imag_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(17 * 8192);
-        AscendC::LocalTensor<float> MatrixB_Real_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(18 * 8192);
-        AscendC::LocalTensor<float> MatrixB_Imag_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(19 * 8192);
+        AscendC::LocalTensor<float> MatrixA_Real_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(16 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> MatrixA_Imag_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(17 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> MatrixB_Real_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(18 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> MatrixB_Imag_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(19 * UB_VEC_SIZE);
 
-        AscendC::LocalTensor<uint32_t> reverse_index_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, uint32_t>(20 * 8192);
+        AscendC::LocalTensor<uint32_t> reverse_index_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, uint32_t>(20 * UB_VEC_SIZE);
 
         int64_t out_imag_real_offset = (batch_id_end - batch_id_begin) * N / 2;
 
@@ -483,29 +483,29 @@ __aicore__ __inline__ void R2C_even(
         uint64_t ping = 1;
         // 开多核
         AsdopsBuffer<ArchType::ASCEND_V220> buf;
-        AscendC::LocalTensor<float> UB_INPUT1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(0 * 8192);
-        AscendC::LocalTensor<float> UB_INPUT_R1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(2 * 8192);
-        AscendC::LocalTensor<float> UB_INPUT_I1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(3 * 8192);
-        AscendC::LocalTensor<float> UB_INPUT_R1_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(4 * 8192);
-        AscendC::LocalTensor<float> UB_INPUT_I1_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(5 * 8192);
-        AscendC::LocalTensor<float> tvub1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(6 * 8192);
-        AscendC::LocalTensor<float> tvub2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(7 * 8192);
+        AscendC::LocalTensor<float> UB_INPUT1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(0 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> UB_INPUT_R1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(2 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> UB_INPUT_I1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(3 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> UB_INPUT_R1_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(4 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> UB_INPUT_I1_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(5 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> tvub1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(6 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> tvub2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(7 * UB_VEC_SIZE);
 
-        AscendC::LocalTensor<float> UB_INPUT2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(8 * 8192);
-        AscendC::LocalTensor<float> UB_INPUT_R2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(10 * 8192);
-        AscendC::LocalTensor<float> UB_INPUT_I2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(11 * 8192);
-        AscendC::LocalTensor<float> UB_INPUT_R2_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(12 * 8192);
-        AscendC::LocalTensor<float> UB_INPUT_I2_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(13 * 8192);
-        AscendC::LocalTensor<float> tvub3_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(14 * 8192);
-        AscendC::LocalTensor<float> tvub4_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(15 * 8192);
+        AscendC::LocalTensor<float> UB_INPUT2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(8 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> UB_INPUT_R2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(10 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> UB_INPUT_I2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(11 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> UB_INPUT_R2_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(12 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> UB_INPUT_I2_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(13 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> tvub3_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(14 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> tvub4_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(15 * UB_VEC_SIZE);
 
-        AscendC::LocalTensor<float> MatrixA_Real_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(16 * 8192);
-        AscendC::LocalTensor<float> MatrixA_Imag_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(17 * 8192);
-        AscendC::LocalTensor<float> MatrixB_Real_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(18 * 8192);
-        AscendC::LocalTensor<float> MatrixB_Imag_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(19 * 8192);
+        AscendC::LocalTensor<float> MatrixA_Real_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(16 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> MatrixA_Imag_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(17 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> MatrixB_Real_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(18 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> MatrixB_Imag_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(19 * UB_VEC_SIZE);
 
-        AscendC::LocalTensor<uint32_t> reverse_index_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, uint32_t>(20 * 8192);
-        AscendC::LocalTensor<uint32_t> vgather_index_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, uint32_t>(21 * 8192);
+        AscendC::LocalTensor<uint32_t> reverse_index_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, uint32_t>(20 * UB_VEC_SIZE);
+        AscendC::LocalTensor<uint32_t> vgather_index_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, uint32_t>(21 * UB_VEC_SIZE);
 
         AscendC::DataCopy(vgather_index_ub_tensor, output_index_gm_tensor, AscendC::DataCopyParams(1, lenBurstOutIndex, 0, 0)); // 搬入 output_index 表实际条目数（≤4096，见 lenBurstOutIndex 计算）
         AscendC::PipeBarrier<PIPE_MTE2>();
