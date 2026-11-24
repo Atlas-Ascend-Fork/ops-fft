@@ -579,6 +579,10 @@ parse_arguments() {
             --ops=*)
                 # 提取等号后的值
                 BUILD_OPERATORS="${1#*=}"
+                if [ -z "${BUILD_OPERATORS}" ]; then
+                    log_error "--ops requires a non-empty operator list; use --ops=all to build all operators"
+                    exit 1
+                fi
                 shift
                 ;;
             --run)
