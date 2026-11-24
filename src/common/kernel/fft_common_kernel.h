@@ -47,6 +47,8 @@ constexpr int32_t FFT_CUBE_MATRIX_SIZE = FFT_BLOCK_SIZE * FFT_C0_SIZE;
 constexpr int32_t FFT_L0AB_PINGPONG_LEN = 32 * 1024 / sizeof(float);
 constexpr int32_t FFT_L0C_PINGPONG_LEN = 64 * 1024 / sizeof(float);
 constexpr int32_t FFT_L1_PINGPONG_LEN = 256 * 1024 / sizeof(float);
+// Nd2Nz DataCopy uint16 索引上限（与 kernel_utils.h UINT16_STRIDE_LIMIT 同语义）
+constexpr int32_t FFT_UINT16_STRIDE_LIMIT = 65536;
 
 template <typename DTYPE = float>
 __aicore__ __attribute__((always_inline)) inline void load_matrix_zZ(
@@ -58,12 +60,11 @@ __aicore__ __attribute__((always_inline)) inline void load_matrix_zZ(
 ) {
     constexpr int32_t R0 = 16;
     constexpr int32_t C0 = 32 / sizeof(DTYPE);
-    constexpr int STRIDE_LIMIT = 65536;
 
     int64_t srcNdStride = R0 * stride;
     int64_t srcNStride = stride;
 
-    if (srcNdStride < STRIDE_LIMIT) {
+    if (srcNdStride < FFT_UINT16_STRIDE_LIMIT) {
         int32_t ndNum = valid_row / R0;
         int32_t remains = valid_row % R0;
 
@@ -95,7 +96,7 @@ __aicore__ __attribute__((always_inline)) inline void load_matrix_zZ(
                     0)              // dstNzMatrixStride
             );
         }
-    } else if (srcNStride < STRIDE_LIMIT) {
+    } else if (srcNStride < FFT_UINT16_STRIDE_LIMIT) {
         int32_t ndNum = valid_row / R0;
         int32_t remains = valid_row % R0;
         for (int32_t i = 0; i < ndNum; i++) {
