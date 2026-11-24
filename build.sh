@@ -178,19 +178,14 @@ soc_to_npu_arch() {
 check_ascend_env() {
     log_info "Checking ASCEND environment..."
 
-    if [ -z "${ASCEND_HOME_PATH}" ]; then
-        log_error "ASCEND_HOME_PATH environment variable is not set!"
+    if [ ! -d "${ASCEND_HOME_PATH}" ]; then
+        log_error "ASCEND_HOME_PATH directory does not exist: ${ASCEND_HOME_PATH}"
         echo ""
         echo "Please source the CANN environment script:"
         echo "  source /usr/local/Ascend/cann/set_env.sh"
         echo "or set ASCEND_INSTALL_PATH / ASCEND_HOME_PATH manually."
         echo ""
         echo "Then run build.sh again."
-        exit 1
-    fi
-
-    if [ ! -d "${ASCEND_HOME_PATH}" ]; then
-        log_error "ASCEND_HOME_PATH directory does not exist: ${ASCEND_HOME_PATH}"
         exit 1
     fi
 
@@ -459,13 +454,28 @@ build_package() {
 
     if [ $cpack_result -eq 0 ]; then
         log_success "Package created successfully"
-        # 查找生成的 .run 文件（issue #242：CMAKE_INSTALL_PREFIX/CPACK_PACKAGE_DIRECTORY
-        # 固定在源码根 build_out/，makeself 产物 mv 至该目录，包不会落在 build/）
-        local run_file=$(ls "$SCRIPT_DIR/build_out"/*.run 2>/dev/null | head -n 1)
+        # 从 CPackConfig.cmake 读取实际打包输出目录（issue #315 支持自定义 CMAKE_INSTALL_PREFIX），
+        # 未配置或解析为空时回退至源码根 build_out/
+        local package_dir=""
+        if [ -f "$BUILD_DIR/CPackConfig.cmake" ]; then
+            package_dir=$(sed -n 's/^set(CPACK_PACKAGE_DIRECTORY "\(.*\)")$/\1/p' "$BUILD_DIR/CPackConfig.cmake" | head -n 1)
+        fi
+        if [ -z "$package_dir" ]; then
+            package_dir="$SCRIPT_DIR/build_out"
+        fi
+        local run_file=""
+        local candidate=""
+        for candidate in "$package_dir"/*.run; do
+            if [ -f "$candidate" ]; then
+                run_file="$candidate"
+                break
+            fi
+        done
         if [ -n "$run_file" ]; then
             log_success "Package file: $run_file"
         else
-            log_error "Package file not found under $SCRIPT_DIR/build_out"
+            log_error "Package file not found under $package_dir"
+            exit 1
         fi
     else
         log_error "Package creation failed"
