@@ -63,14 +63,14 @@ __aicore__ __inline__ void C2R_odd(
 
         // 开多核
         AsdopsBuffer<ArchType::ASCEND_V220> buf;
-        AscendC::LocalTensor<float> UB_INPUT1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(0 * 8192);
-        AscendC::LocalTensor<float> UB_INPUT_R1_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(4 * 8192);
+        AscendC::LocalTensor<float> UB_INPUT1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(0 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> UB_INPUT_R1_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(4 * UB_VEC_SIZE);
 
-        AscendC::LocalTensor<float> UB_INPUT2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(8 * 8192);
-        AscendC::LocalTensor<float> UB_INPUT_R2_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(12 * 8192);
+        AscendC::LocalTensor<float> UB_INPUT2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(8 * UB_VEC_SIZE);
+        AscendC::LocalTensor<float> UB_INPUT_R2_REVERSE_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(12 * UB_VEC_SIZE);
 
-        AscendC::LocalTensor<uint32_t> reverse_index1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, uint32_t>(16 * 8192);
-        AscendC::LocalTensor<uint32_t> reverse_index2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, uint32_t>(20 * 8192);
+        AscendC::LocalTensor<uint32_t> reverse_index1_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, uint32_t>(16 * UB_VEC_SIZE);
+        AscendC::LocalTensor<uint32_t> reverse_index2_ub_tensor = buf.GetBuffer<BufferType::ASCEND_UB, uint32_t>(20 * UB_VEC_SIZE);
 
         AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(EVENT_ID0);
         AscendC::SetFlag<AscendC::HardEvent::MTE3_MTE2>(EVENT_ID1);
