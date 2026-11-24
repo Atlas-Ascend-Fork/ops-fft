@@ -38,6 +38,14 @@ constexpr int32_t C0_SIZE = 32 / sizeof(float);
 constexpr int32_t CUBE_MATRIX_SIZE = R0 * C0_SIZE;                      // 16 * 8
 constexpr int64_t L1_PINGPONG_BUFFER_LEN = 256 * 1024 / sizeof(float);  // 256 KB
 
+// ASCEND_UB 分区基址（字节）
+constexpr int32_t UB_BUF_REAL1_OFFSET = 48 * 1024;   // 48 KB
+constexpr int32_t UB_BUF_IMAG1_OFFSET = 72 * 1024;   // 72 KB
+constexpr int32_t UB_BUF_COMPLEX2_OFFSET = 96 * 1024;  // 96 KB
+constexpr int32_t UB_BUF_REAL2_OFFSET = 144 * 1024;  // 144 KB
+constexpr int32_t UB_BUF_IMAG2_OFFSET = 168 * 1024;  // 168 KB
+constexpr int32_t L1_BASE_B_OFFSET = 128 * 1024;     // 128 KB
+
 const int16_t SYNC_ALL_CORE_MODE_CODE = 0;
 const int16_t SYNC_SINGLE_CV_MODE_CODE = 2;
 
@@ -165,11 +173,11 @@ __aicore__ __inline__ void SeparateRI(__gm__ float *__restrict__ gm_dst, __gm__ 
 
     AsdopsBuffer<ArchType::ASCEND_V220> buf;
     AscendC::LocalTensor<float> complex_buf1_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(0);
-    AscendC::LocalTensor<float> real_buf1_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)(48 * 1024));
-    AscendC::LocalTensor<float> imag_buf1_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)(72 * 1024));
-    AscendC::LocalTensor<float> complex_buf2_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)(96 * 1024));
-    AscendC::LocalTensor<float> real_buf2_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)(144 * 1024));
-    AscendC::LocalTensor<float> imag_buf2_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)(168 * 1024));
+    AscendC::LocalTensor<float> real_buf1_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)UB_BUF_REAL1_OFFSET);
+    AscendC::LocalTensor<float> imag_buf1_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)UB_BUF_IMAG1_OFFSET);
+    AscendC::LocalTensor<float> complex_buf2_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)UB_BUF_COMPLEX2_OFFSET);
+    AscendC::LocalTensor<float> real_buf2_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)UB_BUF_REAL2_OFFSET);
+    AscendC::LocalTensor<float> imag_buf2_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)UB_BUF_IMAG2_OFFSET);
 
     auto complex_buf1 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(complex_buf1_tensor.GetPhyAddr()));
     auto real_buf1 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(real_buf1_tensor.GetPhyAddr()));
@@ -185,7 +193,7 @@ __aicore__ __inline__ void SeparateRI(__gm__ float *__restrict__ gm_dst, __gm__ 
     const int16_t aiv_id = AscendC::GetBlockIdx();
     const int16_t aiv_num = AscendC::GetBlockNum() * AscendC::GetTaskRation();
 
-    const int32_t max_datacount_perloop = 48 * 1024 / (COMPLEX_DOUBLE * sizeof(float));
+    const int32_t max_datacount_perloop = UB_BUF_REAL1_OFFSET / (COMPLEX_DOUBLE * sizeof(float));
 
     const int32_t n_repeat_count = max_datacount_perloop / dValue;
 
@@ -262,9 +270,9 @@ __aicore__ __inline__ void TransposeWithStrideAndCombineRI(__gm__ float *__restr
 
     AsdopsBuffer<ArchType::ASCEND_V220> buf;
     AscendC::LocalTensor<float> buf10_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>(0);
-    AscendC::LocalTensor<float> buf11_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)(48 * 1024));
-    AscendC::LocalTensor<float> buf20_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)(96 * 1024));
-    AscendC::LocalTensor<float> buf21_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)(144 * 1024));
+    AscendC::LocalTensor<float> buf11_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)UB_BUF_REAL1_OFFSET);
+    AscendC::LocalTensor<float> buf20_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)UB_BUF_COMPLEX2_OFFSET);
+    AscendC::LocalTensor<float> buf21_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)UB_BUF_REAL2_OFFSET);
 
     auto buf10 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(buf10_tensor.GetPhyAddr()));
     auto buf11 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(buf11_tensor.GetPhyAddr()));
@@ -277,7 +285,7 @@ __aicore__ __inline__ void TransposeWithStrideAndCombineRI(__gm__ float *__restr
         singleUnitElementCount = 1;
     }
     // assume Q = 64
-    int32_t singleBufRepeatCnt = 48 * 1024 / (singleUnitElementCount * sizeof(float));
+    int32_t singleBufRepeatCnt = UB_BUF_REAL1_OFFSET / (singleUnitElementCount * sizeof(float));
 
     int32_t p_loop_count = CeilDiv<int64_t>(P, singleBufRepeatCnt);
     int32_t p_loop_remain = P % singleBufRepeatCnt;
@@ -425,7 +433,7 @@ __aicore__ __inline__ void TransposeAndMatmul(__gm__ float *__restrict__ gm_c, _
 
     AsdopsBuffer<ArchType::ASCEND_V220> buf;
     AscendC::LocalTensor<float> l1_base_a_tensor = buf.GetBuffer<BufferType::ASCEND_CB, float>(0);
-    AscendC::LocalTensor<float> l1_base_b_tensor = buf.GetBuffer<BufferType::ASCEND_CB, float>(128 * 1024);
+    AscendC::LocalTensor<float> l1_base_b_tensor = buf.GetBuffer<BufferType::ASCEND_CB, float>(L1_BASE_B_OFFSET);
 
     AscendC::LocalTensor<float> l0a_base_tensor = buf.GetBuffer<BufferType::ASCEND_L0A, float>(0);
     AscendC::LocalTensor<float> l0b_base_tensor = buf.GetBuffer<BufferType::ASCEND_L0B, float>(0);
