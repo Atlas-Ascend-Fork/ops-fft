@@ -248,9 +248,8 @@ __aicore__ __inline__ void load_matrix_zN(AscendC::LocalTensor<float> dst, Ascen
 {
     if (batch_size == 1) {
         constexpr int32_t C0 = 32 / sizeof(float);
-        constexpr int32_t STRIDE_LIMIT = 65536;
 
-        if (stride < STRIDE_LIMIT) {
+        if (stride < UINT16_STRIDE_LIMIT) {
             AscendC::DataCopy(
                 dst, src,
                 AscendC::Nd2NzParams(
@@ -300,11 +299,10 @@ __aicore__ __inline__ void load_matrix_zZ(AscendC::LocalTensor<float> dst, Ascen
     if (batch_size == 1) {
         constexpr int32_t R0 = 16;
         constexpr int32_t C0 = 32 / sizeof(float);
-        constexpr int32_t STRIDE_LIMIT = 65536;
 
         int64_t srcNdStride = R0 * stride;
         int64_t srcNStride = stride;
-        if (srcNdStride < STRIDE_LIMIT) {
+        if (srcNdStride < UINT16_STRIDE_LIMIT) {
             int32_t ndNum = valid_row / R0;
             int32_t remains = valid_row % R0;
             if (ndNum > 0) {
@@ -335,7 +333,7 @@ __aicore__ __inline__ void load_matrix_zZ(AscendC::LocalTensor<float> dst, Ascen
                         0)         // dstNzMatrixStride
                 );
             }
-        } else if (srcNStride < STRIDE_LIMIT) {
+        } else if (srcNStride < UINT16_STRIDE_LIMIT) {
             int32_t ndNum = valid_row / R0;
             int32_t remains = valid_row % R0;
             for (int32_t i = 0; i < ndNum; i++) {
@@ -384,7 +382,6 @@ __aicore__ __inline__ void load_matrix_zZ(AscendC::LocalTensor<float> dst, Ascen
     } else {
         constexpr int32_t R0 = 16;
         constexpr int32_t C0 = 32 / sizeof(float);
-        constexpr int32_t STRIDE_LIMIT = 65536;
 
         int64_t srcNdStride = matrix_stride;
         int64_t srcNStride = stride;
