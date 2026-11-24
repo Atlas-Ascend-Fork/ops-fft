@@ -28,9 +28,8 @@ repos:
         language: python
         additional_dependencies:
           - numpy
-          - torch==2.8.0+cpu
+          - torch==2.8.0
           - pytest
-          - --extra-index-url=https://download.pytorch.org/whl/cpu
         pass_filenames: false
         files: ^(src/.*/(compare_data|test_helper)\.py|tests/(host|python)/.*\.py)$
 
