@@ -16,6 +16,10 @@
 #include "mem.h"
 #include "utils.h"
 
+// 与 complex_split_RI.h 配对的 UB 槽位字节数：init_ub 需额外预留指针数组等
+// 簿记空间，槽位较常规 24KB 降为 23KB，两者配对同源不可混改（issue #443/#436）
+constexpr int32_t COMBINATION_UB_BYTES = 23 * 1024;
+
 __aicore__ __inline__ __attribute__((overloadable, always_inline)) void init_ub(AscendC::LocalTensor<uint16_t>& buf1_input_addr_buf,
                                                                                 AscendC::LocalTensor<uint16_t>& buf1_output_addr_buf,
                                                                                 AscendC::LocalTensor<uint16_t>& buf2_input_addr_buf,
@@ -27,7 +31,7 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void init_ub(
                                                                                 AscendC::LocalTensor<float>& buf1_output,
                                                                                 AscendC::LocalTensor<float>& buf2_output)
 {
-    const int32_t BUF_SIZE = 23 * 1024;
+    const int32_t BUF_SIZE = COMBINATION_UB_BYTES;
     AsdopsBuffer<ArchType::ASCEND_V220> buf;
     buf1_input_addr_buf = buf.GetBuffer<BufferType::ASCEND_UB, uint16_t>(0);
     buf1_output_addr_buf = buf.GetBuffer<BufferType::ASCEND_UB, uint16_t>(64);

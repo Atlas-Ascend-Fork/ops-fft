@@ -18,6 +18,13 @@
 #include "mem.h"
 #include "utils.h"
 
+// UB 容量常量化（issue #443/#436）：原 24*1024 与 23*1024 无名魔数收敛为具名
+// 常量。常规槽位 24KB（8 个 float 槽恰好铺满 192KB UB）；vtranspose_load 变体
+// 因额外预留 1KB（scatter_vnchwconv 所需 8 个 64B 指针数组及转置对齐间隙），
+// 数据槽位相应降为 23KB，两者配对使用不可混改
+constexpr int32_t SPLIT_UB_FLOAT_NUM = 24 * 1024 / sizeof(float);
+constexpr int32_t SPLIT_UB_FLOAT_NUM_WITH_BOOKKEEPING = 23 * 1024 / sizeof(float);
+
 // 将（16, row_num) 或者(row_num_padding, 16) 转置，配合UB存放的指针数据来使用
 __aicore__ __inline__ __attribute__((overloadable, always_inline)) void transpose_matrix(__ubuf__ uint16_t *output_buf,
                                                                                          __ubuf__ uint16_t *input_buf,
@@ -50,7 +57,7 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void complex_
     const int16_t aiv_id = aic_id * subgroup_num + aiv_id_per_group;
     const int16_t aiv_num = group_num * subgroup_num;
 
-    const int32_t max_num = 24 * 1024 / sizeof(float);
+    const int32_t max_num = SPLIT_UB_FLOAT_NUM;
 
     AscendC::GlobalTensor<float> gm_input_tensor, gm_output_tensor;
     AsdopsBuffer<ArchType::ASCEND_V220> buf;
@@ -330,7 +337,7 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void c2r_even
     const int16_t aiv_id = aic_id * subgroup_num + aiv_id_per_group;
     const int16_t aiv_num = group_num * subgroup_num;
 
-    const int32_t max_num = 24 * 1024 / sizeof(float);
+    const int32_t max_num = SPLIT_UB_FLOAT_NUM;
 
     AscendC::GlobalTensor<float> gm_input_real_tensor, gm_output_tensor, gm_input_imag_tensor;
     gm_input_real_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_input_real));
@@ -545,7 +552,7 @@ __aicore__ __inline__ __attribute__((overloadable, always_inline)) void complex_
     gm_output_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_output));
 
     // 最大空间
-    const int32_t max_num = 23 * 1024 / sizeof(float);
+    const int32_t max_num = SPLIT_UB_FLOAT_NUM_WITH_BOOKKEEPING;
 
     int32_t now_UB = 0;
     AsdopsBuffer<ArchType::ASCEND_V220> buf;
@@ -869,7 +876,7 @@ __aicore__ __inline__ __attribute__((always_inline)) void complex_split_RI_tile_
     gm_output_tensor.SetGlobalBuffer(reinterpret_cast<__gm__ float *>(gm_output));
 
     AsdopsBuffer<ArchType::ASCEND_V220> buf;
-    const int32_t max_num = 24 * 1024 / sizeof(float);
+    const int32_t max_num = SPLIT_UB_FLOAT_NUM;
     int32_t now_UB = 0;
     auto buf1_input = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)now_UB);
     now_UB += 2 * max_num * sizeof(float);
@@ -917,7 +924,7 @@ __aicore__ __inline__ __attribute__((always_inline)) void complex_split_RI_tile_
     const int32_t N2_remain = N2 % N2_max_num;            // 81
     const int32_t N1_remain = N1 % N1_max_num;            // 17
     const int64_t loop = batch_loop * N1_loop * N2_loop;  // batch * 2
-    AscendC::Duplicate<float>(buf2_output_imag, 0.0, 24 * 1024 / sizeof(float));
+    AscendC::Duplicate<float>(buf2_output_imag, 0.0, SPLIT_UB_FLOAT_NUM);
     PIPE_BARRIER(V);
 
     bool flag = 0;
