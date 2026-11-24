@@ -591,6 +591,10 @@ parse_arguments() {
                 ;;
             --test=*)
                 TEST_FILTER="${1#*=}"
+                if [ -z "${TEST_FILTER}" ]; then
+                    log_error "--test requires a non-empty filter; use --run to run all tests"
+                    exit 1
+                fi
                 RUN_TESTS=true
                 shift
                 ;;
