@@ -180,9 +180,9 @@ TEST_ASSERT_ARRAY_NEAR(stats, actual, expected, size, tol, "error")  // 容差�
 
 完整示例（数据驱动 + Plan 模型 `aclfftExec*` 接口，按架构拆分）：
 
-- `src/rfft1_d/tests/rfft1_d_test.h` - 测试头文件（`Rfft1DApiIntegrationTest::run_all_tests` 声明、用例结构、`aclfftPlan1d`/`aclfftExecR2C`/`aclfftDestroy` 调用）
-- `src/rfft1_d/tests/rfft1_d_test_arch32.cpp` - 910B 测试用例
-- `src/rfft1_d/tests/rfft1_d_test_arch35.cpp` - 950 测试用例
+- `src/rfft1_d/tests/rfft1_d_test.h` - 公共测试头文件（`R2CTestCase` 用例结构、`run_r2c_case` 执行辅助与 `aclfftPlan1d`/`aclfftExecR2C`/`aclfftDestroy` 调用）
+- `src/rfft1_d/tests/rfft1_d_test_arch32.cpp` - 910B 测试用例（定义 `Rfft1DApiIntegrationTest::run_all_tests`）
+- `src/rfft1_d/tests/rfft1_d_test_arch35.cpp` - 950 测试用例（定义 `Rfft1DApiIntegrationTest::run_all_tests`）
 - `src/rfft1_d/tests/rfft1_d_data/` - 测试数据（`gen_data.py` 生成、`compare_data.py` 比对）
 
 > **说明**：ops-fft 的测试统一通过 `aclfftPlan1d`/`aclfftExecC2C|R2C|C2R`/`aclfftDestroy` 的 Plan 模型调用算子（输入输出为 Host 指针），而非直接调用 kernel 入口；下文示例为简化说明用的最小写法。

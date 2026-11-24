@@ -129,7 +129,7 @@ sudo ./build_out/cann-950-ops-fft_9.0.0_linux-*.run --upgrade
 | 算子名称 | 描述 | 状态 |
 |---------|------|------|
 | [fft1_d](src/fft1_d/) | 一维复数FFT运算 | ✅ 已实现 |
-| [fft2_d](src/fft2_d/) | 二维复数FFT运算 | ✅ 已实现 |
+| [fft2_d](src/fft2_d/) | 二维复数FFT运算 | ✅ 已实现（仅 Ascend910B/910_93，Ascend950 暂未支持） |
 | [irfft1_d](src/irfft1_d/) | 一维复数到实数IFFT运算 | ✅ 已实现 |
 | [rfft1_d](src/rfft1_d/) | 一维实数FFT运算 | ✅ 已实现 |
 
@@ -139,7 +139,7 @@ sudo ./build_out/cann-950-ops-fft_9.0.0_linux-*.run --upgrade
 
 | SoC 型号 | SOC_VERSION | 支持状态 |
 |---------|-------------|---------|
-| Ascend950 | ascend950 | ✅ 默认支持 |
+| Ascend950 | ascend950 | ✅ 默认支持（注：`fft2_d` 暂未提供 `arch35` 实现，构建该架构时跳过） |
 | Ascend910B | ascend910b | ✅ 已支持 |
 | Ascend910_93 | ascend910_93 | 已支持（复用 dav-2201/arch32 路径，与 Ascend910B 同实现） |
 | Ascend910 | ascend910 | ❌ 暂不支持 |

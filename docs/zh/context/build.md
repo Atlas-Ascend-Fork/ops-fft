@@ -50,7 +50,7 @@ build.sh 支持多种功能，可通过 `--help` 参数查看所有选项：
 
 | SoC 型号 | SOC_VERSION（CANN 编译器） | NPU 架构 | 说明 |
 |---------|---------------------------|-----------|------|
-| Ascend950 | ascend950 | dav-3510（arch35） | 默认支持，对应 `src/<op>/arch35/` 实现 |
+| Ascend950 | ascend950 | dav-3510（arch35） | 默认支持，对应 `src/<op>/arch35/` 实现（注：`fft2_d` 暂未提供 `arch35` 实现，构建时跳过） |
 | Ascend910B | ascend910b | dav-2201（arch32） | 已支持，对应 `src/<op>/arch32/` 实现 |
 
 > **说明**：`build.sh` 的 `--soc` 还可识别 `ascend910_93`/`ascend910`/`ascend310p` 等名称，其中 `ascend910_93` 映射到 dav-2201（与 Ascend910B 同架构，arch32 实现目录齐备，已支持按 `--soc=Ascend910_93` 构建使用）；其他未提供对应实现目录的型号（如映射 dav-2101 的 `Ascend910`）不受支持，各算子注册时会被显式跳过（日志输出 `SKIPPED (unsupported ASCEND_NPU_ARCH ...)`）。
@@ -146,7 +146,7 @@ build/
 
 ### 打包输出
 
-打包成功后，会在源码根目录的 `build_out/` 目录生成 .run 文件（`CMAKE_INSTALL_PREFIX`/`CPACK_PACKAGE_DIRECTORY` 固定指向该目录）：
+打包成功后，默认会在源码根目录的 `build_out/` 目录生成 .run 文件（未显式传入 `CMAKE_INSTALL_PREFIX` 或其值为 `/usr/local` 时指向该目录；显式指定自定义 `CMAKE_INSTALL_PREFIX` 时输出至对应目录）：
 
 ```
 build_out/cann-{soc}-ops-fft_{version}_linux-{arch}.run
@@ -158,7 +158,7 @@ build_out/cann-{soc}-ops-fft_{version}_linux-{arch}.run
 
 ## 注意事项
 
-1. **环境变量要求**：必须设置 `ASCEND_HOME_PATH` 或 `ASCEND_INSTALL_PATH` 环境变量（二选一），否则脚本会报错退出。`ASCEND_INSTALL_PATH` 优先级更高。
+1. **环境变量要求**：`build.sh` 按 `ASCEND_INSTALL_PATH` > `ASCEND_HOME_PATH` > 默认路径 `/usr/local/Ascend/cann` 确定并导出 `ASCEND_HOME_PATH`；若解析出的目录不存在，脚本会报错退出。建议执行 `source <CANN安装目录>/set_env.sh` 或显式设置上述环境变量。
 
 2. **线程数限制**：如果指定的线程数超过 CPU 核心数，脚本会自动调整为 CPU 核心数。
 
