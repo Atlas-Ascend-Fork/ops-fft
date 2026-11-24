@@ -18,9 +18,11 @@
 #include "mem.h"
 #include "utils.h"
 
-constexpr int32_t ASCENDFFT_FORWARD_VAL = -1;
-constexpr int32_t ASCENDFFT_INVERSE_VAL = 1;
-constexpr int32_t ASCENDFFT_FORWARD = -1;
+// ASCENDFFT_FORWARD/INVERSE 全局常量统一由 kernel/fft/kernel_utils.h 单一定义
+// 提供（issue #445，对齐 #303 整改方向）：本头文件原全局命名空间重复定义
+// ASCENDFFT_FORWARD 并附带全仓零引用的 ASCENDFFT_FORWARD_VAL/ASCENDFFT_INVERSE_VAL，
+// 任一编译单元同时包含本头文件与 kernel_utils.h 即触发重定义编译失败；
+// 三个死常量删除后，既有使用方（fft1_d_b_kernel.h）经 kernel_utils.h 获取单一定义
 
 constexpr uint64_t INTER_CORE_SYNC_FLAG_ID = 0;
 constexpr int16_t INTER_CORE_SYNC_MODE = 0;

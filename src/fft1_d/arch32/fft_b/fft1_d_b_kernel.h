@@ -12,6 +12,9 @@
 #define FFT1_D_B_KERNEL_H
 
 #include "kernel/fft_common_kernel.h"
+// ASCENDFFT_FORWARD 定义来源（issue #445）：fft_common_kernel.h 的全局重复定义
+// 已删除，统一引用 kernel/fft/kernel_utils.h 的单一定义（对齐 #303 整改方向）
+#include "kernel/fft/kernel_utils.h"
 
 namespace FFT1DBKernel {
 
