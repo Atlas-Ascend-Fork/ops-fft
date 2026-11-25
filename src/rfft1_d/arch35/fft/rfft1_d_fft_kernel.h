@@ -278,7 +278,6 @@ private:
     int64_t batchSize_;
     int64_t fftN_;
     int32_t radixListLen_;
-    int32_t isInverse_;
     int32_t isOddN_;  // 新增：标记是否为奇数 N
     int64_t workspaceOffsets_[5];
 
@@ -288,7 +287,6 @@ private:
     __gm__ int64_t * __restrict__ gm_M_arr_;
     __gm__ int64_t * __restrict__ gm_dft_offset_arr_;
     __gm__ int64_t * __restrict__ gm_tw_offset_arr_;
-    __gm__ int64_t * __restrict__ gm_currentBatch_arr_;
 
     int64_t blockIdx_;
     int64_t blockNum_;
@@ -311,7 +309,6 @@ __aicore__ inline void FftR2CKernelMultiCore::Init(
     batchSize_ = (*(__gm__ int64_t *)((__gm__ uint8_t *)tiling_buf));
     fftN_ = (*(__gm__ int64_t *)((__gm__ uint8_t *)tiling_buf + 8));
     radixListLen_ = (*(__gm__ int32_t *)((__gm__ uint8_t *)tiling_buf + 16));
-    isInverse_ = (*(__gm__ int32_t *)((__gm__ uint8_t *)tiling_buf + 20));
     isOddN_ = (*(__gm__ int32_t *)((__gm__ uint8_t *)tiling_buf + 1216));
 
     for (int32_t i = 0; i < 5; i++) {
@@ -323,7 +320,6 @@ __aicore__ inline void FftR2CKernelMultiCore::Init(
     gm_M_arr_ = (__gm__ int64_t *)((__gm__ uint8_t *)tiling_buf + baseOffset + MAX_FFT_STAGES * 4);
     gm_dft_offset_arr_ = (__gm__ int64_t *)((__gm__ uint8_t *)tiling_buf + baseOffset + MAX_FFT_STAGES * 4 + MAX_FFT_STAGES * 8);
     gm_tw_offset_arr_ = (__gm__ int64_t *)((__gm__ uint8_t *)tiling_buf + baseOffset + MAX_FFT_STAGES * 4 + MAX_FFT_STAGES * 8 * 2);
-    gm_currentBatch_arr_ = (__gm__ int64_t *)((__gm__ uint8_t *)tiling_buf + baseOffset + MAX_FFT_STAGES * 4 + MAX_FFT_STAGES * 8 * 3);
 
     blockIdx_ = static_cast<int64_t>(GetBlockIdx());
     blockNum_ = static_cast<int64_t>(GetBlockNum());
