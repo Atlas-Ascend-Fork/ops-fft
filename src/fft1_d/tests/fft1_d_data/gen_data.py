@@ -31,6 +31,10 @@ configs = [
     {"name": "dft_config", "n": 256, "batch": 10, "forward": True},
     {"name": "stride_forward", "n": 256, "batch": 128, "forward": True, "vertical": True},
     {"name": "stride_forward_n4096", "n": 4096, "batch": 128, "forward": True, "vertical": True},
+    # issue #444: batch=263168 makes stride-s0=262144 > 262140, the minimal-scale
+    # combination (n*stride=2^26) hitting the UINT16 fallback branch of the copy
+    # helpers in fft1_d_stride_kernel.h
+    {"name": "stride_forward_bigstride", "n": 256, "batch": 263168, "forward": True, "vertical": True},
     {"name": "fft_n_forward", "n": 32768, "batch": 1, "forward": True},
     {"name": "fft_n_roundtrip", "n": 32768, "batch": 1, "roundtrip": True},
     {"name": "fft_n_config", "n": 32768, "batch": 10, "forward": True},

@@ -23,6 +23,10 @@ namespace Fft1DApiIntegrationTest {
             // c2c stride>1 -> arch32/fft_stride/ : fft_stride
             {"stride_forward",   256,   128, ACLFFT_FORWARD,  ACLFFT_VERTICAL},
             {"stride_forward_n4096", 4096, 128, ACLFFT_FORWARD, ACLFFT_VERTICAL},
+            // 大 stride 命中 LoadDataFromGmToUbDev/SaveDataFromUbToGmDev 的 UINT16 回退
+            // 分支（issue #444）：stride-s0 > 262140 时 src_gap_block_count > 65535，
+            // n=256/stride=263168（s0=1024）取满足条件的最小规模组合（n*stride=2^26）
+            {"stride_forward_bigstride", 256, 263168, ACLFFT_FORWARD, ACLFFT_VERTICAL},
             // c2c radix-2 n>=32768 / SelectCore -> arch32/fft_n/ : fft_n
             {"fft_n_forward",    32768, 1,   ACLFFT_FORWARD,  ACLFFT_HORIZONTAL},
             {"fft_n_roundtrip",  32768, 1,   0,               ACLFFT_HORIZONTAL},

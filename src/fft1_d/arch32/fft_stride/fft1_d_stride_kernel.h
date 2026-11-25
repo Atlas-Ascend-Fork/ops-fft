@@ -66,29 +66,18 @@ __aicore__ __inline__ void LoadDataFromGmToUbDev(
     AscendC::GlobalTensor<float>& gm_src_tensor,
     int32_t repeat, int32_t copyCount, int32_t srcDValue)
 {
-    auto ub_dst = reinterpret_cast<__ubuf__ float *>((uintptr_t)(ub_dst_tensor.GetPhyAddr()));
-    auto gm_src = reinterpret_cast<__gm__ float *>((uintptr_t)(gm_src_tensor.GetPhyAddr()));
-
     int32_t copy_block_count = copyCount / BLOCK_SIZE;
     int32_t src_gap_block_count = srcDValue / BLOCK_SIZE - copy_block_count;
     if (src_gap_block_count > UINT16_MAX) {
-        auto ub_current = ub_dst;
-        auto ub_current_tensor = ub_dst_tensor;
-        auto gm_current = gm_src;
-        auto gm_current_tensor = gm_src_tensor;
+        // 大 stride 回退分支（issue #444）：DataCopyParams 的 blockCount/srcStride 为
+        // uint16_t，src_gap 超限时单次搬运无法表达行间隔，须逐行循环搬运。循环内
+        // 张量游标必须按行推进（ub 按 copyCount、gm 按 srcDValue 步进），原实现
+        // 游标未推进导致每次搬运都落在第 0 行（其余行未读入、写回缺失），裸指针
+        // 自增因无人消费属死赋值，一并删除。GM 偏移按 int64 计算对齐 issue #234 口径
         for (int32_t i = 0; i < repeat; i++) {
-            AscendC::DataCopy(
-                ub_current_tensor,
-                gm_current_tensor,
-                AscendC::DataCopyParams(
-                    1, // blockCount
-                    copy_block_count, // blockLen
-                    0, // srcStride
-                    0 // dstStride
-                )
-            );
-            ub_current += copyCount;
-            gm_current += srcDValue;
+            AscendC::DataCopy(ub_dst_tensor[i * copyCount],
+                              gm_src_tensor[static_cast<int64_t>(i) * srcDValue],
+                              AscendC::DataCopyParams(1, copy_block_count, 0, 0));
         }
     } else {
         AscendC::DataCopy(
@@ -117,30 +106,17 @@ __aicore__ __inline__ void SaveDataFromUbToGmDev(
     AscendC::LocalTensor<float>& ub_src_tensor,
     int32_t repeat, int32_t copyCount, int32_t dstDValue)
 {
-    auto gm_dst = reinterpret_cast<__gm__ float *>((uintptr_t)(gm_dst_tensor.GetPhyAddr()));
-    auto ub_src = reinterpret_cast<__ubuf__ float *>((uintptr_t)(ub_src_tensor.GetPhyAddr()));
-
     int32_t copy_block_count = copyCount / BLOCK_SIZE;
     int32_t dst_gap_block_count = dstDValue / BLOCK_SIZE - copy_block_count;
 
     if (dst_gap_block_count > UINT16_MAX) {
-        auto ub_current = ub_src;
-        auto ub_current_tensor = ub_src_tensor;
-        auto gm_current = gm_dst;
-        auto gm_current_tensor = gm_dst_tensor;
+        // 大 stride 回退分支（issue #444）：与 LoadDataFromGmToUbDev 同口径，循环内
+        // 张量游标按行推进（ub 按 copyCount、gm 按 dstDValue 步进），避免重复写回
+        // 第 0 行导致其余行数据丢失；GM 偏移按 int64 计算对齐 issue #234 口径
         for (int32_t i = 0; i < repeat; i++) {
-            AscendC::DataCopy(
-                gm_current_tensor,
-                ub_current_tensor,
-                AscendC::DataCopyParams(
-                    1, // blockCount
-                    copy_block_count, // blockLen
-                    0, // srcStride
-                    0 // dstStride
-                )
-            );
-            ub_current += copyCount;
-            gm_current += dstDValue;
+            AscendC::DataCopy(gm_dst_tensor[static_cast<int64_t>(i) * dstDValue],
+                              ub_src_tensor[i * copyCount],
+                              AscendC::DataCopyParams(1, copy_block_count, 0, 0));
         }
     } else {
         AscendC::DataCopy(

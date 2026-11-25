@@ -25,6 +25,7 @@ configs = {
     "dft_config": {"atol": 1e-2, "rtol": 1e-3},
     "stride_forward": {"atol": 1e-2, "rtol": 1e-3},
     "stride_forward_n4096": {"atol": 1e-2, "rtol": 1e-3},
+    "stride_forward_bigstride": {"atol": 1e-2, "rtol": 1e-3},  # issue #444 UINT16 fallback branch
     "fft_n_forward": {"atol": 1e-2, "rtol": 1e-3},
     "fft_n_roundtrip": {"atol": 3.2768, "rtol": 1e-2},
     "fft_n_config": {"atol": 1e-2, "rtol": 1e-3},
