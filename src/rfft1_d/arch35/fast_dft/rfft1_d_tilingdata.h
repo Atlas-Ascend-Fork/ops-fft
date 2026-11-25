@@ -16,30 +16,16 @@
 #ifndef RFFT1_D_FAST_DFT_TILINGDATA_H
 #define RFFT1_D_FAST_DFT_TILINGDATA_H
 
+// 内核仅消费 length/batchesPerCore/leftOverBatches/dftRealOverallSize 四个字段
+// （rfft1_d_fast_dft.cpp 内核入口）；其余 19 个字段（factors/prevRadices/nextRadices/
+// dftImagOverallSize/twiddleOverallSize/fftMatrOverallSize/三个 offsets 数组/
+// tmpLenPerBatch/tmpSizePerBatch/matmulTmpsLen/matmulTmpsSize 等）全仓零消费，
+// 属死存储，已随 CalcDftSizes 死推导一并删除（issue #407）
 struct Rfft1DTilingData {
     int32_t length;
-    uint8_t isBluestein;
-    int32_t lengthPad;
-    uint32_t factors[3];
-    uint32_t prevRadices[3];
-    uint32_t nextRadices[3];
-    uint8_t prevRadicesAlign[3];
-    int32_t outLength;
-    uint32_t tailSize;
     uint32_t batchesPerCore;
     uint32_t leftOverBatches;
-    uint32_t tmpLenPerBatch;
-    uint32_t tmpSizePerBatch;
-    uint32_t matmulTmpsLen;
-    uint32_t matmulTmpsSize;
-    int32_t normal;
     uint32_t dftRealOverallSize;
-    uint32_t dftImagOverallSize;
-    uint32_t twiddleOverallSize;
-    uint32_t fftMatrOverallSize;
-    uint32_t dftRealOffsets[3];
-    uint32_t dftImagOffsets[3];
-    uint32_t twiddleOffsets[3];
 };
 
 #endif // RFFT1_D_FAST_DFT_TILINGDATA_H

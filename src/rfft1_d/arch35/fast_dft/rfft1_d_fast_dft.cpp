@@ -9,7 +9,6 @@
  */
 
 #include <cmath>
-#include <numeric>
 #include <vector>
 
 #include "rfft1_d_tilingdata.h"
@@ -25,21 +24,23 @@
 #include "../../rfft1_d.h"
 #include "../../rfft1_d_size_utils.h"
 
-static const uint32_t LAST_FACTOR = 64;
 static const uint32_t COMPLEX_PART = 2;
 static const double INIT_VALUE = 0.;
-static const uint32_t MATMUL_SIZE_MULTIPLIER = 24;
-static const uint32_t SIZE_PER_BATCH_MULTIPLIER = 4;
-static const uint32_t BYTES_ALIGN = 8;
-static const uint32_t ROW_PAD = 16;
-static const uint32_t COL_PAD = 8;
-static const uint32_t TWIDDLE_MATRICES_AMOUNT = 2;
 static const uint32_t DFT_BORDER_VALUE = 4096;
-static const uint32_t DFT_OFFSETS_COUNT = 3;
 static const uint32_t RFFT_SYMMETRY_DIVISOR = 2;
 // 归一化值域与 rfft1_d.h 文档对齐：0=BACKWARD（不缩放）、1=ORTHO（1/sqrt(n)）、2=FORWARD（1/n）（issue #82）
 static const uint32_t BACKWARD = 0;
 static const uint32_t FORWARD = 2;
+
+// 恒补齐口径（issue #407，生成/消费两侧共用）：无论 n 是否已对齐一律追加一个完整
+// pad 段（n + pad - n % pad），与 Rfft1DDftGen 生成侧历史行为一致；pad 档位取
+// NZ_BORDER(=8) 与 NZ_BLOCK(=16) 两档（常量定义见 rfft1_d_fast.h），以模板形参
+// 固化为编译期常量（运行期无除法参数面）
+template <uint32_t Pad>
+static inline size_t DftMatrPadLen(size_t n)
+{
+    return n + (Pad - n % Pad);
+}
 
 // ACL 错误检查宏：失败时返回真实 aclError 而非魔数 1（issue #93，与 fft_common_core.h 同款）
 #define CHECK_ACL(call)                                                                              \
@@ -60,145 +61,28 @@ struct AclrtFreeDeleter {
     }
 };
 
-// CalcCooleyTukeyFactors 已删除：其仅在 n==524288 或 n>4096 时写入 factors，而入口
-// 拒绝 n>4096（DFT_BORDER_VALUE），两个分支均不可达，在全部可达输入下为纯空操作
-// （issue #99）；factors 由调用方初始化为 {1,1,1} 后直接进入 Bluestein 计算
+// CalcCooleyTukeyFactors / CalcBluesteinFactors 已删除（issue #99/#272/#407）：
+// 前者仅在不可达分支写入 factors（issue #99）；后者产物 factors/prevRadices 等
+// 仅被零消费的 tiling 字段链式引用，随 19 个死字段一并清理（issue #407）
 
-static void CalcBluesteinFactors(uint32_t factors[], std::vector<uint32_t> availableFactors, const uint32_t pow2)
+// dftRealOverallSize 与 Rfft1DDftGen 实际上传矩阵口径对齐（issue #407）：
+// NZ_BORDER(=8) 补齐维 × NZ_BLOCK(=16) 补齐维。原"列条件补齐"在 n%16==0 时不生效，
+// 低报实际上传尺寸（如 n=32：40×32=1280 < 实际 40×48=1920）；n > DFT_BORDER_VALUE
+// 的 Bluestein 累积分支随死字段删除（入口已拒绝 n > 4096，不可达）
+static uint32_t CalcDftRealOverallSize(uint32_t n)
 {
-    std::vector<uint32_t> factorsTmpBluestein;
-    // pow2==524288 不可达分支删除（issue #272）：入口拒绝 n > 4096（DFT_BORDER_VALUE），
-    // Bluestein 补长 pow2 = 2 * 2^ceil(log2(n)) ≤ 8192，原条件永假（与 :63 已删除的
-    // CalcCooleyTukeyFactors 同属不可达代码清理范畴）
-    uint32_t tmpN = pow2;
-    int curFactorIndex = availableFactors.size() - 1;
-
-    while (curFactorIndex >= 0) {
-        uint32_t curFactor = availableFactors[curFactorIndex];
-        while (tmpN % curFactor == 0) {
-            tmpN /= curFactor;
-            factorsTmpBluestein.emplace_back(curFactor);
-        }
-        curFactorIndex -= 1;
-    }
-
-    while (factorsTmpBluestein.size() < MAX_FACTORS_LEN) {
-        factorsTmpBluestein.emplace_back(1);
-    }
-
-    for (size_t i = 0; i < MAX_FACTORS_LEN; ++i) {
-        factors[i] = factorsTmpBluestein[i];
-    }
+    return static_cast<uint32_t>(DftMatrPadLen<NZ_BORDER>(n) * DftMatrPadLen<NZ_BLOCK>(n));
 }
 
-static void CalcDftSizes(Rfft1DTilingData& tiling, const uint32_t factors[], const bool isBluestein, const uint32_t n)
+static int SetTilingData(Rfft1DTilingData& tiling, uint32_t n, uint32_t coreNum, uint32_t batches)
 {
-    uint32_t dftRealOverallSize = 0;
-    uint32_t dftImagOverallSize = 0;
-    uint32_t twiddleOverallSize = 0;
-
-    uint32_t dftRealOffsets[DFT_OFFSETS_COUNT] = {0, 1, 1};
-    uint32_t dftImagOffsets[DFT_OFFSETS_COUNT] = {0, 1, 1};
-    uint32_t twiddleOffsets[DFT_OFFSETS_COUNT] = {0, 0, 1};
-
-    size_t prevFactors = 1;
-
-    for (size_t curIndex = 0; curIndex < MAX_FACTORS_LEN; ++curIndex) {
-        size_t curFactor = factors[curIndex];
-        size_t rowsNum = curFactor * (1 + static_cast<size_t>(curIndex == 0 && isBluestein));
-        size_t colsNum = curFactor * (COMPLEX_PART - static_cast<size_t>(curIndex != 0));
-        size_t dftCurSize = rowsNum * colsNum;
-        size_t twiddleCurSize = rowsNum * prevFactors * COMPLEX_PART;
-
-        if (curIndex != 0) {
-            dftRealOffsets[curIndex] = dftRealOverallSize;
-            dftImagOffsets[curIndex] = dftImagOverallSize;
-            if (curIndex != 1) {
-                twiddleOffsets[curIndex] = twiddleOverallSize;
-            }
-        }
-
-        dftRealOverallSize += dftCurSize;
-        if (curIndex != 0) {
-            dftImagOverallSize += dftCurSize;
-            twiddleOverallSize += twiddleCurSize;
-        }
-
-        prevFactors *= curFactor;
-    }
-    uint32_t fftPadRow = n + (COL_PAD - n % COL_PAD);
-    uint32_t fftPadCol = ((n % ROW_PAD) != 0) ? n + (ROW_PAD - n % ROW_PAD) : n;
-    dftRealOverallSize = n <= DFT_BORDER_VALUE ? fftPadRow * fftPadCol : dftRealOverallSize;
-
-    tiling.dftRealOverallSize = dftRealOverallSize;
-    tiling.dftImagOverallSize = dftImagOverallSize;
-    tiling.twiddleOverallSize = twiddleOverallSize;
-    tiling.fftMatrOverallSize = dftRealOverallSize + dftImagOverallSize + TWIDDLE_MATRICES_AMOUNT * twiddleOverallSize;
-
-    for (size_t i = 0; i < DFT_OFFSETS_COUNT; i++) {
-        tiling.dftRealOffsets[i] = dftRealOffsets[i];
-        tiling.dftImagOffsets[i] = dftImagOffsets[i];
-        tiling.twiddleOffsets[i] = twiddleOffsets[i];
-    }
-}
-
-static int SetTilingData(Rfft1DTilingData& tiling, uint32_t n, int32_t norm, uint32_t coreNum, uint32_t batches)
-{
-    uint32_t factors[MAX_FACTORS_LEN] = {1, 1, 1};
-    uint32_t prevRadices[MAX_FACTORS_LEN] = {1, 1, 1};
-    uint32_t nextRadices[MAX_FACTORS_LEN] = {n / factors[0], 1, 1};
-    uint8_t prevRadicesAlign[MAX_FACTORS_LEN] = {0, 1, 1};
-
-    std::vector<uint32_t> availableFactors(LAST_FACTOR - 1);
-    std::iota(availableFactors.begin(), availableFactors.end(), COMPLEX_PART);
-
-    // isBluestein 恒真条件显式化（issue #272）：非 Bluestein（Cooley-Tukey）分解
-    // 已随 CalcCooleyTukeyFactors 删除（issue #99），factors 恒为 {1,1,1}，原第二项
-    // factors 乘积 != n 对全部可达输入恒真——当前所有长度均走 Bluestein 路径。
-    // 注意不能简化为 "n % LAST_FACTOR != 0"：那会使 n 为 64 整数倍的长度跳过
-    // CalcBluesteinFactors，tiling 推导与内核既有行为不一致（行为保持优先）
-    const bool isBluestein = true;
-    const uint32_t pow2 = COMPLEX_PART * uint32_t(std::pow(2, std::ceil(std::log2(double(n)))));
-    const uint32_t lengthPad = pow2;
-
-    CalcBluesteinFactors(factors, availableFactors, pow2);
-
-    for (uint8_t i = 1; i < MAX_FACTORS_LEN; ++i) {
-        prevRadices[i] = prevRadices[i - 1] * factors[i - 1];
-        nextRadices[i] = nextRadices[i - 1] / factors[i];
-        prevRadicesAlign[i] = (COMPLEX_PART * prevRadices[i] % BYTES_ALIGN) == 0;
-    }
-
-    auto roundUpBlock = [](const uint32_t& src, const uint32_t blockLen) {
-        return src != 0 ? src + (blockLen - src % (blockLen ? blockLen : 1)) % (blockLen ? blockLen : 1) : blockLen;
-    };
-
-    const uint32_t tailSize =
-        COMPLEX_PART * (((n / RFFT_SYMMETRY_DIVISOR) + 1) - (factors[2] / COMPLEX_PART) * (n / factors[2]));
-    const uint32_t tmpLenPerBatch = 3 * roundUpBlock(
-                                            COMPLEX_PART * lengthPad + factors[2] * tailSize + 1,
-                                            BYTES_ALIGN * SIZE_PER_BATCH_MULTIPLIER);
-
+    // factors/Bluestein 补长/tmpLenPerBatch 等推导已删除（issue #407）：仅被零消费的
+    // tiling 字段链式引用；归一化在 host 生成 DFT 矩阵时烤入（issue #121），
+    // norm 入参随之移除
     tiling.length = n;
-    tiling.isBluestein = isBluestein;
-    tiling.lengthPad = lengthPad;
-    tiling.outLength = (n / RFFT_SYMMETRY_DIVISOR) + 1;
-    tiling.tailSize = tailSize;
     tiling.batchesPerCore = batches / (coreNum ? coreNum : 1);
     tiling.leftOverBatches = batches % (coreNum ? coreNum : 1);
-    tiling.tmpLenPerBatch = tmpLenPerBatch;
-    tiling.tmpSizePerBatch = tmpLenPerBatch * SIZE_PER_BATCH_MULTIPLIER;
-    tiling.normal = norm;
-    tiling.matmulTmpsLen = MATMUL_SIZE_MULTIPLIER * tmpLenPerBatch;
-    tiling.matmulTmpsSize = MATMUL_SIZE_MULTIPLIER * tmpLenPerBatch * sizeof(float);
-
-    for (size_t i = 0; i < MAX_FACTORS_LEN; i++) {
-        tiling.factors[i] = factors[i];
-        tiling.prevRadices[i] = prevRadices[i];
-        tiling.nextRadices[i] = nextRadices[i];
-        tiling.prevRadicesAlign[i] = prevRadicesAlign[i];
-    }
-    CalcDftSizes(tiling, factors, isBluestein, n);
+    tiling.dftRealOverallSize = CalcDftRealOverallSize(n);
 
     return ACL_SUCCESS;
 }
@@ -212,11 +96,13 @@ static std::vector<float> Rfft1DDftGen(int64_t fftLength, int64_t norm)
         normParam = norm == FORWARD ? normParam / double(fftLength) : normParam / sqrt(double(fftLength));
     }
 
-    size_t fftLenPad = fftLength + (NZ_BORDER - fftLength % NZ_BORDER);
-    size_t fftLenPadRow = fftLength + (NZ_BLOCK - fftLength % NZ_BLOCK);
+    size_t fftLenPad = DftMatrPadLen<NZ_BORDER>(fftLength);
+    size_t fftLenPadRow = DftMatrPadLen<NZ_BLOCK>(fftLength);
 
     size_t fftOut = fftLength / RFFT_SYMMETRY_DIVISOR + 1;
-    dftNz.reserve(fftLenPadRow * fftLenPadRow);
+    // reserve 维度订正（issue #407）：实际矩阵为 fftLenPad × fftLenPadRow，
+    // 原 fftLenPadRow * fftLenPadRow 两维混用恒超额预留
+    dftNz.reserve(fftLenPad * fftLenPadRow);
 
     std::vector<double> dftNd(fftLenPad * fftLenPadRow, INIT_VALUE);
     size_t k = 0;
@@ -341,7 +227,7 @@ extern "C" aclError aclfftRfft1D(float* x, float* y, uint32_t n, int32_t norm, u
     CHECK_ACL(aclrtMemcpy(dev_dft, dftSize, dft.data(), dftSize, ACL_MEMCPY_HOST_TO_DEVICE));
 
     Rfft1DTilingData tilingData = {};
-    aclError ret = SetTilingData(tilingData, n, norm, coreNum, batches);
+    aclError ret = SetTilingData(tilingData, n, coreNum, batches);
     if (ret != ACL_SUCCESS) {
         return ret;
     }
