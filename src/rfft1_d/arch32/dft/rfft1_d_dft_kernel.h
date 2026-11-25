@@ -23,7 +23,6 @@
 namespace Rfft1DDftKernel {
 
 constexpr int32_t L0AB_PINGPONG_BUFFER_LEN = 32 * 1024 / sizeof(float);
-constexpr int32_t L0C_PINGPONG_BUFFER_LEN = 64 * 1024 / sizeof(float);
 constexpr int32_t BLOCK_SIZE = 16;
 constexpr int32_t C0_SIZE = 32 / sizeof(float);
 constexpr int32_t CUBE_MATRIX_SIZE = BLOCK_SIZE * C0_SIZE;
