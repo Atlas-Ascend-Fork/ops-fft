@@ -771,7 +771,7 @@ __aicore__ __inline__ void step_reduce(__gm__ float *__restrict__ gm_input, __gm
     AscendC::LocalTensor<float> imag_buf2_tensor = buf.GetBuffer<BufferType::ASCEND_UB, float>((uintptr_t)((96 + 72) * 1024));
 
     auto complex_buf1 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(complex_buf1_tensor.GetPhyAddr()));
-    auto complex_buf2 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(complex_buf1_tensor.GetPhyAddr()));
+    auto complex_buf2 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(complex_buf2_tensor.GetPhyAddr()));
     auto real_buf1 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(real_buf1_tensor.GetPhyAddr()));
     auto real_buf2 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(real_buf2_tensor.GetPhyAddr()));
     auto imag_buf1 = reinterpret_cast<__ubuf__ float *>((uintptr_t)(imag_buf1_tensor.GetPhyAddr()));
