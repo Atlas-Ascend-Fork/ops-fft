@@ -23,6 +23,12 @@
 #include "simd.h"
 #include "utils.h"
 
+// radix 因子零值防护（issue #446）：radix 缓冲异常置 1 避免除零挂死，正常路径因子非零返回值不变
+__aicore__ __inline__ int32_t guard_radix_zero(int32_t radix)
+{
+    return (radix == 0) ? 1 : radix;
+}
+
 __aicore__ __inline__ void __attribute__((always_inline))
 fft_matmul(__gm__ float *gm_dft_matrix, __gm__ float *gm_input, __gm__ float *gm_output, __gm__ float *workspace,
            __gm__ float *gm_auxil, __gm__ int32_t *gm_radix_list, int64_t batch_size, int64_t N0, int64_t N1,
@@ -264,7 +270,7 @@ stock_fft_mix_aiv(__gm__ float *__restrict__ gm_input, __gm__ float *__restrict_
         auto now_tw_matrix_array = gm_tw_matrix_array;
         for (int32_t step_index = 0; step_index < step_len; step_index++) {
             if (step_index != 0) {
-                N1 = gm_radix_list[step_index];
+                N1 = guard_radix_zero(gm_radix_list[step_index]);
                 N2 = N / N1 / N0;
 
                 get_tile(N1, (N2 > 1) ? N2 : N0, step_index, step_len, tile_M0, tile_N0, tile_K0);
@@ -374,7 +380,7 @@ __aicore__ __inline__  __attribute__((always_inline)) void stock_fft_c2r_mix_eve
         __gm__ float * gm_current_input_imag = gm_input + batch_size * N + batch_index * batch_part_len * N;
 
         int64_t N0 = 1;
-        int32_t N1 = gm_radix_list[0];
+        int32_t N1 = guard_radix_zero(gm_radix_list[0]);
         int64_t N2 = N / N1 / N0;
 
         get_tile(
@@ -398,7 +404,7 @@ __aicore__ __inline__  __attribute__((always_inline)) void stock_fft_c2r_mix_eve
         auto now_tw_matrix_array = gm_tw_matrix_array;
         for (int64_t step_index = 0; step_index < step_len; step_index++) {
             if (step_index != 0) {
-                N1 = gm_radix_list[step_index];
+                N1 = guard_radix_zero(gm_radix_list[step_index]);
                 N2 = N / N1 / N0;
 
                 get_tile(
@@ -509,7 +515,7 @@ __aicore__ __inline__  __attribute__((always_inline)) void stock_fft_r2c_mix_eve
         __gm__ float * gm_tmp_output = gm_workspace_output;
 
         int64_t N0 = 1;
-        int32_t N1 = gm_radix_list[0];
+        int32_t N1 = guard_radix_zero(gm_radix_list[0]);
         int64_t N2 = N / N1 / N0;
 
         get_tile(
@@ -541,7 +547,7 @@ __aicore__ __inline__  __attribute__((always_inline)) void stock_fft_r2c_mix_eve
         auto now_tw_matrix_array = gm_tw_matrix_array;
         for (int64_t step_index = 0; step_index < step_len; step_index++) {
             if (step_index != 0) {
-                N1 = gm_radix_list[step_index];
+                N1 = guard_radix_zero(gm_radix_list[step_index]);
                 N2 = N / N1 / N0;
 
                 get_tile(
