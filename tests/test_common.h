@@ -294,8 +294,13 @@ inline bool ReadFile(const std::string& filepath, std::vector<float>& buf) {
     }
     fseek(fp, 0, SEEK_END);
     long fsize = ftell(fp);
+    if (fsize < 0) {
+        fclose(fp);
+        std::cerr << "  [ERROR] Failed to get file size for " << filepath << std::endl;
+        return false;
+    }
     fseek(fp, 0, SEEK_SET);
-    size_t num_floats = fsize / sizeof(float);
+    size_t num_floats = static_cast<size_t>(fsize) / sizeof(float);
     buf.resize(num_floats);
     size_t read_count = fread(buf.data(), sizeof(float), num_floats, fp);
     fclose(fp);
