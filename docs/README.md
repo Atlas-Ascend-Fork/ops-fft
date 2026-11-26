@@ -24,7 +24,10 @@ docs/
 │   │   ├── FFT_1D.md                  # 一维 FFT 接口
 │   │   ├── FFT_2D.md                  # 二维 FFT 接口
 │   │   └── figures/                   # 公式图片
-│   ├── op_list.md                     # 算子列表
+│   │       ├── FFT_2D_1.png
+│   │       ├── fft_1d_1.png
+│   │       └── fft_1d_2.png
+│   └── op_list.md                     # 算子列表
 ├── implementation.md                  # 接口实现状态文档
 └── README.md                          # 文档总入口
 ```
