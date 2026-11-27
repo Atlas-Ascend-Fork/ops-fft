@@ -36,7 +36,7 @@ if [ "$#" != "0" ]; then
 fi
 
 # Set install path from script location
-INSTALLED_PATH="$(cd "${CURR_PATH}/../../../.."; pwd)"
+INSTALLED_PATH="$(cd "${CURR_PATH}/../../../.." || exit 1; pwd)"
 
 logandprint "[INFO]: Starting ops_fft uninstallation..."
 logandprint "[INFO]: Target path: ${INSTALLED_PATH}"
@@ -45,7 +45,7 @@ logandprint "[INFO]: Target path: ${INSTALLED_PATH}"
 INSTALL_SHELL="${CURR_PATH}/install.sh"
 if [ -f "${INSTALL_SHELL}" ]; then
   logandprint "[INFO]: Using install script for uninstallation..."
-  PARENT_INSTALLED_PATH="$(cd "${INSTALLED_PATH}/.."; pwd)"
+  PARENT_INSTALLED_PATH="$(cd "${INSTALLED_PATH}/.." || exit 1; pwd)"
 
   sh "${INSTALL_SHELL}" "--aa" "--aa" "--uninstall" "--install-path=${INSTALLED_PATH}" "${QUIET_PARAMETER}"
   RET_STATUS="$?"
@@ -55,11 +55,11 @@ if [ -f "${INSTALL_SHELL}" ]; then
       exit 1
   fi
 
-  # Clean empty parent directory
+  # Clean empty parent directory (use ls -A and rmdir to avoid deleting hidden files)
   if [ -d "${PARENT_INSTALLED_PATH}" ]; then
-      SUBDIRS_PARAM_INSTALL=$(ls "${PARENT_INSTALLED_PATH}" 2>/dev/null)
+      SUBDIRS_PARAM_INSTALL=$(ls -A "${PARENT_INSTALLED_PATH}" 2>/dev/null)
       if [ "${SUBDIRS_PARAM_INSTALL}" = "" ]; then
-          rm -rf "${PARENT_INSTALLED_PATH}"
+          rmdir "${PARENT_INSTALLED_PATH}" 2>/dev/null || true
       fi
   fi
 else
