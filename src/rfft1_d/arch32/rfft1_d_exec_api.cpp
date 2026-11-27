@@ -88,7 +88,7 @@ static aclError DispatchNonPowerOfTwoR2C(aclfftHandle_t *impl, aclfftReal *idata
         return aclfftRfft1DR2CFft(input, output, size, norm, batch, isForward, impl->stream);
     }
     std::cerr << "[ops-fft] R2C: n=" << n << " not supported" << std::endl;
-    return ACLFFT_NOT_IMPLEMENTED;
+    return ACL_ERROR_INVALID_PARAM;
 }
 
 extern "C" {
