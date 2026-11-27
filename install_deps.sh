@@ -154,7 +154,14 @@ install_python() {
             if grep -q "release 7" /etc/redhat-release; then
                 run_command sudo $PKG_MANAGER install -y centos-release-scl
                 run_command sudo $PKG_MANAGER install -y rh-python38 rh-python38-python-devel
-                run_command source /opt/rh/rh-python38/enable
+                # issue #412：source 是 shell 内建命令，不能经 run_command 的 `if "$@"` 执行
+                # （恒报 127 且在 set -e 下中断全流程）；改为在当前 shell 直接 source 使 PATH
+                # 生效（子壳中 source 对本进程无效），失败时降级为下方手动激活提示
+                echo "Executing command: source /opt/rh/rh-python38/enable" >&2
+                # shellcheck disable=SC1091
+                if ! source /opt/rh/rh-python38/enable; then
+                    echo "Warning: failed to activate python3.8, run 'source /opt/rh/rh-python38/enable' manually" >&2
+                fi
                 echo "Need to execute 'source /opt/rh/rh-python38/enable' to activate python3.8"
             else
                 run_command sudo $PKG_MANAGER install -y python3 python3-pip python3-devel
@@ -220,7 +227,13 @@ install_gcc() {
             if grep -q "release 7" /etc/redhat-release; then
                 run_command sudo $PKG_MANAGER install -y centos-release-scl
                 run_command sudo $PKG_MANAGER install -y devtoolset-9-gcc devtoolset-9-gcc-c++
-                run_command source /opt/rh/devtoolset-9/enable
+                # issue #412：同 python 分支，source 为内建命令不能经 run_command 执行，
+                # 当前 shell 直接 source，失败时降级为下方手动激活提示
+                echo "Executing command: source /opt/rh/devtoolset-9/enable" >&2
+                # shellcheck disable=SC1091
+                if ! source /opt/rh/devtoolset-9/enable; then
+                    echo "Warning: failed to activate GCC9, run 'source /opt/rh/devtoolset-9/enable' manually" >&2
+                fi
                 echo "Need to execute 'source /opt/rh/devtoolset-9/enable' to activate GCC9"
             else
                 run_command sudo $PKG_MANAGER install -y gcc gcc-c++
