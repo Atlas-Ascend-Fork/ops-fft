@@ -154,6 +154,9 @@ void GenerateTiling(uint32_t n, uint32_t n1, uint32_t n2, uint32_t n3, uint32_t 
     if (n == 0 || n1 == 0 || n2 == 0 || n3 == 0 || n4 == 0 || n5 == 0 || blockNum <= 0) {
         return;
     }
+    if (static_cast<uint64_t>(n1) * n2 / 128 == 0) {
+        return;
+    }
     GenerateVectorTwiddle(n, n1, n2, n3, n4, n5, blockNum, twiddleBuf);
     GenerateDftTables(twiddleBuf, n, n1, n2, n3, n4, n5, blockNum);
     GenerateTileRotations(twiddleBuf, n, n1, n2, n3, n4, n5, blockNum);
@@ -175,6 +178,9 @@ extern "C" aclError aclfftRfft1DR2CFft5(float *x, float *y, uint32_t n,
     int col = n3 * n4 * n5;
 
     int stepN = 128;
+    if (row / stepN == 0) {
+        return ACL_ERROR_INVALID_PARAM;
+    }
     int l2Step = 1;
     int l2Blocks = row / stepN / l2Step;
 
