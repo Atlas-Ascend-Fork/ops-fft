@@ -582,6 +582,28 @@ run_tests() {
     log_success "All tests passed"
 }
 
+resolve_path() {
+    local raw="$1"
+    if realpath -m -- "$raw" 2>/dev/null; then
+        return 0
+    fi
+    if [ -e "$raw" ]; then
+        realpath -- "$raw"
+        return $?
+    fi
+    local dir base
+    dir="$(dirname -- "$raw")"
+    base="$(basename -- "$raw")"
+    if [ -d "$dir" ]; then
+        printf '%s/%s\n' "$(cd -- "$dir" && pwd -P)" "$base"
+    else
+        case "$raw" in
+            /*) printf '%s\n' "$raw" ;;
+            *) printf '%s/%s\n' "$(pwd -P)" "$raw" ;;
+        esac
+    fi
+}
+
 # 解析命令行参数
 parse_arguments() {
     while [[ $# -gt 0 ]]; do
@@ -675,7 +697,12 @@ parse_arguments() {
                 shift
                 ;;
             --cann_3rd_lib_path=*)
-                CANN_3RD_LIB_PATH="$(realpath "${1#*=}")"
+                local cann_3rd_val="${1#*=}"
+                if [ -z "${cann_3rd_val}" ]; then
+                    log_error "--cann_3rd_lib_path requires a non-empty path"
+                    exit 1
+                fi
+                CANN_3RD_LIB_PATH="$(resolve_path "${cann_3rd_val}")"
                 shift
                 ;;
             *)
