@@ -1554,8 +1554,9 @@ __aicore__ __inline__ void PartitionSubDev(
             AscendC::SetMaskCount();
             SetVectorMask<float>((uint64_t)0, (uint64_t)(remain * 8));
 
-            sub_v<ArchType::ASCEND_V220, float>(dst, src0, src1, repeat, 4, 4, 4, 32, 32, 32);
-            sub_v<ArchType::ASCEND_V220, float>(dst[8], src0[8], src1[8], repeat, 4, 4, 4, 32, 32, 32);
+            // #453 掩码计数模式 repeat 固定传 1，实际处理元素数由 SetVectorMask 掩码控制
+            sub_v<ArchType::ASCEND_V220, float>(dst, src0, src1, 1, 4, 4, 4, 32, 32, 32);
+            sub_v<ArchType::ASCEND_V220, float>(dst[8], src0[8], src1[8], 1, 4, 4, 4, 32, 32, 32);
 
             AscendC::SetMaskNorm();
             SetVectorMask<float>((uint64_t)0, (uint64_t)-1);
@@ -1569,7 +1570,8 @@ __aicore__ __inline__ void PartitionSubDev(
             AscendC::SetMaskCount();
             SetVectorMask<float>((uint64_t)0, (uint64_t)(remain * 8));
 
-            sub_v<ArchType::ASCEND_V220, float>(dst, src0, src1, repeat, 2, 2, 2, 16, 16, 16);
+            // #453 掩码计数模式 repeat 固定传 1，实际处理元素数由 SetVectorMask 掩码控制
+            sub_v<ArchType::ASCEND_V220, float>(dst, src0, src1, 1, 2, 2, 2, 16, 16, 16);
 
             AscendC::SetMaskNorm();
             SetVectorMask<float>((uint64_t)0, (uint64_t)-1);
@@ -1609,22 +1611,24 @@ __aicore__ __inline__ void PartitionAddDev(
             AscendC::SetMaskCount();
             SetVectorMask<float>((uint64_t)0, (uint64_t)(remain * 8));
 
-            add_v<ArchType::ASCEND_V220, float>(dst, src0, src1, repeat, 4, 4, 4, 32, 32, 32);
-            add_v<ArchType::ASCEND_V220, float>(dst[8], src0[8], src1[8], repeat, 4, 4, 4, 32, 32, 32);
+            // #453 掩码计数模式 repeat 固定传 1，实际处理元素数由 SetVectorMask 掩码控制
+            add_v<ArchType::ASCEND_V220, float>(dst, src0, src1, 1, 4, 4, 4, 32, 32, 32);
+            add_v<ArchType::ASCEND_V220, float>(dst[8], src0[8], src1[8], 1, 4, 4, 4, 32, 32, 32);
 
             AscendC::SetMaskNorm();
             SetVectorMask<float>((uint64_t)0, (uint64_t)-1);
         }
     } else {
         int32_t repeat = row / 2 / 8;    // 列方向几次repeat
-        uint32_t remain = (row / 2) % 8;  // 列方向不满足8block
+        int32_t remain = (row / 2) % 8;  // 列方向不满足8block
         if (repeat) {
             add_v<ArchType::ASCEND_V220, float>(dst, src0, src1, repeat, 2, 2, 2, 16, 16, 16);
         } else {
             AscendC::SetMaskCount();
             SetVectorMask<float>((uint64_t)0, (uint64_t)(remain * 8));
 
-            add_v<ArchType::ASCEND_V220, float>(dst, src0, src1, repeat, 2, 2, 2, 16, 16, 16);
+            // #453 掩码计数模式 repeat 固定传 1，实际处理元素数由 SetVectorMask 掩码控制
+            add_v<ArchType::ASCEND_V220, float>(dst, src0, src1, 1, 2, 2, 2, 16, 16, 16);
 
             AscendC::SetMaskNorm();
             SetVectorMask<float>((uint64_t)0, (uint64_t)-1);
@@ -1664,8 +1668,9 @@ __aicore__ __inline__ void PartitionMulDev(
             AscendC::SetMaskCount();
             SetVectorMask<float>((uint64_t)0, (uint64_t)(remain * 8));
 
-            mul_v<ArchType::ASCEND_V220, float>(dst, src0, src1, repeat, 4, 4, 4, 32, 32, 32);
-            mul_v<ArchType::ASCEND_V220, float>(dst[8], src0[8], src1[8], repeat, 4, 4, 4, 32, 32, 32);
+            // #453 掩码计数模式 repeat 固定传 1，实际处理元素数由 SetVectorMask 掩码控制
+            mul_v<ArchType::ASCEND_V220, float>(dst, src0, src1, 1, 4, 4, 4, 32, 32, 32);
+            mul_v<ArchType::ASCEND_V220, float>(dst[8], src0[8], src1[8], 1, 4, 4, 4, 32, 32, 32);
 
             AscendC::SetMaskNorm();
             SetVectorMask<float>((uint64_t)0, (uint64_t)-1);
@@ -1679,7 +1684,8 @@ __aicore__ __inline__ void PartitionMulDev(
             AscendC::SetMaskCount();
             SetVectorMask<float>((uint64_t)0, (uint64_t)(remain * 8));
 
-            mul_v<ArchType::ASCEND_V220, float>(dst, src0, src1, repeat, 2, 2, 2, 16, 16, 16);
+            // #453 掩码计数模式 repeat 固定传 1，实际处理元素数由 SetVectorMask 掩码控制
+            mul_v<ArchType::ASCEND_V220, float>(dst, src0, src1, 1, 2, 2, 2, 16, 16, 16);
 
             AscendC::SetMaskNorm();
             SetVectorMask<float>((uint64_t)0, (uint64_t)-1);
