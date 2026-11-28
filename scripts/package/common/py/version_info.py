@@ -425,8 +425,11 @@ class VersionInfoFile(NamedTuple):
         content = self._get_content()
 
         target_dir = os.path.dirname(target_path)
-        if not os.path.exists(target_dir):
-            os.makedirs(target_dir)
+        # issue #451：target_path 为当前目录下相对文件名时 dirname 返回空串，
+        # os.makedirs("") 抛 FileNotFoundError；exist_ok=True 同时消除并行构建场景下
+        # 先判断再创建的 FileExistsError 竞态
+        if target_dir:
+            os.makedirs(target_dir, exist_ok=True)
 
         with open(target_path, 'w') as file:
             file.write(content)
