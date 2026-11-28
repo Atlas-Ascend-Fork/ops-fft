@@ -116,7 +116,9 @@ get_installed_info() {
   local res=""
   if [ -f "${INSTALL_INFO_FILE}" ]; then
     chmod 644 "${INSTALL_INFO_FILE}" >/dev/null 2>&1
-    res=$(cat "${INSTALL_INFO_FILE}" | grep "${key}" | awk -F = '{print $2}')
+    # issue #429：与 opp_install.sh 同口径，awk 按 $1 精确匹配键并取首个 = 之后的
+    # 完整值，替代 grep 子串匹配与 awk -F= '{print $2}' 的键截断
+    res=$(awk -F= -v k="${key}" '$1 == k { print substr($0, index($0, "=") + 1); exit }' "${INSTALL_INFO_FILE}" 2>/dev/null)
   fi
   echo "${res}"
 }
@@ -138,10 +140,19 @@ remove_module() {
 
   logandprint "[INFO]: Delete the installed opp source files in (${TARGET_VERSION_DIR})."
 
-  bash "${COMMON_PARSER_FILE}" --package="${OPP_PLATFORM_DIR}" --uninstall --remove-install-info \
-    --username="${TARGET_USERNAME}" --usergroup="${TARGET_USERGROUP}" --version=$RUN_PKG_VERSION \
-    --use-share-info --version-dir=$PKG_VERSION_DIR ${UNINSTALL_OPTION} "${INSTALLED_TYPE}" "${TARGET_INSTALL_PATH}" \
-    "${FILELIST_FILE}" "${IN_FEATURE}" --recreate-softlink
+  # issue #429：标量参数加引号、UNINSTALL_OPTION 经数组显式分词后传入，路径含空格时
+  # 不再被错误拆分，UNINSTALL_OPTION 为空时也不产生多余空参数位
+  local parser_args=(--package="${OPP_PLATFORM_DIR}" --uninstall --remove-install-info \
+    --username="${TARGET_USERNAME}" --usergroup="${TARGET_USERGROUP}" --version="${RUN_PKG_VERSION}" \
+    --use-share-info --version-dir="${PKG_VERSION_DIR}")
+  if [ -n "${UNINSTALL_OPTION}" ]; then
+    local option_words
+    read -r -a option_words <<< "${UNINSTALL_OPTION}"
+    parser_args+=("${option_words[@]}")
+  fi
+  parser_args+=("${INSTALLED_TYPE}" "${TARGET_INSTALL_PATH}" \
+    "${FILELIST_FILE}" "${IN_FEATURE}" --recreate-softlink)
+  bash "${COMMON_PARSER_FILE}" "${parser_args[@]}"
   log_with_errorlevel "$?" "error" "[ERROR]: ERR_NO:${OPERATE_FAILED};ERR_DES:Uninstall opp module failed."
 }
 

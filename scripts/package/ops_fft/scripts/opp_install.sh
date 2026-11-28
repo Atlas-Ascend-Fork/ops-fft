@@ -136,7 +136,9 @@ get_installed_info() {
   local key="$1"
   local res=""
   if [ -f "${INSTALL_INFO_FILE}" ]; then
-    res=$(cat "${INSTALL_INFO_FILE}" | grep "${key}" | awk -F = '{print $2}')
+    # issue #428：awk 按 $1 精确匹配键并取首个 = 之后的完整值，替代 grep 子串匹配
+    # （误命中键名互为子串的其他键）与 awk -F= '{print $2}'（截断含 = 的值）
+    res=$(awk -F= -v k="${key}" '$1 == k { print substr($0, index($0, "=") + 1); exit }' "${INSTALL_INFO_FILE}" 2>/dev/null)
   fi
   echo "${res}"
 }
@@ -149,7 +151,13 @@ update_install_info() {
     if [ "x${old_val}" = "x" ]; then
       echo "${key_val}=${val}" >>"${INSTALL_INFO_FILE}"
     else
-      sed -i "/${key_val}/c ${key_val}=${val}" "${INSTALL_INFO_FILE}"
+      # issue #428：sed -i "/${key_val}/c" 按行内容子串替换，值含 / & 等字符或键名互为
+      # 子串时报错或破坏配置；改为 awk 按 $1 精确匹配键整文件重写，经临时文件回写原
+      # inode，保留 comm_create_file 设置的权限与属主（不引入 mv 换 inode 的属主回退）
+      local tmp_file="${INSTALL_INFO_FILE}.tmp.$$"
+      awk -F= -v k="${key_val}" -v kv="${key_val}=${val}" \
+        '$1 == k { print kv; next } { print }' "${INSTALL_INFO_FILE}" > "${tmp_file}" \
+        && cat "${tmp_file}" > "${INSTALL_INFO_FILE}" && rm -f "${tmp_file}"
     fi
   else
     echo "${key_val}=${val}" >"${INSTALL_INFO_FILE}"
@@ -214,10 +222,21 @@ install_opp() {
   update_install_infos "${TARGET_USERNAME}" "${TARGET_USERGROUP}" "${INSTALL_TYPE}" "${relative_path_val}"
   log_with_errorlevel "$?" "error" "[ERROR]: ERR_NO:${INSTALL_FAILED};ERR_DES:Update opp install info failed."
 
-  bash "${COMMON_PARSER_FILE}" --package="${OPP_PLATFORM_DIR}" --install --username="${TARGET_USERNAME}" \
-    --usergroup="${TARGET_USERGROUP}" --set-cann-uninstall --version=$RUN_PKG_VERSION \
-    --use-share-info --version-dir=$PKG_VERSION_DIR $INSTALL_OPTION ${INSTALL_FOR_ALL} "--feature=all" "--chip=all" \
-    "${INSTALL_TYPE}" "${TARGET_INSTALL_PATH}" "${FILELIST_FILE}"
+  # issue #428：标量参数加引号、多选项串经数组显式分词后传入，路径含空格时不再被
+  # 错误拆分；INSTALL_OPTION/INSTALL_FOR_ALL 的既有空格分词语义保持不变
+  local parser_args=(--package="${OPP_PLATFORM_DIR}" --install --username="${TARGET_USERNAME}" \
+    --usergroup="${TARGET_USERGROUP}" --set-cann-uninstall --version="${RUN_PKG_VERSION}" \
+    --use-share-info --version-dir="${PKG_VERSION_DIR}")
+  if [ -n "${INSTALL_OPTION}" ]; then
+    local option_words
+    read -r -a option_words <<< "${INSTALL_OPTION}"
+    parser_args+=("${option_words[@]}")
+  fi
+  if [ -n "${INSTALL_FOR_ALL}" ]; then
+    parser_args+=("${INSTALL_FOR_ALL}")
+  fi
+  parser_args+=(--feature=all --chip=all "${INSTALL_TYPE}" "${TARGET_INSTALL_PATH}" "${FILELIST_FILE}")
+  bash "${COMMON_PARSER_FILE}" "${parser_args[@]}"
   log_with_errorlevel "$?" "error" "[ERROR]: ERR_NO:${INSTALL_FAILED};ERR_DES:Install opp module files failed."
 
 }
